@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { PaperShape } from '@/components/paper-shape/PaperShape';
-import { presetInfo, type PaperPreset, generatePath } from '@/components/paper-shape/geometry';
+import { presetInfo, presetParamsDefs, type PaperPreset, type PresetParams, generatePath } from '@/components/paper-shape/geometry';
 
 const allPresets: PaperPreset[] = [
   'stamp', 'coupon', 'ticket', 'tag',
@@ -35,18 +35,40 @@ export default function PaperShapePlayground() {
   const [paperColor, setPaperColor] = useState('cream');
   const [strokeWidth, setStrokeWidth] = useState(1.8);
   const [patternType, setPatternType] = useState<'none' | 'lines' | 'grid' | 'dots'>('none');
+  const [presetParams, setPresetParams] = useState<PresetParams>({});
+
+  // Get default values for current preset params
+  const currentParamDefs = presetParamsDefs[preset];
+
+  const getParamValue = useCallback((key: keyof PresetParams) => {
+    if (presetParams[key] !== undefined) return presetParams[key] as number;
+    const def = currentParamDefs.find(d => d.key === key);
+    return def ? def.defaultVal(width, height) : 0;
+  }, [presetParams, currentParamDefs, width, height]);
+
+  const setParamValue = useCallback((key: keyof PresetParams, val: number) => {
+    setPresetParams(prev => ({ ...prev, [key]: val }));
+  }, []);
+
+  // Reset preset params when preset changes
+  const handlePresetChange = useCallback((p: PaperPreset) => {
+    setPreset(p);
+    setPresetParams({});
+  }, []);
 
   const randomize = useCallback(() => {
     setSeed(Math.floor(Math.random() * 10000));
     setRoughness(Math.random() * 0.6 + 0.1);
     setPaperColor(paperColors[Math.floor(Math.random() * paperColors.length)].key);
     setPatternType(patternOptions[Math.floor(Math.random() * patternOptions.length)].key);
+    setPresetParams({});
   }, []);
 
-  const svgCode = generatePath({ width, height, preset, seed, roughness });
-
   const copyCode = () => {
-    const code = `<PaperShape\n  preset="${preset}"\n  width={${width}}\n  height={${height}}\n  seed={${seed}}\n  roughness={${roughness.toFixed(2)}}\n  paperColor="${paperColor}"\n  strokeWidth={${strokeWidth}}\n  patternType="${patternType}"\n  showPattern={${patternType !== 'none'}}\n/>`;
+    const paramsStr = Object.keys(presetParams).length > 0
+      ? `\n  presetParams={${JSON.stringify(presetParams)}}`
+      : '';
+    const code = `<PaperShape\n  preset="${preset}"\n  width={${width}}\n  height={${height}}\n  seed={${seed}}\n  roughness={${roughness.toFixed(2)}}\n  paperColor="${paperColor}"\n  strokeWidth={${strokeWidth}}\n  patternType="${patternType}"\n  showPattern={${patternType !== 'none'}}${paramsStr}\n/>`;
     navigator.clipboard.writeText(code);
   };
 
@@ -64,6 +86,7 @@ export default function PaperShapePlayground() {
           strokeWidth={strokeWidth}
           showPattern={patternType !== 'none'}
           patternType={patternType}
+          presetParams={presetParams}
         >
           <div className="text-center">
             <span className="text-4xl block mb-1">{presetInfo[preset].emoji}</span>
@@ -73,7 +96,7 @@ export default function PaperShapePlayground() {
       </div>
 
       {/* Controls */}
-      <div className="space-y-5 bg-card rounded-2xl border border-border p-5">
+      <div className="space-y-5 bg-card rounded-2xl border border-border p-5 max-h-[80vh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <h3 className="font-hand text-xl font-semibold">参数调节</h3>
           <button
@@ -91,7 +114,7 @@ export default function PaperShapePlayground() {
             {allPresets.map((p) => (
               <button
                 key={p}
-                onClick={() => setPreset(p)}
+                onClick={() => handlePresetChange(p)}
                 className={`px-2 py-1.5 rounded-lg text-xs font-craft transition ${
                   preset === p
                     ? 'bg-primary text-primary-foreground'
@@ -103,6 +126,35 @@ export default function PaperShapePlayground() {
             ))}
           </div>
         </div>
+
+        {/* Per-preset params */}
+        {currentParamDefs.length > 0 && (
+          <div className="space-y-3 p-3 rounded-xl bg-muted/50 border border-border">
+            <label className="text-xs font-craft font-semibold text-foreground block">
+              ✨ {presetInfo[preset].label}专属参数
+            </label>
+            {currentParamDefs.map((def) => {
+              const val = getParamValue(def.key);
+              return (
+                <div key={def.key}>
+                  <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+                    <span>{def.label}</span>
+                    <span className="text-foreground">{typeof val === 'number' ? val.toFixed(1) : val}</span>
+                  </label>
+                  <input
+                    type="range"
+                    min={def.min}
+                    max={def.max}
+                    step={def.step}
+                    value={val}
+                    onChange={(e) => setParamValue(def.key, Number(e.target.value))}
+                    className="w-full accent-primary"
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Size */}
         <div className="grid grid-cols-2 gap-3">
