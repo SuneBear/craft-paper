@@ -15,12 +15,38 @@ export type PaperPreset =
   | 'receipt'
   | 'basic-paper';
 
+/** Per-preset tunable parameters (all optional, sensible defaults applied) */
+export interface PresetParams {
+  // stamp
+  perforationRadius?: number;   // 齿孔半径 (default: auto based on size)
+  // coupon
+  holeRadius?: number;          // 打孔半径
+  notchRadius?: number;         // 缺口半径
+  // ticket
+  cutRadius?: number;           // 切口半径
+  // tag
+  cutSize?: number;             // 切角大小
+  tagHoleRadius?: number;       // 吊牌孔半径
+  // folded
+  foldSize?: number;            // 折角大小
+  // torn
+  tearAmplitude?: number;       // 撕裂幅度
+  // stitched
+  stitchInset?: number;         // 缝线内缩
+  cornerRadius?: number;        // 圆角大小
+  // scalloped-edge
+  scallopRadius?: number;       // 花边半径
+  // receipt
+  zigzagHeight?: number;        // 锯齿高度
+}
+
 export interface ShapeConfig {
   width: number;
   height: number;
   preset: PaperPreset;
   seed?: number;
   roughness?: number; // 0-1, hand-drawn wobble
+  params?: PresetParams;
 }
 
 // Simple seeded random
@@ -37,62 +63,61 @@ function wobble(val: number, amount: number, rng: () => number): number {
 }
 
 export function generatePath(config: ShapeConfig): string {
-  const { width: w, height: h, preset, seed = 42, roughness = 0.3 } = config;
+  const { width: w, height: h, preset, seed = 42, roughness = 0.3, params = {} } = config;
   const rng = seededRandom(seed);
   const r = roughness;
 
   switch (preset) {
     case 'stamp':
-      return stampPath(w, h, rng, r);
+      return stampPath(w, h, rng, r, params);
     case 'coupon':
-      return couponPath(w, h, rng, r);
+      return couponPath(w, h, rng, r, params);
     case 'ticket':
-      return ticketPath(w, h, rng, r);
+      return ticketPath(w, h, rng, r, params);
     case 'tag':
-      return tagPath(w, h, rng, r);
+      return tagPath(w, h, rng, r, params);
     case 'folded':
-      return foldedPath(w, h, rng, r);
+      return foldedPath(w, h, rng, r, params);
     case 'torn':
-      return tornPath(w, h, rng, r);
+      return tornPath(w, h, rng, r, params);
     case 'stitched':
-      return stitchedPath(w, h, rng, r);
+      return stitchedPath(w, h, rng, r, params);
     case 'scalloped-edge':
-      return scallopedPath(w, h, rng, r);
+      return scallopedPath(w, h, rng, r, params);
     case 'receipt':
-      return receiptPath(w, h, rng, r);
+      return receiptPath(w, h, rng, r, params);
     case 'basic-paper':
     default:
-      return basicPaperPath(w, h, rng, r);
+      return basicPaperPath(w, h, rng, r, params);
   }
 }
 
-function stampPath(w: number, h: number, rng: () => number, r: number): string {
+function stampPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
   const margin = Math.min(w, h) * 0.08;
-  const perfR = Math.min(w, h) * 0.025; // semicircle perforation radius
+  const perfR = p.perforationRadius ?? Math.min(w, h) * 0.04;
   const innerW = w - margin * 2;
   const innerH = h - margin * 2;
 
-  const countH = Math.max(6, Math.round(innerW / (perfR * 3.2)));
-  const countV = Math.max(4, Math.round(innerH / (perfR * 3.2)));
+  const countH = Math.max(4, Math.round(innerW / (perfR * 3)));
+  const countV = Math.max(3, Math.round(innerH / (perfR * 3)));
 
   const stepH = innerW / countH;
   const stepV = innerH / countV;
 
   let path = `M ${margin} ${margin}`;
 
-  // Top edge - semicircular perforations (left to right)
+  // Top edge
   for (let i = 0; i < countH; i++) {
     const x1 = margin + i * stepH;
     const x2 = x1 + stepH;
     const mid = (x1 + x2) / 2;
     const pr = wobble(perfR, r * 1.5, rng);
-    // line to start of arc, then semicircle outward (upward)
     path += ` L ${mid - pr} ${margin}`;
     path += ` A ${pr} ${pr} 0 0 1 ${mid + pr} ${margin}`;
   }
   path += ` L ${w - margin} ${margin}`;
 
-  // Right edge - semicircular perforations (top to bottom)
+  // Right edge
   for (let i = 0; i < countV; i++) {
     const y1 = margin + i * stepV;
     const y2 = y1 + stepV;
@@ -103,7 +128,7 @@ function stampPath(w: number, h: number, rng: () => number, r: number): string {
   }
   path += ` L ${w - margin} ${h - margin}`;
 
-  // Bottom edge - semicircular perforations (right to left)
+  // Bottom edge (right to left)
   for (let i = countH - 1; i >= 0; i--) {
     const x1 = margin + i * stepH;
     const x2 = x1 + stepH;
@@ -114,7 +139,7 @@ function stampPath(w: number, h: number, rng: () => number, r: number): string {
   }
   path += ` L ${margin} ${h - margin}`;
 
-  // Left edge - semicircular perforations (bottom to top)
+  // Left edge (bottom to top)
   for (let i = countV - 1; i >= 0; i--) {
     const y1 = margin + i * stepV;
     const y2 = y1 + stepV;
@@ -128,30 +153,26 @@ function stampPath(w: number, h: number, rng: () => number, r: number): string {
   return path;
 }
 
-function couponPath(w: number, h: number, rng: () => number, r: number): string {
-  const holeR = Math.min(w, h) * 0.1;
-  const notchR = Math.min(w, h) * 0.06;
-  const cr = 14;
+function couponPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
+  const holeR = p.holeRadius ?? Math.min(w, h) * 0.1;
+  const notchR = p.notchRadius ?? Math.min(w, h) * 0.06;
+  const cr = p.cornerRadius ?? 14;
 
   let path = `M ${cr} 0`;
-  // Top edge with center notch (concave inward)
   const topMid = w / 2;
   path += ` L ${topMid - notchR} 0`;
   path += ` A ${notchR} ${notchR} 0 0 0 ${topMid + notchR} 0`;
   path += ` L ${w - cr} 0 Q ${w} 0 ${w} ${cr}`;
 
-  // Right edge with semicircle hole (concave inward)
   const rightHoleY = h / 2;
   path += ` L ${w} ${rightHoleY - holeR}`;
   path += ` A ${holeR} ${holeR} 0 0 0 ${w} ${rightHoleY + holeR}`;
   path += ` L ${w} ${h - cr} Q ${w} ${h} ${w - cr} ${h}`;
 
-  // Bottom edge with center notch
   path += ` L ${topMid + notchR} ${h}`;
   path += ` A ${notchR} ${notchR} 0 0 0 ${topMid - notchR} ${h}`;
   path += ` L ${cr} ${h} Q 0 ${h} 0 ${h - cr}`;
 
-  // Left edge with semicircle hole (concave inward)
   const leftHoleY = h / 2;
   path += ` L 0 ${leftHoleY + holeR}`;
   path += ` A ${holeR} ${holeR} 0 0 0 0 ${leftHoleY - holeR}`;
@@ -161,22 +182,19 @@ function couponPath(w: number, h: number, rng: () => number, r: number): string 
   return path;
 }
 
-function ticketPath(w: number, h: number, rng: () => number, r: number): string {
-  const cutR = Math.min(w, h) * 0.11;
-  const cr = 10;
+function ticketPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
+  const cutR = p.cutRadius ?? Math.min(w, h) * 0.11;
+  const cr = p.cornerRadius ?? 10;
 
   let path = `M ${cr} 0 L ${w - cr} 0 Q ${w} 0 ${w} ${cr}`;
 
-  // Right edge with concave cut
   const cutY = h / 2;
   path += ` L ${w} ${cutY - cutR}`;
   path += ` A ${cutR} ${cutR} 0 0 0 ${w} ${cutY + cutR}`;
   path += ` L ${w} ${h - cr} Q ${w} ${h} ${w - cr} ${h}`;
 
-  // Bottom
   path += ` L ${cr} ${h} Q 0 ${h} 0 ${h - cr}`;
 
-  // Left edge with concave cut
   path += ` L 0 ${cutY + cutR}`;
   path += ` A ${cutR} ${cutR} 0 0 0 0 ${cutY - cutR}`;
   path += ` L 0 ${cr} Q 0 0 ${cr} 0`;
@@ -185,142 +203,130 @@ function ticketPath(w: number, h: number, rng: () => number, r: number): string 
   return path;
 }
 
-function tagPath(w: number, h: number, rng: () => number, r: number): string {
-  const cutSize = Math.min(w, h) * 0.15;
-  const holeR = Math.min(w, h) * 0.06;
-  const holeCx = w - cutSize * 0.6;
-  const holeCy = cutSize * 0.6;
-  
-  let path = `M 0 0 L ${w - cutSize} 0 L ${w} ${cutSize} L ${w} ${h}`;
+function tagPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
+  const cs = p.cutSize ?? Math.min(w, h) * 0.15;
+
+  let path = `M 0 0 L ${w - cs} 0 L ${w} ${cs} L ${w} ${h}`;
   path += ` L 0 ${h} Z`;
-  
-  // Add hole as a separate circle (will be cut out)
-  // We'll handle this in the component with a mask
   return path;
 }
 
-export function getTagHole(w: number, h: number): { cx: number; cy: number; r: number } {
-  const cutSize = Math.min(w, h) * 0.15;
+export function getTagHole(w: number, h: number, params?: PresetParams): { cx: number; cy: number; r: number } {
+  const cs = params?.cutSize ?? Math.min(w, h) * 0.15;
+  const hr = params?.tagHoleRadius ?? Math.min(w, h) * 0.05;
   return {
-    cx: w - cutSize * 0.55,
-    cy: cutSize * 0.55,
-    r: Math.min(w, h) * 0.05,
+    cx: w - cs * 0.55,
+    cy: cs * 0.55,
+    r: hr,
   };
 }
 
-function foldedPath(w: number, h: number, rng: () => number, r: number): string {
-  const foldSize = Math.min(w, h) * 0.18;
-  
-  let path = `M 0 0 L ${w - foldSize} 0 L ${w} ${foldSize} L ${w} ${h} L 0 ${h} Z`;
-  return path;
+function foldedPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
+  const fs = p.foldSize ?? Math.min(w, h) * 0.18;
+  return `M 0 0 L ${w - fs} 0 L ${w} ${fs} L ${w} ${h} L 0 ${h} Z`;
 }
 
-export function getFoldTriangle(w: number, h: number): string {
-  const foldSize = Math.min(w, h) * 0.18;
-  return `M ${w - foldSize} 0 L ${w} ${foldSize} L ${w - foldSize} ${foldSize} Z`;
+export function getFoldTriangle(w: number, h: number, params?: PresetParams): string {
+  const fs = params?.foldSize ?? Math.min(w, h) * 0.18;
+  return `M ${w - fs} 0 L ${w} ${fs} L ${w - fs} ${fs} Z`;
 }
 
-function tornPath(w: number, h: number, rng: () => number, r: number): string {
+function tornPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
+  const amp = p.tearAmplitude ?? 6;
   const points: string[] = [];
   points.push(`M 0 0 L ${w} 0 L ${w} ${h}`);
-  
-  // Torn bottom edge (right to left)
+
   const steps = Math.max(12, Math.round(w / 15));
   const stepW = w / steps;
   for (let i = steps; i >= 0; i--) {
     const x = i * stepW;
-    const tearAmp = wobble(6, r * 8, rng);
+    const tearAmp = wobble(amp, r * 8, rng);
     const y = h + tearAmp;
     points.push(`L ${x} ${y}`);
   }
-  
+
   points.push('Z');
   return points.join(' ');
 }
 
-function stitchedPath(w: number, h: number, _rng: () => number, _r: number): string {
-  const cr = 12;
+function stitchedPath(w: number, h: number, _rng: () => number, _r: number, p: PresetParams): string {
+  const cr = p.cornerRadius ?? 12;
   return `M ${cr} 0 L ${w - cr} 0 Q ${w} 0 ${w} ${cr} L ${w} ${h - cr} Q ${w} ${h} ${w - cr} ${h} L ${cr} ${h} Q 0 ${h} 0 ${h - cr} L 0 ${cr} Q 0 0 ${cr} 0 Z`;
 }
 
-export function getStitchPath(w: number, h: number, inset: number = 8): string {
+export function getStitchPath(w: number, h: number, params?: PresetParams): string {
+  const inset = params?.stitchInset ?? 8;
   const cr = 6;
   const i = inset;
   return `M ${i + cr} ${i} L ${w - i - cr} ${i} Q ${w - i} ${i} ${w - i} ${i + cr} L ${w - i} ${h - i - cr} Q ${w - i} ${h - i} ${w - i - cr} ${h - i} L ${i + cr} ${h - i} Q ${i} ${h - i} ${i} ${h - i - cr} L ${i} ${i + cr} Q ${i} ${i} ${i + cr} ${i} Z`;
 }
 
-function scallopedPath(w: number, h: number, rng: () => number, r: number): string {
-  const scallopR = 12;
+function scallopedPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
+  const sr = p.scallopRadius ?? 12;
   const points: string[] = [];
-  
-  // Top edge scallops
-  const countH = Math.max(4, Math.round(w / (scallopR * 2.2)));
-  const countV = Math.max(3, Math.round(h / (scallopR * 2.2)));
+
+  const countH = Math.max(4, Math.round(w / (sr * 2.2)));
+  const countV = Math.max(3, Math.round(h / (sr * 2.2)));
   const stepH = w / countH;
   const stepV = h / countV;
-  
+
   points.push(`M 0 0`);
-  
+
   for (let i = 0; i < countH; i++) {
     const x1 = i * stepH;
     const x2 = (i + 1) * stepH;
     const mid = (x1 + x2) / 2;
-    const d = wobble(scallopR * 0.7, r * 2, rng);
+    const d = wobble(sr * 0.7, r * 2, rng);
     points.push(`Q ${mid} ${-d} ${x2} 0`);
   }
-  
-  // Right edge
+
   for (let i = 0; i < countV; i++) {
     const y1 = i * stepV;
     const y2 = (i + 1) * stepV;
     const mid = (y1 + y2) / 2;
-    const d = wobble(scallopR * 0.7, r * 2, rng);
+    const d = wobble(sr * 0.7, r * 2, rng);
     points.push(`Q ${w + d} ${mid} ${w} ${y2}`);
   }
-  
-  // Bottom (right to left)
+
   for (let i = countH; i > 0; i--) {
     const x1 = i * stepH;
     const x2 = (i - 1) * stepH;
     const mid = (x1 + x2) / 2;
-    const d = wobble(scallopR * 0.7, r * 2, rng);
+    const d = wobble(sr * 0.7, r * 2, rng);
     points.push(`Q ${mid} ${h + d} ${x2} ${h}`);
   }
-  
-  // Left edge
+
   for (let i = countV; i > 0; i--) {
     const y1 = i * stepV;
     const y2 = (i - 1) * stepV;
     const mid = (y1 + y2) / 2;
-    const d = wobble(scallopR * 0.7, r * 2, rng);
+    const d = wobble(sr * 0.7, r * 2, rng);
     points.push(`Q ${-d} ${mid} 0 ${y2}`);
   }
-  
+
   points.push('Z');
   return points.join(' ');
 }
 
-function receiptPath(w: number, h: number, rng: () => number, r: number): string {
-  // Flat top, zigzag bottom
+function receiptPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
+  const zigH = p.zigzagHeight ?? 8;
   const steps = Math.max(8, Math.round(w / 12));
   const stepW = w / steps;
-  const zigH = 8;
-  
+
   let path = `M 0 0 L ${w} 0 L ${w} ${h}`;
-  
+
   for (let i = steps; i >= 0; i--) {
     const x = i * stepW;
     const peak = i % 2 === 0 ? h + zigH : h;
     path += ` L ${x} ${wobble(peak, r * 3, rng)}`;
   }
-  
+
   path += ' Z';
   return path;
 }
 
-function basicPaperPath(w: number, h: number, rng: () => number, r: number): string {
-  const cr = 6;
-  // Slightly wobbly rectangle
+function basicPaperPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
+  const cr = p.cornerRadius ?? 6;
   const w1 = wobble(0, r * 2, rng);
   const w2 = wobble(0, r * 2, rng);
   return `M ${cr + w1} 0 L ${w - cr + w2} 0 Q ${w} 0 ${w} ${cr} L ${w} ${h - cr} Q ${w} ${h} ${w - cr} ${h} L ${cr} ${h} Q 0 ${h} 0 ${h - cr} L 0 ${cr} Q 0 0 ${cr + w1} 0 Z`;
@@ -330,6 +336,44 @@ function basicPaperPath(w: number, h: number, rng: () => number, r: number): str
 export function generateStitchDashes(pathLength: number, dashLen: number = 8, gapLen: number = 6): string {
   return `${dashLen} ${gapLen}`;
 }
+
+/** Default preset params with labels for UI */
+export const presetParamsDefs: Record<PaperPreset, { key: keyof PresetParams; label: string; min: number; max: number; step: number; defaultVal: (w: number, h: number) => number }[]> = {
+  stamp: [
+    { key: 'perforationRadius', label: '齿孔大小', min: 2, max: 20, step: 0.5, defaultVal: (w, h) => Math.min(w, h) * 0.04 },
+  ],
+  coupon: [
+    { key: 'holeRadius', label: '打孔半径', min: 5, max: 40, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.1 },
+    { key: 'notchRadius', label: '缺口半径', min: 3, max: 25, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.06 },
+  ],
+  ticket: [
+    { key: 'cutRadius', label: '切口半径', min: 5, max: 35, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.11 },
+    { key: 'cornerRadius', label: '圆角', min: 0, max: 30, step: 1, defaultVal: () => 10 },
+  ],
+  tag: [
+    { key: 'cutSize', label: '切角大小', min: 5, max: 60, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.15 },
+    { key: 'tagHoleRadius', label: '孔径', min: 2, max: 15, step: 0.5, defaultVal: (w, h) => Math.min(w, h) * 0.05 },
+  ],
+  folded: [
+    { key: 'foldSize', label: '折角大小', min: 10, max: 80, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.18 },
+  ],
+  torn: [
+    { key: 'tearAmplitude', label: '撕裂幅度', min: 1, max: 20, step: 0.5, defaultVal: () => 6 },
+  ],
+  stitched: [
+    { key: 'stitchInset', label: '缝线内缩', min: 3, max: 20, step: 1, defaultVal: () => 8 },
+    { key: 'cornerRadius', label: '圆角', min: 0, max: 30, step: 1, defaultVal: () => 12 },
+  ],
+  'scalloped-edge': [
+    { key: 'scallopRadius', label: '花边大小', min: 5, max: 30, step: 1, defaultVal: () => 12 },
+  ],
+  receipt: [
+    { key: 'zigzagHeight', label: '锯齿高度', min: 2, max: 20, step: 1, defaultVal: () => 8 },
+  ],
+  'basic-paper': [
+    { key: 'cornerRadius', label: '圆角', min: 0, max: 30, step: 1, defaultVal: () => 6 },
+  ],
+};
 
 // Preset display info
 export const presetInfo: Record<PaperPreset, { label: string; emoji: string; description: string }> = {
