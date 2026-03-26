@@ -112,5 +112,10 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'Zen Maru Gothic', 'Hiragino Kaku Gothic ProN', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Caveat', 'Patrick Hand', cursive;
   }
 }
