@@ -13,6 +13,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        craft: ['"Zen Maru Gothic"', 'sans-serif'],
+        hand: ['"Caveat"', '"Patrick Hand"', 'cursive'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -56,6 +60,23 @@ export default {
           "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
+        },
+        paper: {
+          cream: "hsl(var(--paper-cream))",
+          cloud: "hsl(var(--paper-cloud))",
+          pink: "hsl(var(--paper-pink))",
+          apricot: "hsl(var(--paper-apricot))",
+        },
+        ink: {
+          stroke: "hsl(var(--ink-stroke))",
+          light: "hsl(var(--ink-light))",
+        },
+        sweet: {
+          peach: "hsl(var(--sweet-peach))",
+          mint: "hsl(var(--sweet-mint))",
+          sky: "hsl(var(--sweet-sky))",
+          lavender: "hsl(var(--sweet-lavender))",
+          orange: "hsl(var(--sweet-orange))",
         },
       },
       borderRadius: {
