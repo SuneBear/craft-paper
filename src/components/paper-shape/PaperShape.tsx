@@ -1,6 +1,6 @@
 import React, { useMemo, useId } from 'react';
 import { generatePath, getTagHole, getFoldTriangle, getStitchPath, generateStitchDashes } from './geometry';
-import type { PaperPreset, ShapeConfig } from './geometry';
+import type { PaperPreset, ShapeConfig, PresetParams } from './geometry';
 import { cn } from '@/lib/utils';
 
 export interface PaperShapeProps {
