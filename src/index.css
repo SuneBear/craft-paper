@@ -1,42 +1,61 @@
+@import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&family=Caveat:wght@400;500;600;700&family=Patrick+Hand&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Paper-craft design system —童趣日式可爱手绘風 */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 40 33% 97%;
+    --foreground: 25 20% 20%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 40 40% 96%;
+    --card-foreground: 25 20% 20%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 40 40% 96%;
+    --popover-foreground: 25 20% 20%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 12 60% 68%;
+    --primary-foreground: 40 33% 97%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 160 30% 78%;
+    --secondary-foreground: 25 20% 20%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 35 25% 92%;
+    --muted-foreground: 25 10% 50%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 210 45% 76%;
+    --accent-foreground: 25 20% 20%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 40 33% 97%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 30 20% 85%;
+    --input: 30 20% 85%;
+    --ring: 12 60% 68%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
+
+    /* Paper craft tokens */
+    --paper-cream: 40 40% 96%;
+    --paper-cloud: 40 20% 98%;
+    --paper-pink: 15 50% 95%;
+    --paper-apricot: 30 30% 93%;
+
+    --ink-stroke: 25 18% 42%;
+    --ink-light: 25 12% 62%;
+
+    --sweet-peach: 12 60% 68%;
+    --sweet-mint: 160 30% 70%;
+    --sweet-sky: 210 45% 72%;
+    --sweet-lavender: 270 30% 76%;
+    --sweet-orange: 30 65% 68%;
+
+    --paper-shadow: 0 0% 0% / 0.08;
+    --paper-shadow-md: 0 2px 8px -2px hsl(var(--paper-shadow));
+    --paper-shadow-lg: 0 4px 16px -4px hsl(var(--paper-shadow));
 
     --sidebar-background: 0 0% 98%;
 
