@@ -18,6 +18,7 @@ export interface PaperShapeProps {
   children?: React.ReactNode;
   style?: React.CSSProperties;
   onClick?: () => void;
+  presetParams?: PresetParams;
 }
 
 const PAPER_COLORS: Record<string, string> = {
