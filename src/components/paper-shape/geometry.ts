@@ -162,25 +162,25 @@ function couponPath(w: number, h: number, rng: () => number, r: number): string 
 }
 
 function ticketPath(w: number, h: number, rng: () => number, r: number): string {
-  const cutR = Math.min(w, h) * 0.09;
-  const cr = 8;
-  
+  const cutR = Math.min(w, h) * 0.11;
+  const cr = 10;
+
   let path = `M ${cr} 0 L ${w - cr} 0 Q ${w} 0 ${w} ${cr}`;
-  
-  // Right edge with cut
+
+  // Right edge with concave cut
   const cutY = h / 2;
   path += ` L ${w} ${cutY - cutR}`;
-  path += ` A ${cutR} ${cutR} 0 0 1 ${w} ${cutY + cutR}`;
+  path += ` A ${cutR} ${cutR} 0 0 0 ${w} ${cutY + cutR}`;
   path += ` L ${w} ${h - cr} Q ${w} ${h} ${w - cr} ${h}`;
-  
+
   // Bottom
   path += ` L ${cr} ${h} Q 0 ${h} 0 ${h - cr}`;
-  
-  // Left edge with cut
+
+  // Left edge with concave cut
   path += ` L 0 ${cutY + cutR}`;
-  path += ` A ${cutR} ${cutR} 0 0 1 0 ${cutY - cutR}`;
+  path += ` A ${cutR} ${cutR} 0 0 0 0 ${cutY - cutR}`;
   path += ` L 0 ${cr} Q 0 0 ${cr} 0`;
-  
+
   path += ' Z';
   return path;
 }
