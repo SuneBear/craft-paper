@@ -55,6 +55,7 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
   children,
   style,
   onClick,
+  presetParams,
 }) => {
   const uid = useId().replace(/:/g, '');
   const clipId = `clip-${uid}`;
@@ -62,8 +63,8 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
   const maskId = `mask-${uid}`;
 
   const config: ShapeConfig = useMemo(() => ({
-    width, height, preset, seed, roughness,
-  }), [width, height, preset, seed, roughness]);
+    width, height, preset, seed, roughness, params: presetParams,
+  }), [width, height, preset, seed, roughness, presetParams]);
 
   const path = useMemo(() => generatePath(config), [config]);
 
@@ -73,9 +74,9 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
   
   const stroke = strokeColor || 'hsl(25, 18%, 42%)';
 
-  const tagHole = preset === 'tag' ? getTagHole(width, height) : null;
-  const foldTriangle = preset === 'folded' ? getFoldTriangle(width, height) : null;
-  const stitchPath = preset === 'stitched' ? getStitchPath(width, height) : null;
+  const tagHole = preset === 'tag' ? getTagHole(width, height, presetParams) : null;
+  const foldTriangle = preset === 'folded' ? getFoldTriangle(width, height, presetParams) : null;
+  const stitchPath = preset === 'stitched' ? getStitchPath(width, height, presetParams) : null;
 
   const padding = 16;
   const svgW = width + padding * 2;
