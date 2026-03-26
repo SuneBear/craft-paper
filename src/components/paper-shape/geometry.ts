@@ -67,85 +67,96 @@ export function generatePath(config: ShapeConfig): string {
 }
 
 function stampPath(w: number, h: number, rng: () => number, r: number): string {
-  const margin = Math.min(w, h) * 0.06;
-  const toothDepth = Math.min(w, h) * 0.035;
+  const margin = Math.min(w, h) * 0.08;
+  const perfR = Math.min(w, h) * 0.025; // semicircle perforation radius
   const innerW = w - margin * 2;
   const innerH = h - margin * 2;
-  
-  const toothCountH = Math.max(8, Math.round(innerW / 16));
-  const toothCountV = Math.max(6, Math.round(innerH / 16));
-  
-  const toothWidthH = innerW / toothCountH;
-  const toothWidthV = innerH / toothCountV;
-  
+
+  const countH = Math.max(6, Math.round(innerW / (perfR * 3.2)));
+  const countV = Math.max(4, Math.round(innerH / (perfR * 3.2)));
+
+  const stepH = innerW / countH;
+  const stepV = innerH / countV;
+
   let path = `M ${margin} ${margin}`;
-  
-  // Top edge - teeth
-  for (let i = 0; i < toothCountH; i++) {
-    const x = margin + i * toothWidthH;
-    const mid = x + toothWidthH / 2;
-    const end = x + toothWidthH;
-    const d = wobble(toothDepth, r * 1.5, rng);
-    path += ` L ${mid} ${margin - d} L ${end} ${margin}`;
+
+  // Top edge - semicircular perforations (left to right)
+  for (let i = 0; i < countH; i++) {
+    const x1 = margin + i * stepH;
+    const x2 = x1 + stepH;
+    const mid = (x1 + x2) / 2;
+    const pr = wobble(perfR, r * 1.5, rng);
+    // line to start of arc, then semicircle outward (upward)
+    path += ` L ${mid - pr} ${margin}`;
+    path += ` A ${pr} ${pr} 0 0 1 ${mid + pr} ${margin}`;
   }
-  
-  // Right edge - teeth  
-  for (let i = 0; i < toothCountV; i++) {
-    const y = margin + i * toothWidthV;
-    const mid = y + toothWidthV / 2;
-    const end = y + toothWidthV;
-    const d = wobble(toothDepth, r * 1.5, rng);
-    path += ` L ${w - margin + d} ${mid} L ${w - margin} ${end}`;
+  path += ` L ${w - margin} ${margin}`;
+
+  // Right edge - semicircular perforations (top to bottom)
+  for (let i = 0; i < countV; i++) {
+    const y1 = margin + i * stepV;
+    const y2 = y1 + stepV;
+    const mid = (y1 + y2) / 2;
+    const pr = wobble(perfR, r * 1.5, rng);
+    path += ` L ${w - margin} ${mid - pr}`;
+    path += ` A ${pr} ${pr} 0 0 1 ${w - margin} ${mid + pr}`;
   }
-  
-  // Bottom edge - teeth (right to left)
-  for (let i = toothCountH - 1; i >= 0; i--) {
-    const x = margin + i * toothWidthH;
-    const mid = x + toothWidthH / 2;
-    const d = wobble(toothDepth, r * 1.5, rng);
-    path += ` L ${mid + toothWidthH} ${h - margin} L ${mid} ${h - margin + d} L ${x} ${h - margin}`;
+  path += ` L ${w - margin} ${h - margin}`;
+
+  // Bottom edge - semicircular perforations (right to left)
+  for (let i = countH - 1; i >= 0; i--) {
+    const x1 = margin + i * stepH;
+    const x2 = x1 + stepH;
+    const mid = (x1 + x2) / 2;
+    const pr = wobble(perfR, r * 1.5, rng);
+    path += ` L ${mid + pr} ${h - margin}`;
+    path += ` A ${pr} ${pr} 0 0 1 ${mid - pr} ${h - margin}`;
   }
-  
-  // Left edge - teeth (bottom to top)
-  for (let i = toothCountV - 1; i >= 0; i--) {
-    const y = margin + i * toothWidthV;
-    const mid = y + toothWidthV / 2;
-    const d = wobble(toothDepth, r * 1.5, rng);
-    path += ` L ${margin} ${mid + toothWidthV} L ${margin - d} ${mid} L ${margin} ${y}`;
+  path += ` L ${margin} ${h - margin}`;
+
+  // Left edge - semicircular perforations (bottom to top)
+  for (let i = countV - 1; i >= 0; i--) {
+    const y1 = margin + i * stepV;
+    const y2 = y1 + stepV;
+    const mid = (y1 + y2) / 2;
+    const pr = wobble(perfR, r * 1.5, rng);
+    path += ` L ${margin} ${mid + pr}`;
+    path += ` A ${pr} ${pr} 0 0 1 ${margin} ${mid - pr}`;
   }
-  
+
   path += ' Z';
   return path;
 }
 
 function couponPath(w: number, h: number, rng: () => number, r: number): string {
-  const holeR = Math.min(w, h) * 0.08;
-  const notchR = Math.min(w, h) * 0.05;
-  const cr = 10;
-  const wobbleAmt = r * 1.5;
-  
+  const holeR = Math.min(w, h) * 0.1;
+  const notchR = Math.min(w, h) * 0.06;
+  const cr = 14;
+
   let path = `M ${cr} 0`;
-  // Top edge with center notch
+  // Top edge with center notch (concave inward)
   const topMid = w / 2;
   path += ` L ${topMid - notchR} 0`;
-  path += ` A ${notchR} ${notchR} 0 0 1 ${topMid + notchR} 0`;
+  path += ` A ${notchR} ${notchR} 0 0 0 ${topMid + notchR} 0`;
   path += ` L ${w - cr} 0 Q ${w} 0 ${w} ${cr}`;
-  
-  // Right edge with hole
+
+  // Right edge with semicircle hole (concave inward)
   const rightHoleY = h / 2;
   path += ` L ${w} ${rightHoleY - holeR}`;
-  path += ` A ${holeR} ${holeR} 0 0 1 ${w} ${rightHoleY + holeR}`;
+  path += ` A ${holeR} ${holeR} 0 0 0 ${w} ${rightHoleY + holeR}`;
   path += ` L ${w} ${h - cr} Q ${w} ${h} ${w - cr} ${h}`;
-  
-  // Bottom edge
+
+  // Bottom edge with center notch
+  path += ` L ${topMid + notchR} ${h}`;
+  path += ` A ${notchR} ${notchR} 0 0 0 ${topMid - notchR} ${h}`;
   path += ` L ${cr} ${h} Q 0 ${h} 0 ${h - cr}`;
-  
-  // Left edge with hole
+
+  // Left edge with semicircle hole (concave inward)
   const leftHoleY = h / 2;
   path += ` L 0 ${leftHoleY + holeR}`;
-  path += ` A ${holeR} ${holeR} 0 0 1 0 ${leftHoleY - holeR}`;
+  path += ` A ${holeR} ${holeR} 0 0 0 0 ${leftHoleY - holeR}`;
   path += ` L 0 ${cr} Q 0 0 ${cr} 0`;
-  
+
   path += ' Z';
   return path;
 }
