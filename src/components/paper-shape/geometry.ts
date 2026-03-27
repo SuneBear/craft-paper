@@ -204,19 +204,28 @@ function ticketPath(w: number, h: number, rng: () => number, r: number, p: Prese
 }
 
 function tagPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
-  const cs = p.cutSize ?? Math.min(w, h) * 0.15;
+  // Classic gift-tag shape: pointed top, rounded bottom corners
+  const pointH = p.cutSize ?? h * 0.2; // height of the pointed top triangle
+  const cr = p.cornerRadius ?? Math.min(w, h) * 0.08; // bottom corner radius
+  const midX = w / 2;
 
-  let path = `M 0 0 L ${w - cs} 0 L ${w} ${cs} L ${w} ${h}`;
-  path += ` L 0 ${h} Z`;
+  let path = `M ${midX} 0`; // top point
+  path += ` L ${w} ${pointH}`; // right slope
+  path += ` L ${w} ${h - cr}`; // right side down
+  path += ` Q ${w} ${h} ${w - cr} ${h}`; // bottom-right rounded corner
+  path += ` L ${cr} ${h}`; // bottom edge
+  path += ` Q 0 ${h} 0 ${h - cr}`; // bottom-left rounded corner
+  path += ` L 0 ${pointH}`; // left side up
+  path += ` Z`; // back to top point
   return path;
 }
 
 export function getTagHole(w: number, h: number, params?: PresetParams): { cx: number; cy: number; r: number } {
-  const cs = params?.cutSize ?? Math.min(w, h) * 0.15;
-  const hr = params?.tagHoleRadius ?? Math.min(w, h) * 0.05;
+  const pointH = params?.cutSize ?? h * 0.2;
+  const hr = params?.tagHoleRadius ?? Math.min(w, h) * 0.04;
   return {
-    cx: w - cs * 0.55,
-    cy: cs * 0.55,
+    cx: w / 2,
+    cy: pointH * 0.7,
     r: hr,
   };
 }
