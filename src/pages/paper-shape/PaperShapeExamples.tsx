@@ -41,7 +41,7 @@ function generateExamples(): ExampleItem[] {
     for (let v = 0; v < variantCount; v++) {
       const decos: DecorationItem[] = [];
       let presetParams: PresetParams | undefined;
-      
+
       // Add decorations to some examples for showcase
       if (preset === 'basic-paper' && v === 0) {
         decos.push(
@@ -140,7 +140,7 @@ function generateExamples(): ExampleItem[] {
             ticketStubWidth: 46,
             ticketCutCount: 1,
             perforationMode: 0,
-            perforationOffset: -10,
+            perforationOffset: -2,
           };
         }
         if (v === 1) {
@@ -152,8 +152,8 @@ function generateExamples(): ExampleItem[] {
             ticketCutSpread: 0.78,
             perforationMode: 1,
             perforationGap: 10,
-            perforationDotRadius: 1.8,
-            perforationOffset: 10,
+            perforationDotRadius: 2,
+            perforationOffset: -40,
           };
         }
       }

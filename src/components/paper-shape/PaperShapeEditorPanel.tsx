@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { presetInfo, presetParamsDefs, type PaperPreset, type PresetParams } from './geometry';
 import type { PaperPatternType, PatternParams } from './PaperShape';
 import { cn } from '@/lib/utils';
@@ -24,6 +24,16 @@ const paperColorHexMap: Record<string, string> = {
   sky: '#b7dbff',
   lavender: '#d8bff3',
 };
+
+const strokeColorSwatches = ['#7a553f', '#3f4b68', '#5c6f4f', '#7a4c66', '#5a5a5a', '#202020'];
+const stitchColorSwatches = ['#7a553f', '#6a6a6a', '#5c6f4f', '#3f4b68', '#7a4c66', '#222222'];
+const foldColorSwatches = ['#7a553f', '#8a6a57', '#5f4f44', '#6e5a8a', '#4f6a7a', '#6a6a6a'];
+const stitchStyleOptions = [
+  { value: 0, label: '虚线' },
+  { value: 1, label: '点状' },
+  { value: 2, label: '实线' },
+  { value: 3, label: '点划线' },
+] as const;
 
 function isHexColor(value: string): boolean {
   return /^#([0-9a-fA-F]{6})$/.test(value);
@@ -64,6 +74,10 @@ const cutoutShapeOptions = [
   { value: 1, label: '圆弧' },
   { value: 2, label: '圆角矩形' },
 ] as const;
+const perforationModeOptions = [
+  { value: 0, label: '虚线' },
+  { value: 1, label: '圆孔' },
+] as const;
 
 interface PaperShapeEditorPanelProps {
   preset: PaperPreset;
@@ -72,6 +86,7 @@ interface PaperShapeEditorPanelProps {
   seed: number;
   roughness: number;
   paperColor: string;
+  strokeColor: string;
   strokeWidth: number;
   patternType: PaperPatternType;
   patternParams: PatternParams;
@@ -81,6 +96,7 @@ interface PaperShapeEditorPanelProps {
   setSeed: (v: number) => void;
   setRoughness: (v: number) => void;
   setPaperColor: (v: string) => void;
+  setStrokeColor: (v: string) => void;
   setStrokeWidth: (v: number) => void;
   setPatternType: (v: PaperPatternType) => void;
   setPatternParams: (fn: (prev: PatternParams) => PatternParams) => void;
@@ -120,6 +136,7 @@ export function PaperShapeEditorPanel({
   seed,
   roughness,
   paperColor,
+  strokeColor,
   strokeWidth,
   patternType,
   patternParams,
@@ -129,6 +146,7 @@ export function PaperShapeEditorPanel({
   setSeed,
   setRoughness,
   setPaperColor,
+  setStrokeColor,
   setStrokeWidth,
   setPatternType,
   setPatternParams,
@@ -146,6 +164,11 @@ export function PaperShapeEditorPanel({
   setTextContent,
 }: PaperShapeEditorPanelProps) {
   const currentParamDefs = presetParamsDefs[preset];
+  const isPerforationPreset = preset === 'coupon' || preset === 'ticket';
+  const [copiedKey, setCopiedKey] = useState<'jsx' | 'recipe' | 'svg' | 'share' | null>(null);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [cornerSectionOpen, setCornerSectionOpen] = useState(false);
+  const [cutoutSectionOpen, setCutoutSectionOpen] = useState(false);
   const visibleParamDefs = currentParamDefs.filter(
     (d) => ![
       'cutoutEdges',
@@ -158,7 +181,10 @@ export function PaperShapeEditorPanel({
       'cornerRadiusTR',
       'cornerRadiusBR',
       'cornerRadiusBL',
+      'stitchColor',
     ].includes(d.key as string)
+      && !(preset === 'folded' && d.key === 'foldSize')
+      && !(isPerforationPreset && d.key === 'perforationMode')
   );
   const foldCornerMask = Math.round(presetParams.foldCorners ?? 2) || 2;
   const ticketStubSide = Math.round(presetParams.ticketStubSide ?? 0);
@@ -179,17 +205,40 @@ export function PaperShapeEditorPanel({
   const cornerTR = presetParams.cornerRadiusTR ?? cornerBase;
   const cornerBR = presetParams.cornerRadiusBR ?? cornerBase;
   const cornerBL = presetParams.cornerRadiusBL ?? cornerBase;
+  const stitchColor = typeof presetParams.stitchColor === 'string' ? presetParams.stitchColor : strokeColor;
+  const stitchStyle = Math.max(0, Math.min(3, Math.round(presetParams.stitchStyle ?? 0)));
+  const perforationMode = Math.max(0, Math.min(1, Math.round(presetParams.perforationMode ?? 0)));
+  const perforationRingWidth = Math.max(0.1, presetParams.perforationRingWidth ?? Math.max(0.35, strokeWidth * 0.42));
+  const perforationRingColor = typeof presetParams.perforationRingColor === 'string'
+    ? presetParams.perforationRingColor
+    : strokeColor;
 
   const getParamValue = (key: keyof PresetParams) => {
     if (presetParams[key] !== undefined) return presetParams[key] as number;
     const def = currentParamDefs.find(d => d.key === key);
     return def ? def.defaultVal(width, height) : 0;
   };
+  const foldSize = getParamValue('foldSize');
+  const foldColor = typeof presetParams.foldColor === 'string' ? presetParams.foldColor : strokeColor;
+  const foldOpacity = Math.max(0, Math.min(1, presetParams.foldOpacity ?? 0.34));
 
   const setParamValue = (key: keyof PresetParams, val: number) => {
     setPresetParams((prev) => ({ ...prev, [key]: val }));
   };
   const paperColorPickerValue = isHexColor(paperColor) ? paperColor : (paperColorHexMap[paperColor] || '#f7e8bf');
+
+  const runCopyAction = async (key: 'jsx' | 'recipe' | 'svg' | 'share', action: () => void | Promise<void>) => {
+    await action();
+    setCopiedKey(key);
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    copiedTimerRef.current = setTimeout(() => setCopiedKey(null), 1500);
+  };
+
+  useEffect(() => () => {
+    if (copiedTimerRef.current) {
+      clearTimeout(copiedTimerRef.current);
+    }
+  }, []);
 
   return (
     <div
@@ -273,12 +322,126 @@ export function PaperShapeEditorPanel({
               </div>
             );
           })}
+          {isPerforationPreset && (
+            <div>
+              <label className="text-xs font-craft font-medium text-muted-foreground mb-1 block">中间打孔模式</label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {perforationModeOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setPresetParams((prev) => ({ ...prev, perforationMode: opt.value }))}
+                    className={`px-2 py-1.5 rounded-lg text-xs font-craft transition ${
+                      perforationMode === opt.value
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-background text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {preset === 'stitched' && (
+            <div className="space-y-2">
+              <div>
+                <label className="text-xs font-craft font-medium text-muted-foreground mb-1 block">缝线形状</label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {stitchStyleOptions.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setPresetParams((prev) => ({ ...prev, stitchStyle: opt.value }))}
+                      className={`px-2 py-1.5 rounded-lg text-xs font-craft transition ${
+                        stitchStyle === opt.value
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-background text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-craft font-medium text-muted-foreground mb-1 block">缝线颜色</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={isHexColor(stitchColor) ? stitchColor : '#7a553f'}
+                    onChange={(e) => setPresetParams((prev) => ({ ...prev, stitchColor: e.target.value }))}
+                    className="h-8 w-10 p-0 border border-border rounded bg-transparent cursor-pointer"
+                  />
+                  <div className="flex gap-1.5 flex-wrap">
+                    {stitchColorSwatches.map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => setPresetParams((prev) => ({ ...prev, stitchColor: c }))}
+                        className="h-5 w-5 rounded-full border border-border"
+                        style={{ backgroundColor: c }}
+                        title={c}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          {isPerforationPreset && perforationMode === 1 && (
+            <div className="space-y-2">
+              <div>
+                <label className="text-xs font-craft font-medium text-muted-foreground mb-1 block">中间打孔描边颜色</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={isHexColor(perforationRingColor) ? perforationRingColor : '#7a553f'}
+                    onChange={(e) => setPresetParams((prev) => ({ ...prev, perforationRingColor: e.target.value }))}
+                    className="h-8 w-10 p-0 border border-border rounded bg-transparent cursor-pointer"
+                  />
+                  <div className="flex gap-1.5 flex-wrap">
+                    {strokeColorSwatches.map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => setPresetParams((prev) => ({ ...prev, perforationRingColor: c }))}
+                        className="h-5 w-5 rounded-full border border-border"
+                        style={{ backgroundColor: c }}
+                        title={c}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+                  <span>中间打孔描边粗细</span>
+                  <span className="text-foreground">{perforationRingWidth.toFixed(2)}</span>
+                </label>
+                <input
+                  type="range"
+                  min={0.1}
+                  max={3}
+                  step={0.05}
+                  value={perforationRingWidth}
+                  onChange={(e) => setPresetParams((prev) => ({ ...prev, perforationRingWidth: Number(e.target.value) }))}
+                  className="w-full accent-primary"
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      <div className="space-y-3 p-3 rounded-xl bg-muted/50 border border-border">
+      <div className={cn(
+        'rounded-xl bg-muted/50 border border-border',
+        cornerSectionOpen ? 'space-y-3 p-3' : 'p-2'
+      )}>
         <div className="flex items-center justify-between">
-          <label className="text-xs font-craft font-semibold text-foreground block">◻️ 圆角（CSS风格）</label>
+          <button
+            onClick={() => setCornerSectionOpen((v) => !v)}
+            className="flex-1 h-8 px-2 -mx-1 rounded-md text-left text-xs font-craft font-semibold text-foreground hover:bg-background/60 transition"
+          >
+            {cornerSectionOpen ? '▾' : '▸'} ◻️ 圆角
+          </button>
           <button
             onClick={() => setPresetParams((prev) => ({
               ...prev,
@@ -293,50 +456,62 @@ export function PaperShapeEditorPanel({
             重置
           </button>
         </div>
-        <div>
-          <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
-            <span>基础圆角</span>
-            <span className="text-foreground">{cornerBase.toFixed(1)}</span>
-          </label>
-          <input
-            type="range"
-            min={0}
-            max={cornerMax}
-            step={0.5}
-            value={cornerBase}
-            onChange={(e) => setPresetParams((prev) => ({ ...prev, cornerRadius: Number(e.target.value) }))}
-            className="w-full accent-primary"
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {[
-            ['cornerRadiusTL', '左上', cornerTL],
-            ['cornerRadiusTR', '右上', cornerTR],
-            ['cornerRadiusBL', '左下', cornerBL],
-            ['cornerRadiusBR', '右下', cornerBR],
-          ].map(([key, label, val]) => (
-            <div key={key}>
-              <label className="text-[10px] font-craft font-medium text-muted-foreground mb-1 flex justify-between">
-                <span>{label}</span>
-                <span className="text-foreground">{Number(val).toFixed(1)}</span>
+        {cornerSectionOpen && (
+          <>
+            <div>
+              <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+                <span>基础圆角</span>
+                <span className="text-foreground">{cornerBase.toFixed(1)}</span>
               </label>
               <input
                 type="range"
                 min={0}
                 max={cornerMax}
                 step={0.5}
-                value={Number(val)}
-                onChange={(e) => setPresetParams((prev) => ({ ...prev, [key]: Number(e.target.value) }))}
+                value={cornerBase}
+                onChange={(e) => setPresetParams((prev) => ({ ...prev, cornerRadius: Number(e.target.value) }))}
                 className="w-full accent-primary"
               />
             </div>
-          ))}
-        </div>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                ['cornerRadiusTL', '左上', cornerTL],
+                ['cornerRadiusTR', '右上', cornerTR],
+                ['cornerRadiusBL', '左下', cornerBL],
+                ['cornerRadiusBR', '右下', cornerBR],
+              ].map(([key, label, val]) => (
+                <div key={key}>
+                  <label className="text-[10px] font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+                    <span>{label}</span>
+                    <span className="text-foreground">{Number(val).toFixed(1)}</span>
+                  </label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={cornerMax}
+                    step={0.5}
+                    value={Number(val)}
+                    onChange={(e) => setPresetParams((prev) => ({ ...prev, [key]: Number(e.target.value) }))}
+                    className="w-full accent-primary"
+                  />
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
-      <div className="space-y-2 p-3 rounded-xl bg-muted/50 border border-border">
+      <div className={cn(
+        'rounded-xl bg-muted/50 border border-border',
+        cutoutSectionOpen ? 'space-y-2 p-3' : 'p-2'
+      )}>
         <div className="flex items-center justify-between">
-          <label className="text-xs font-craft font-semibold text-foreground block">✂️ 裁剪边（多选）</label>
+          <button
+            onClick={() => setCutoutSectionOpen((v) => !v)}
+            className="flex-1 h-8 px-2 -mx-1 rounded-md text-left text-xs font-craft font-semibold text-foreground hover:bg-background/60 transition"
+          >
+            {cutoutSectionOpen ? '▾' : '▸'} ✂️ 裁剪
+          </button>
           <button
             onClick={() => setPresetParams((prev) => ({ ...prev, cutoutEdges: 0 }))}
             className="text-[10px] font-craft text-muted-foreground hover:text-foreground"
@@ -344,7 +519,9 @@ export function PaperShapeEditorPanel({
             清空
           </button>
         </div>
-          <div className="grid grid-cols-4 gap-1.5">
+        {cutoutSectionOpen && (
+          <>
+            <div className="grid grid-cols-4 gap-1.5">
             {cutoutEdgeOptions.map((edge) => {
               const active = (cutoutEdgeMask & edge.bit) !== 0;
               return (
@@ -365,99 +542,159 @@ export function PaperShapeEditorPanel({
                 </button>
               );
             })}
+            </div>
+
+            <div>
+              <label className="text-xs font-craft font-medium text-muted-foreground mb-1 block">裁剪形状</label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {cutoutShapeOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setPresetParams((prev) => ({ ...prev, cutoutShape: opt.value }))}
+                    className={`px-2 py-1.5 rounded-lg text-xs font-craft transition ${
+                      cutoutShape === opt.value
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-background text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+                <span>裁剪宽度</span>
+                <span className="text-foreground">{cutoutRadius.toFixed(1)}</span>
+              </label>
+              <input
+                type="range"
+                min={3}
+                max={Math.max(16, Math.min(width, height) * 0.3)}
+                step={0.5}
+                value={cutoutRadius}
+                onChange={(e) => setPresetParams((prev) => ({ ...prev, cutoutRadius: Number(e.target.value) }))}
+                className="w-full accent-primary"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+                <span>裁剪深度</span>
+                <span className="text-foreground">{cutoutDepth.toFixed(1)}</span>
+              </label>
+              <input
+                type="range"
+                min={1.5}
+                max={Math.max(12, Math.min(width, height) * 0.25)}
+                step={0.5}
+                value={cutoutDepth}
+                onChange={(e) => setPresetParams((prev) => ({ ...prev, cutoutDepth: Number(e.target.value) }))}
+                className="w-full accent-primary"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+                <span>裁剪偏移</span>
+                <span className="text-foreground">{cutoutOffset.toFixed(0)}</span>
+              </label>
+              <input
+                type="range"
+                min={-Math.max(width, height) / 2}
+                max={Math.max(width, height) / 2}
+                step={1}
+                value={cutoutOffset}
+                onChange={(e) => setPresetParams((prev) => ({ ...prev, cutoutOffset: Number(e.target.value) }))}
+                className="w-full accent-primary"
+              />
+            </div>
+          </>
+        )}
+      </div>
+
+      {preset === 'folded' && (
+        <div className="space-y-3 p-3 rounded-xl bg-muted/50 border border-border">
+          <label className="text-xs font-craft font-semibold text-foreground block">✨ 折角专属参数</label>
+          <div>
+            <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+              <span>折角大小</span>
+              <span className="text-foreground">{typeof foldSize === 'number' ? foldSize.toFixed(1) : foldSize}</span>
+            </label>
+            <input
+              type="range"
+              min={10}
+              max={80}
+              step={1}
+              value={Number(foldSize)}
+              onChange={(e) => setPresetParams((prev) => ({ ...prev, foldSize: Number(e.target.value) }))}
+              className="w-full accent-primary"
+            />
           </div>
 
           <div>
-            <label className="text-xs font-craft font-medium text-muted-foreground mb-1 block">裁剪形状</label>
-            <div className="grid grid-cols-3 gap-1.5">
-              {cutoutShapeOptions.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setPresetParams((prev) => ({ ...prev, cutoutShape: opt.value }))}
-                  className={`px-2 py-1.5 rounded-lg text-xs font-craft transition ${
-                    cutoutShape === opt.value
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-background text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+            <label className="text-xs font-craft font-medium text-muted-foreground mb-1 block">折角方向（可多选）</label>
+            <div className="grid grid-cols-2 gap-1.5">
+              {foldCornerOptions.map((corner) => {
+                const active = (foldCornerMask & corner.bit) !== 0;
+                return (
+                  <button
+                    key={corner.bit}
+                    onClick={() => {
+                      setPresetParams((prev) => {
+                        const current = Math.round(prev.foldCorners ?? 2) || 2;
+                        let next = current ^ corner.bit;
+                        if (next === 0) next = corner.bit;
+                        return { ...prev, foldCorners: next };
+                      });
+                    }}
+                    className={`px-2 py-1.5 rounded-lg text-xs font-craft transition ${
+                      active ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {corner.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-craft font-medium text-muted-foreground mb-1 block">折角颜色</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={isHexColor(foldColor) ? foldColor : '#7a553f'}
+                onChange={(e) => setPresetParams((prev) => ({ ...prev, foldColor: e.target.value }))}
+                className="h-8 w-10 p-0 border border-border rounded bg-transparent cursor-pointer"
+              />
+              <div className="flex gap-1.5 flex-wrap">
+                {foldColorSwatches.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setPresetParams((prev) => ({ ...prev, foldColor: c }))}
+                    className="h-5 w-5 rounded-full border border-border"
+                    style={{ backgroundColor: c }}
+                    title={c}
+                  />
+                ))}
+              </div>
             </div>
           </div>
 
           <div>
             <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
-              <span>裁剪宽度</span>
-              <span className="text-foreground">{cutoutRadius.toFixed(1)}</span>
+              <span>折角透明度</span>
+              <span className="text-foreground">{foldOpacity.toFixed(2)}</span>
             </label>
             <input
               type="range"
-              min={3}
-              max={Math.max(16, Math.min(width, height) * 0.3)}
-              step={0.5}
-              value={cutoutRadius}
-              onChange={(e) => setPresetParams((prev) => ({ ...prev, cutoutRadius: Number(e.target.value) }))}
+              min={0}
+              max={1}
+              step={0.01}
+              value={foldOpacity}
+              onChange={(e) => setPresetParams((prev) => ({ ...prev, foldOpacity: Number(e.target.value) }))}
               className="w-full accent-primary"
             />
-          </div>
-          <div>
-            <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
-              <span>裁剪深度</span>
-              <span className="text-foreground">{cutoutDepth.toFixed(1)}</span>
-            </label>
-            <input
-              type="range"
-              min={1.5}
-              max={Math.max(12, Math.min(width, height) * 0.25)}
-              step={0.5}
-              value={cutoutDepth}
-              onChange={(e) => setPresetParams((prev) => ({ ...prev, cutoutDepth: Number(e.target.value) }))}
-              className="w-full accent-primary"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
-              <span>裁剪偏移</span>
-              <span className="text-foreground">{cutoutOffset.toFixed(0)}</span>
-            </label>
-            <input
-              type="range"
-              min={-Math.max(width, height) / 2}
-              max={Math.max(width, height) / 2}
-              step={1}
-              value={cutoutOffset}
-              onChange={(e) => setPresetParams((prev) => ({ ...prev, cutoutOffset: Number(e.target.value) }))}
-              className="w-full accent-primary"
-            />
-          </div>
-      </div>
-
-      {preset === 'folded' && (
-        <div className="space-y-2 p-3 rounded-xl bg-muted/50 border border-border">
-          <label className="text-xs font-craft font-semibold text-foreground block">📐 折角方向（可多选）</label>
-          <div className="grid grid-cols-2 gap-1.5">
-            {foldCornerOptions.map((corner) => {
-              const active = (foldCornerMask & corner.bit) !== 0;
-              return (
-                <button
-                  key={corner.bit}
-                  onClick={() => {
-                    setPresetParams((prev) => {
-                      const current = Math.round(prev.foldCorners ?? 2) || 2;
-                      let next = current ^ corner.bit;
-                      if (next === 0) next = corner.bit;
-                      return { ...prev, foldCorners: next };
-                    });
-                  }}
-                  className={`px-2 py-1.5 rounded-lg text-xs font-craft transition ${
-                    active ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {corner.label}
-                </button>
-              );
-            })}
           </div>
         </div>
       )}
@@ -503,7 +740,7 @@ export function PaperShapeEditorPanel({
 
       <div>
         <label className="text-xs font-craft font-medium text-muted-foreground mb-1 block">描边粗细 {strokeWidth.toFixed(1)}</label>
-        <input type="range" min={5} max={40} value={strokeWidth * 10} onChange={(e) => setStrokeWidth(Number(e.target.value) / 10)} className="w-full accent-primary" />
+        <input type="range" min={0} max={40} value={strokeWidth * 10} onChange={(e) => setStrokeWidth(Number(e.target.value) / 10)} className="w-full accent-primary" />
       </div>
 
       <div>
@@ -541,6 +778,29 @@ export function PaperShapeEditorPanel({
             className="h-8 flex-1 rounded-md border border-border bg-background px-2 text-xs font-craft text-foreground"
             placeholder="输入 #RRGGBB / hsl(...) / rgb(...)"
           />
+        </div>
+      </div>
+
+      <div>
+        <label className="text-xs font-craft font-medium text-muted-foreground mb-2 block">边框颜色</label>
+        <div className="flex items-center gap-2">
+          <input
+            type="color"
+            value={isHexColor(strokeColor) ? strokeColor : '#7a553f'}
+            onChange={(e) => setStrokeColor(e.target.value)}
+            className="h-8 w-10 p-0 border border-border rounded bg-transparent cursor-pointer"
+          />
+          <div className="flex gap-1.5 flex-wrap">
+            {strokeColorSwatches.map((c) => (
+              <button
+                key={c}
+                onClick={() => setStrokeColor(c)}
+                className="h-5 w-5 rounded-full border border-border"
+                style={{ backgroundColor: c }}
+                title={c}
+              />
+            ))}
+          </div>
         </div>
       </div>
 
@@ -676,24 +936,33 @@ export function PaperShapeEditorPanel({
       <div className="space-y-2">
         <label className="text-xs font-craft font-medium text-muted-foreground block">导出</label>
         <div className="grid grid-cols-2 gap-2">
-          <button onClick={onCopyJSX} className="px-3 py-2 rounded-lg bg-primary text-primary-foreground font-craft text-xs font-medium hover:opacity-90 transition">
-            📋 复制 JSX
+          <button
+            onClick={() => { void runCopyAction('jsx', onCopyJSX); }}
+            className="px-3 py-2 rounded-lg bg-primary text-primary-foreground font-craft text-xs font-medium hover:opacity-90 transition"
+          >
+            {copiedKey === 'jsx' ? '✅ 已复制 JSX' : '📋 复制 JSX'}
           </button>
-          <button onClick={onCopyRecipe} className="px-3 py-2 rounded-lg bg-secondary text-secondary-foreground font-craft text-xs font-medium hover:opacity-90 transition">
-            🧩 复制 Recipe
+          <button
+            onClick={() => { void runCopyAction('recipe', onCopyRecipe); }}
+            className="px-3 py-2 rounded-lg bg-secondary text-secondary-foreground font-craft text-xs font-medium hover:opacity-90 transition"
+          >
+            {copiedKey === 'recipe' ? '✅ 已复制 Recipe' : '🧩 复制 Recipe'}
           </button>
-          <button onClick={onCopySvg} className="px-3 py-2 rounded-lg bg-muted text-foreground font-craft text-xs font-medium hover:opacity-90 transition">
-            🖼️ 复制 SVG
+          <button
+            onClick={() => { void runCopyAction('svg', onCopySvg); }}
+            className="px-3 py-2 rounded-lg bg-muted text-foreground font-craft text-xs font-medium hover:opacity-90 transition"
+          >
+            {copiedKey === 'svg' ? '✅ 已复制 SVG' : '🖼️ 复制 SVG'}
           </button>
           <button onClick={onDownloadSvg} className="px-3 py-2 rounded-lg bg-muted text-foreground font-craft text-xs font-medium hover:opacity-90 transition">
             ⬇️ 下载 SVG
           </button>
           {onCopyShareLink && (
             <button
-              onClick={onCopyShareLink}
+              onClick={() => { void runCopyAction('share', onCopyShareLink); }}
               className="col-span-2 px-3 py-2 rounded-lg bg-accent text-accent-foreground font-craft text-xs font-medium hover:opacity-90 transition"
             >
-              🔗 复制分享链接
+              {copiedKey === 'share' ? '✅ 已复制分享链接' : '🔗 复制分享链接'}
             </button>
           )}
         </div>

@@ -9,6 +9,7 @@ export interface PaperShapeShareState {
   seed: number;
   roughness: number;
   paperColor: string;
+  strokeColor?: string;
   strokeWidth: number;
   patternType: PaperPatternType;
   patternParams?: PatternParams;

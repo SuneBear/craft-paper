@@ -67,6 +67,15 @@ const ACCENT_COLORS = [
   'hsl(30, 65%, 68%)',
 ];
 
+function edgeBiasedSplit(length: number, offsetRaw: number, edgeRatioRaw: number = 0.2): number {
+  const edgeRatio = Math.max(0.14, Math.min(0.32, edgeRatioRaw));
+  const side = offsetRaw < 0 ? -1 : 1;
+  const anchor = side < 0 ? length * edgeRatio : length * (1 - edgeRatio);
+  const clampedOffset = Math.max(-length * 0.25, Math.min(length * 0.25, offsetRaw));
+  const drift = clampedOffset * 0.35;
+  return anchor + drift;
+}
+
 export const PaperShape: React.FC<PaperShapeProps> = ({
   preset = 'basic-paper',
   width = 240,
@@ -107,6 +116,8 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     : PAPER_COLORS.cream;
   
   const stroke = strokeColor || 'hsl(24, 36%, 35%)';
+  const foldTone = presetParams?.foldColor || stroke;
+  const foldOpacity = Math.max(0, Math.min(1, presetParams?.foldOpacity ?? 0.34));
   const patternColor = patternParams?.patternColor || 'hsl(25, 12%, 62%)';
   const patternOpacity = Math.max(0.08, Math.min(1, patternParams?.patternOpacity ?? 0.42));
   const lineWidth = Math.max(0.2, patternParams?.lineWidth ?? 0.5);
@@ -124,6 +135,16 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
   const tagHole = preset === 'tag' ? getTagHole(width, height, presetParams) : null;
   const foldTriangles = preset === 'folded' ? getFoldTriangles(width, height, presetParams) : [];
   const stitchPath = preset === 'stitched' ? getStitchPath(width, height, presetParams) : null;
+  const stitchStroke = presetParams?.stitchColor || stroke;
+  const stitchStrokeWidth = Math.max(0.4, presetParams?.stitchWidth ?? 1.2);
+  const stitchStyle = Math.max(0, Math.min(3, Math.round(presetParams?.stitchStyle ?? 0)));
+  const stitchDasharray = stitchStyle === 2
+    ? undefined
+    : stitchStyle === 1
+      ? `${Math.max(1, stitchStrokeWidth)} ${Math.max(3.2, stitchStrokeWidth * 2.8)}`
+      : stitchStyle === 3
+        ? `${Math.max(5, stitchStrokeWidth * 4)} ${Math.max(3, stitchStrokeWidth * 2)} ${Math.max(1.2, stitchStrokeWidth)} ${Math.max(3, stitchStrokeWidth * 2)}`
+        : generateStitchDashes(0);
   const perforationGuide = useMemo(() => {
     const gap = Math.max(2, presetParams?.perforationGap ?? 10);
     const inset = Math.max(0, presetParams?.perforationInset ?? 7);
@@ -134,7 +155,7 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     if (preset === 'coupon') {
       const notchR = presetParams?.notchRadius ?? Math.min(width, height) * 0.06;
       const notchOffset = presetParams?.couponPosition ?? presetParams?.couponNotchOffsetX ?? 0;
-      const x = width / 2 + (presetParams?.perforationOffset ?? notchOffset);
+      const x = edgeBiasedSplit(width, presetParams?.perforationOffset ?? notchOffset, 0.2);
       const y1 = notchR + inset;
       const y2 = height - notchR - inset;
       if (y2 <= y1) return null;
@@ -152,56 +173,24 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
 
     if (preset === 'ticket') {
       const cutR = presetParams?.cutRadius ?? Math.min(width, height) * 0.11;
-      const side = presetParams?.ticketStubSide;
-      const stubW = Math.max(8, presetParams?.ticketStubWidth ?? Math.min(width, height) * 0.28);
-
-      // Backward-compatible default (legacy horizontal tear line)
-      if (side === undefined) {
-        const y = height / 2 + offset;
-        const x1 = cutR + inset;
-        const x2 = width - cutR - inset;
-        if (x2 <= x1) return null;
-        return {
-          axis: 'horizontal' as const,
-          mode,
-          gap,
-          dotRadius,
-          x1,
-          y1: y,
-          x2,
-          y2: y,
-        };
-      }
-
-      if (side === 0) {
-        const x = Math.max(cutR + inset + 2, Math.min(width - cutR - inset - 2, width - stubW + offset));
-        const y1 = inset;
-        const y2 = height - inset;
-        if (y2 <= y1) return null;
-        return { axis: 'vertical' as const, mode, gap, dotRadius, x1: x, y1, x2: x, y2 };
-      }
-
-      if (side === 1) {
-        const x = Math.max(cutR + inset + 2, Math.min(width - cutR - inset - 2, stubW + offset));
-        const y1 = inset;
-        const y2 = height - inset;
-        if (y2 <= y1) return null;
-        return { axis: 'vertical' as const, mode, gap, dotRadius, x1: x, y1, x2: x, y2 };
-      }
-
-      if (side === 2) {
-        const y = Math.max(cutR + inset + 2, Math.min(height - cutR - inset - 2, stubW + offset));
-        const x1 = inset;
-        const x2 = width - inset;
-        if (x2 <= x1) return null;
-        return { axis: 'horizontal' as const, mode, gap, dotRadius, x1, y1: y, x2, y2: y };
-      }
-
-      const y = Math.max(cutR + inset + 2, Math.min(height - cutR - inset - 2, height - stubW + offset));
-      const x1 = inset;
-      const x2 = width - inset;
+      const cutOffsetY = presetParams?.ticketCutOffsetY ?? -Math.min(14, height * 0.08);
+      const y = Math.max(
+        cutR + inset + 2,
+        Math.min(height - cutR - inset - 2, height / 2 + cutOffsetY)
+      );
+      const x1 = cutR + inset;
+      const x2 = width - cutR - inset;
       if (x2 <= x1) return null;
-      return { axis: 'horizontal' as const, mode, gap, dotRadius, x1, y1: y, x2, y2: y };
+      return {
+        axis: 'horizontal' as const,
+        mode,
+        gap,
+        dotRadius,
+        x1,
+        y1: y,
+        x2,
+        y2: y,
+      };
     }
 
     return null;
@@ -214,10 +203,9 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     presetParams?.perforationOffset,
     presetParams?.couponNotchOffsetX,
     presetParams?.couponPosition,
+    presetParams?.ticketCutOffsetY,
     presetParams?.perforationDotRadius,
     presetParams?.perforationMode,
-    presetParams?.ticketStubSide,
-    presetParams?.ticketStubWidth,
     width,
     height,
   ]);
@@ -238,6 +226,11 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     }
     return points;
   }, [perforationGuide]);
+  const shouldPunchPerforation = !!perforationGuide && perforationGuide.mode === 1 && strokeWidth > 0.05;
+  const shouldFillPerforation = !!perforationGuide && perforationGuide.mode === 1 && !shouldPunchPerforation;
+  const perforationMaskDots = shouldPunchPerforation ? perforationDots : [];
+  const perforationRingColor = presetParams?.perforationRingColor || stroke;
+  const perforationRingWidth = Math.max(0.1, presetParams?.perforationRingWidth ?? Math.max(0.35, strokeWidth * 0.42));
   const cutoutMaskShapes = useMemo(() => {
     const edgeMask = Math.max(0, Math.round(presetParams?.cutoutEdges ?? 0));
     if (edgeMask === 0) return [] as Array<
@@ -423,7 +416,7 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     width,
     height,
   ]);
-  const hasCutoutMask = !!tagHole || perforationDots.length > 0 || cutoutMaskShapes.length > 0;
+  const hasCutoutMask = !!tagHole || perforationMaskDots.length > 0 || cutoutMaskShapes.length > 0;
   const contentSafeInsets = useMemo(() => {
     const insets = { top: 0, right: 0, bottom: 0, left: 0 };
     const reserveBandOnLargerSide = (axis: 'vertical' | 'horizontal', pos: number, halfBand: number) => {
@@ -473,20 +466,9 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
 
     if (preset === 'ticket') {
       const cutR = Math.max(4, presetParams?.cutRadius ?? Math.min(width, height) * 0.11);
-      const side = presetParams?.ticketStubSide;
       const edgeSafe = Math.max(8, cutR + 4);
-      if (side === undefined) {
-        insets.left = Math.max(insets.left, edgeSafe);
-        insets.right = Math.max(insets.right, edgeSafe);
-      } else if (side === 0) {
-        insets.right = Math.max(insets.right, edgeSafe);
-      } else if (side === 1) {
-        insets.left = Math.max(insets.left, edgeSafe);
-      } else if (side === 2) {
-        insets.top = Math.max(insets.top, edgeSafe);
-      } else {
-        insets.bottom = Math.max(insets.bottom, edgeSafe);
-      }
+      insets.left = Math.max(insets.left, edgeSafe);
+      insets.right = Math.max(insets.right, edgeSafe);
     }
 
     if (perforationGuide) {
@@ -495,17 +477,18 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
         perforationGuide.axis === 'vertical' &&
         Math.abs(perforationGuide.x1 - width / 2) < width * 0.2
       );
-      const isCenteredTicketPerforation = (
-        preset === 'ticket' &&
-        (
-          (perforationGuide.axis === 'vertical' && Math.abs(perforationGuide.x1 - width / 2) < width * 0.22) ||
-          (perforationGuide.axis === 'horizontal' && Math.abs(perforationGuide.y1 - height / 2) < height * 0.22)
-        )
-      );
-
-      if (!isCenteredCouponPerforation && !isCenteredTicketPerforation) {
+      if (!isCenteredCouponPerforation) {
         const halfBand = Math.max(7, perforationGuide.dotRadius * 2.8 + 3);
-        if (perforationGuide.axis === 'vertical') {
+        if (preset === 'ticket' && perforationGuide.axis === 'horizontal') {
+          const y = Math.max(0, Math.min(height, perforationGuide.y1));
+          const topRoom = Math.max(0, y - halfBand);
+          const bottomRoom = Math.max(0, height - (y + halfBand));
+          if (topRoom >= bottomRoom) {
+            insets.bottom = Math.max(insets.bottom, height - (y - halfBand));
+          } else {
+            insets.top = Math.max(insets.top, y + halfBand);
+          }
+        } else if (perforationGuide.axis === 'vertical') {
           reserveBandOnLargerSide('vertical', perforationGuide.x1, halfBand);
         } else {
           reserveBandOnLargerSide('horizontal', perforationGuide.y1, halfBand);
@@ -604,7 +587,7 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
               {tagHole && (
                 <circle cx={tagHole.cx} cy={tagHole.cy} r={tagHole.r} fill="black" />
               )}
-              {perforationDots.map((dot, i) => (
+              {perforationMaskDots.map((dot, i) => (
                 <circle key={`mask-dot-${i}`} cx={dot.x} cy={dot.y} r={dot.r} fill="black" />
               ))}
               {cutoutMaskShapes.map((shape, i) => (
@@ -698,12 +681,27 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
               x2={perforationGuide.x2}
               y2={perforationGuide.y2}
               stroke={stroke}
-              strokeWidth={Math.max(1, strokeWidth * 0.75)}
+              strokeWidth={strokeWidth > 0 ? Math.max(1, strokeWidth * 0.75) : 0}
               strokeDasharray={`2.5 ${Math.max(3, perforationGuide.gap)}`}
               strokeLinecap="round"
               opacity="0.5"
               clipPath={`url(#${clipId})`}
             />
+          ) : shouldFillPerforation ? (
+            <>
+              {perforationDots.map((dot, i) => (
+                <circle
+                  key={`perforation-fill-${i}`}
+                  cx={dot.x}
+                  cy={dot.y}
+                  r={dot.r}
+                  fill={perforationRingColor}
+                  opacity="0.34"
+                  clipPath={`url(#${clipId})`}
+                  mask={hasCutoutMask ? `url(#${maskId})` : undefined}
+                />
+              ))}
+            </>
           ) : null
         )}
 
@@ -712,10 +710,10 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
           <>
             {foldTriangles.map((d, i) => (
               <g key={`fold-${i}`}>
-                <path d={d} fill={stroke} opacity="0.14" />
-                <path d={d} fill={fill} />
-                <path d={d} fill={stroke} opacity="0.12" />
-                <path d={d} fill="none" stroke={stroke} strokeWidth={strokeWidth * 0.6} opacity="0.4" />
+                <path d={d} fill={foldTone} opacity={foldOpacity} />
+                <path d={d} fill={fill} opacity={0.22 * (1 - foldOpacity)} />
+                <path d={d} fill={foldTone} opacity={0.12 * (1 - foldOpacity)} />
+                <path d={d} fill="none" stroke={foldTone} strokeWidth={strokeWidth * 0.7} opacity={0.35 + 0.3 * foldOpacity} />
               </g>
             ))}
           </>
@@ -737,9 +735,24 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
             d={d}
             fill="none"
             stroke={stroke}
-            strokeWidth={strokeWidth + 0.15}
+            strokeWidth={strokeWidth > 0 ? strokeWidth + 0.15 : 0}
             strokeLinecap="round"
             strokeLinejoin="round"
+          />
+        ))}
+
+        {/* Perforation hole rings (tag-hole style) */}
+        {shouldPunchPerforation && perforationDots.map((dot, i) => (
+          <circle
+            key={`perforation-ring-${i}`}
+            cx={dot.x}
+            cy={dot.y}
+            r={dot.r}
+            fill="none"
+            stroke={perforationRingColor}
+            strokeWidth={perforationRingWidth}
+            opacity="0.48"
+            clipPath={`url(#${clipId})`}
           />
         ))}
 
@@ -760,9 +773,9 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
           <path
             d={stitchPath}
             fill="none"
-            stroke={stroke}
-            strokeWidth={1.2}
-            strokeDasharray={generateStitchDashes(0)}
+            stroke={stitchStroke}
+            strokeWidth={stitchStrokeWidth}
+            strokeDasharray={stitchDasharray}
             opacity="0.5"
             strokeLinecap="round"
           />

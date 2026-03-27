@@ -39,6 +39,8 @@ export interface PresetParams {
   perforationMode?: number;     // 0=虚线, 1=打孔点
   perforationGap?: number;      // 间距
   perforationDotRadius?: number;// 打孔点半径
+  perforationRingWidth?: number;// 内部打孔描边粗细
+  perforationRingColor?: string;// 内部打孔描边颜色
   perforationInset?: number;    // 距端点内缩
   perforationOffset?: number;   // 撕线偏移（coupon 为X，ticket 为Y）
   // tag
@@ -47,10 +49,16 @@ export interface PresetParams {
   // folded
   foldSize?: number;            // 折角大小
   foldCorners?: number;         // 折角角点位掩码: 1左上 2右上 4右下 8左下
+  foldColor?: string;           // 折角颜色
+  foldOpacity?: number;         // 折角透明度倍率 (0-1)
   // torn
   tearAmplitude?: number;       // 撕裂幅度
   // stitched
   stitchInset?: number;         // 缝线内缩
+  stitchCornerRadius?: number;  // 缝线圆角
+  stitchWidth?: number;         // 缝线粗细
+  stitchColor?: string;         // 缝线颜色
+  stitchStyle?: number;         // 缝线样式: 0虚线 1点状 2实线 3点划线
   cornerRadius?: number;        // 圆角大小
   cornerRadiusTL?: number;      // 左上圆角
   cornerRadiusTR?: number;      // 右上圆角
@@ -96,6 +104,15 @@ function wobble(val: number, amount: number, rng: () => number): number {
 
 function clamp(val: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, val));
+}
+
+function edgeBiasedSplit(length: number, offsetRaw: number, edgeRatioRaw: number = 0.2): number {
+  const edgeRatio = clamp(edgeRatioRaw, 0.14, 0.32);
+  const side = offsetRaw < 0 ? -1 : 1;
+  const anchor = side < 0 ? length * edgeRatio : length * (1 - edgeRatio);
+  const clampedOffset = clamp(offsetRaw, -length * 0.25, length * 0.25);
+  const drift = clampedOffset * 0.35;
+  return anchor + drift;
 }
 
 function getCornerRadii(w: number, h: number, p: PresetParams, defaultRadius: number) {
@@ -257,7 +274,11 @@ function couponPath(w: number, h: number, rng: () => number, r: number, p: Prese
   const position = p.couponPosition ?? p.couponNotchOffsetX ?? p.perforationOffset ?? 0;
 
   if (direction === 1) {
-    const notchCenterY = clamp(h / 2 + position, Math.max(tr, br) + notchR + 2, h - Math.max(tr, br) - notchR - 2);
+    const notchCenterY = clamp(
+      edgeBiasedSplit(h, position, 0.2),
+      Math.max(tr, br) + notchR + 2,
+      h - Math.max(tr, br) - notchR - 2
+    );
     const edgeCenters = buildSideCenters(w, Math.max(tl, tr, br, bl), holeR, p.couponHoleCount, p.couponHoleSpread, p.couponHoleOffsetY);
 
     let path = `M ${tl} 0`;
@@ -282,7 +303,11 @@ function couponPath(w: number, h: number, rng: () => number, r: number, p: Prese
     return path;
   }
 
-  const notchCenterX = clamp(w / 2 + position, Math.max(tl, bl) + notchR + 2, w - Math.max(tr, br) - notchR - 2);
+  const notchCenterX = clamp(
+    edgeBiasedSplit(w, position, 0.2),
+    Math.max(tl, bl) + notchR + 2,
+    w - Math.max(tr, br) - notchR - 2
+  );
   const sideCenters = buildSideCenters(h, Math.max(tl, tr, br, bl), holeR, p.couponHoleCount, p.couponHoleSpread, p.couponHoleOffsetY);
 
   let path = `M ${tl} 0`;
@@ -310,21 +335,41 @@ function couponPath(w: number, h: number, rng: () => number, r: number, p: Prese
 }
 
 function ticketPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
-  // Keep "ticket" as a separate preset in product semantics,
-  // but reuse coupon contour generator to avoid duplicate shape logic.
+  // Ticket keeps side cutouts only (no top/bottom notch) and a horizontal tear-line semantic.
   const cutR = p.cutRadius ?? Math.min(w, h) * 0.11;
-  const mapped: PresetParams = {
-    cornerRadius: p.cornerRadius ?? 10,
-    holeRadius: cutR,
-    // Ticket now shares coupon-like top/bottom notch contour by default.
-    notchRadius: p.notchRadius ?? Math.max(4, cutR * 0.72),
-    couponDirection: 0,
-    couponPosition: p.couponPosition ?? p.couponNotchOffsetX ?? p.perforationOffset ?? 0,
-    couponHoleCount: p.ticketCutCount,
-    couponHoleSpread: p.ticketCutSpread,
-    couponHoleOffsetY: p.ticketCutOffsetY,
-  };
-  return couponPath(w, h, rng, r, mapped);
+  const { tl, tr, br, bl } = getCornerRadii(w, h, p, 10);
+  const sideCenters = buildSideCenters(
+    h,
+    Math.max(tl, tr, br, bl),
+    cutR,
+    p.ticketCutCount,
+    p.ticketCutSpread,
+    p.ticketCutOffsetY ?? -Math.min(14, h * 0.08)
+  );
+
+  let path = `M ${tl} 0`;
+  path += ` L ${w - tr} 0`;
+  path += ` Q ${w} 0 ${w} ${tr}`;
+
+  for (const cy of sideCenters) {
+    path += ` L ${w} ${cy - cutR}`;
+    path += ` A ${cutR} ${cutR} 0 0 0 ${w} ${cy + cutR}`;
+  }
+
+  path += ` L ${w} ${h - br}`;
+  path += ` Q ${w} ${h} ${w - br} ${h}`;
+  path += ` L ${bl} ${h}`;
+  path += ` Q 0 ${h} 0 ${h - bl}`;
+
+  for (let i = sideCenters.length - 1; i >= 0; i--) {
+    const cy = sideCenters[i];
+    path += ` L 0 ${cy + cutR}`;
+    path += ` A ${cutR} ${cutR} 0 0 0 0 ${cy - cutR}`;
+  }
+
+  path += ` L 0 ${tl}`;
+  path += ` Q 0 0 ${tl} 0 Z`;
+  return path;
 }
 
 function tagPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
@@ -361,25 +406,49 @@ function foldedPath(w: number, h: number, rng: () => number, r: number, p: Prese
   const tr = (mask & 2) !== 0;
   const br = (mask & 4) !== 0;
   const bl = (mask & 8) !== 0;
+  const cr = getCornerRadii(w, h, p, 0);
+  const rtl = tl ? 0 : cr.tl;
+  const rtr = tr ? 0 : cr.tr;
+  const rbr = br ? 0 : cr.br;
+  const rbl = bl ? 0 : cr.bl;
 
-  const topLeftX = tl ? fs : 0;
-  const topRightX = tr ? w - fs : w;
-  const rightTopY = tr ? fs : 0;
-  const rightBottomY = br ? h - fs : h;
-  const bottomRightX = br ? w - fs : w;
-  const bottomLeftX = bl ? fs : 0;
-  const leftBottomY = bl ? h - fs : h;
-  const leftTopY = tl ? fs : 0;
+  let path = `M ${tl ? fs : rtl} 0`;
+  path += ` L ${tr ? w - fs : w - rtr} 0`;
+  if (tr) {
+    path += ` L ${w} ${fs}`;
+  } else if (rtr > 0) {
+    path += ` Q ${w} 0 ${w} ${rtr}`;
+  } else {
+    path += ` L ${w} 0`;
+  }
 
-  let path = `M ${topLeftX} 0`;
-  path += ` L ${topRightX} 0`;
-  path += tr ? ` L ${w} ${rightTopY}` : ` L ${w} 0`;
-  path += ` L ${w} ${rightBottomY}`;
-  path += br ? ` L ${bottomRightX} ${h}` : ` L ${w} ${h}`;
-  path += ` L ${bottomLeftX} ${h}`;
-  path += bl ? ` L 0 ${leftBottomY}` : ` L 0 ${h}`;
-  path += ` L 0 ${leftTopY}`;
-  path += tl ? ` L ${topLeftX} 0` : ` L 0 0`;
+  path += ` L ${br ? w : w} ${br ? h - fs : h - rbr}`;
+  if (br) {
+    path += ` L ${w - fs} ${h}`;
+  } else if (rbr > 0) {
+    path += ` Q ${w} ${h} ${w - rbr} ${h}`;
+  } else {
+    path += ` L ${w} ${h}`;
+  }
+
+  path += ` L ${bl ? fs : rbl} ${h}`;
+  if (bl) {
+    path += ` L 0 ${h - fs}`;
+  } else if (rbl > 0) {
+    path += ` Q 0 ${h} 0 ${h - rbl}`;
+  } else {
+    path += ` L 0 ${h}`;
+  }
+
+  path += ` L 0 ${tl ? fs : rtl}`;
+  if (tl) {
+    path += ` L ${fs} 0`;
+  } else if (rtl > 0) {
+    path += ` Q 0 0 ${rtl} 0`;
+  } else {
+    path += ` L 0 0`;
+  }
+
   path += ' Z';
   return path;
 }
@@ -404,16 +473,39 @@ export function getFoldTriangles(w: number, h: number, params?: PresetParams): s
 
 function tornPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
   const amp = p.tearAmplitude ?? 6;
+  const cr = getCornerRadii(w, h, p, 0);
+  const rtl = cr.tl;
+  const rtr = cr.tr;
   const points: string[] = [];
-  points.push(`M 0 0 L ${w} 0 L ${w} ${h}`);
+  points.push(`M ${rtl} 0`);
+  points.push(`L ${w - rtr} 0`);
+  if (rtr > 0) {
+    points.push(`Q ${w} 0 ${w} ${rtr}`);
+  } else {
+    points.push(`L ${w} 0`);
+  }
+  points.push(`L ${w} ${h}`);
 
-  const steps = Math.max(12, Math.round(w / 15));
+  // Roughness controls horizontal fragment density:
+  // higher roughness -> more tear points (more碎).
+  const rough = clamp(r, 0, 1);
+  const baseSteps = Math.max(10, Math.round(w / 18));
+  const steps = Math.max(baseSteps, Math.round(baseSteps * (1 + rough * 2.2)));
   const stepW = w / steps;
-  for (let i = steps; i >= 0; i--) {
+  // Keep both ends anchored to baseline so side edges connect cleanly.
+  for (let i = steps - 1; i >= 1; i--) {
     const x = i * stepW;
-    const tearAmp = wobble(amp, r * 8, rng);
-    const y = h + tearAmp;
+    // Tear amplitude controls vertical jaggedness only.
+    const tearAmp = wobble(0, amp, rng);
+    const y = clamp(h + tearAmp, h - amp, h + amp);
     points.push(`L ${x} ${y}`);
+  }
+  points.push(`L 0 ${h}`);
+  points.push(`L 0 ${rtl}`);
+  if (rtl > 0) {
+    points.push(`Q 0 0 ${rtl} 0`);
+  } else {
+    points.push('L 0 0');
   }
 
   points.push('Z');
@@ -426,7 +518,8 @@ function stitchedPath(w: number, h: number, _rng: () => number, _r: number, p: P
 
 export function getStitchPath(w: number, h: number, params?: PresetParams): string {
   const inset = params?.stitchInset ?? 8;
-  const cr = 6;
+  const maxCr = Math.max(0, Math.min((w - inset * 2) / 2, (h - inset * 2) / 2));
+  const cr = clamp(params?.stitchCornerRadius ?? 6, 0, maxCr);
   const i = inset;
   return `M ${i + cr} ${i} L ${w - i - cr} ${i} Q ${w - i} ${i} ${w - i} ${i + cr} L ${w - i} ${h - i - cr} Q ${w - i} ${h - i} ${w - i - cr} ${h - i} L ${i + cr} ${h - i} Q ${i} ${h - i} ${i} ${h - i - cr} L ${i} ${i + cr} Q ${i} ${i} ${i + cr} ${i} Z`;
 }
@@ -617,30 +710,32 @@ export const presetParamsDefs: Record<PaperPreset, { key: keyof PresetParams; la
     { key: 'perforationRadius', label: '齿孔大小', min: 2, max: 20, step: 0.5, defaultVal: (w, h) => Math.min(w, h) * 0.04 },
   ],
   coupon: [
-    { key: 'holeRadius', label: '侧边孔', min: 5, max: 40, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.1 },
-    { key: 'notchRadius', label: '缺口半径', min: 3, max: 25, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.06 },
+    // 上下边缘缺口
+    { key: 'notchRadius', label: '上下边缘缺口半径', min: 3, max: 25, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.06 },
+    { key: 'couponNotchOffsetX', label: '上下边缘缺口横向偏移', min: -120, max: 120, step: 1, defaultVal: () => 0 },
+    // 侧边孔
+    { key: 'holeRadius', label: '侧边孔半径', min: 5, max: 40, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.1 },
     { key: 'couponHoleCount', label: '侧边孔数量', min: 1, max: 5, step: 1, defaultVal: () => 1 },
-    { key: 'couponHoleSpread', label: '孔分布范围', min: 0.3, max: 1, step: 0.05, defaultVal: () => 0.68 },
-    { key: 'couponHoleOffsetY', label: '孔位纵向偏移', min: -80, max: 80, step: 1, defaultVal: () => 0 },
-    { key: 'couponNotchOffsetX', label: '中缝横向偏移', min: -120, max: 120, step: 1, defaultVal: () => 0 },
-    { key: 'perforationMode', label: '撕线模式(0虚线/1打孔)', min: 0, max: 1, step: 1, defaultVal: () => 0 },
-    { key: 'perforationGap', label: '撕线间距', min: 4, max: 24, step: 1, defaultVal: () => 10 },
-    { key: 'perforationDotRadius', label: '打孔点半径', min: 0.8, max: 4, step: 0.1, defaultVal: () => 1.6 },
-    { key: 'perforationInset', label: '撕线内缩', min: 2, max: 30, step: 1, defaultVal: () => 7 },
-    { key: 'perforationOffset', label: '撕线偏移', min: -120, max: 120, step: 1, defaultVal: () => 0 },
+    { key: 'couponHoleSpread', label: '侧边孔分布范围', min: 0.3, max: 1, step: 0.05, defaultVal: () => 0.68 },
+    { key: 'couponHoleOffsetY', label: '侧边孔纵向偏移', min: -80, max: 80, step: 1, defaultVal: () => 0 },
+    // 中间打孔线
+    { key: 'perforationMode', label: '中间打孔模式(0虚线/1圆孔)', min: 0, max: 1, step: 1, defaultVal: () => 0 },
+    { key: 'perforationGap', label: '中间打孔间距', min: 4, max: 24, step: 1, defaultVal: () => 10 },
+    { key: 'perforationDotRadius', label: '中间打孔点半径', min: 0.8, max: 4, step: 0.1, defaultVal: () => 1.6 },
+    { key: 'perforationInset', label: '中间打孔端点内缩', min: 2, max: 30, step: 1, defaultVal: () => 7 },
+    { key: 'perforationOffset', label: '中间打孔线横向偏移(边缘微调)', min: -60, max: 60, step: 1, defaultVal: () => 0 },
   ],
   ticket: [
     { key: 'cutRadius', label: '切口半径', min: 5, max: 35, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.11 },
     { key: 'cornerRadius', label: '圆角', min: 0, max: 30, step: 1, defaultVal: () => 10 },
-    { key: 'ticketStubWidth', label: '票根宽度', min: 20, max: 180, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.28 },
+    { key: 'ticketStubWidth', label: '票根宽度', min: 20, max: 120, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.2 },
     { key: 'ticketCutCount', label: '侧边切口数量', min: 1, max: 5, step: 1, defaultVal: () => 1 },
     { key: 'ticketCutSpread', label: '切口分布范围', min: 0.3, max: 1, step: 0.05, defaultVal: () => 0.68 },
-    { key: 'ticketCutOffsetY', label: '切口纵向偏移', min: -80, max: 80, step: 1, defaultVal: () => 0 },
-    { key: 'perforationMode', label: '撕线模式(0虚线/1打孔)', min: 0, max: 1, step: 1, defaultVal: () => 0 },
-    { key: 'perforationGap', label: '撕线间距', min: 4, max: 24, step: 1, defaultVal: () => 10 },
-    { key: 'perforationDotRadius', label: '打孔点半径', min: 0.8, max: 4, step: 0.1, defaultVal: () => 1.6 },
-    { key: 'perforationInset', label: '撕线内缩', min: 2, max: 30, step: 1, defaultVal: () => 7 },
-    { key: 'perforationOffset', label: '撕线偏移', min: -120, max: 120, step: 1, defaultVal: () => 0 },
+    { key: 'ticketCutOffsetY', label: '切口纵向偏移', min: -80, max: 80, step: 1, defaultVal: (_w, h) => -Math.min(14, h * 0.08) },
+    { key: 'perforationMode', label: '中间打孔模式(0虚线/1圆孔)', min: 0, max: 1, step: 1, defaultVal: () => 0 },
+    { key: 'perforationGap', label: '中间打孔间距', min: 4, max: 24, step: 1, defaultVal: () => 10 },
+    { key: 'perforationDotRadius', label: '中间打孔点半径', min: 0.8, max: 4, step: 0.1, defaultVal: () => 1.6 },
+    { key: 'perforationInset', label: '中间打孔端点内缩', min: 2, max: 30, step: 1, defaultVal: () => 7 },
   ],
   tag: [
     { key: 'cutSize', label: '尖顶高度', min: 10, max: 100, step: 1, defaultVal: (_w, h) => h * 0.2 },
@@ -655,6 +750,8 @@ export const presetParamsDefs: Record<PaperPreset, { key: keyof PresetParams; la
   ],
   stitched: [
     { key: 'stitchInset', label: '缝线内缩', min: 3, max: 20, step: 1, defaultVal: () => 8 },
+    { key: 'stitchCornerRadius', label: '缝线圆角', min: 0, max: 24, step: 0.5, defaultVal: () => 6 },
+    { key: 'stitchWidth', label: '缝线粗细', min: 0.6, max: 4, step: 0.1, defaultVal: () => 1.2 },
     { key: 'cornerRadius', label: '圆角', min: 0, max: 30, step: 1, defaultVal: () => 12 },
   ],
   'scalloped-edge': [

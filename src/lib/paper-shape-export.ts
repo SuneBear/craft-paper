@@ -9,6 +9,7 @@ export interface PaperShapeExportState {
   seed: number;
   roughness: number;
   paperColor: string;
+  strokeColor?: string;
   strokeWidth: number;
   patternType: PaperPatternType;
   patternParams?: PatternParams;
@@ -34,6 +35,7 @@ export function toPaperShapeJSX(state: PaperShapeExportState): string {
   const decoStr = state.decorations && state.decorations.length > 0
     ? `\n  decorations={${JSON.stringify(state.decorations, null, 2)}}`
     : '';
+  const strokeColorStr = state.strokeColor ? `\n  strokeColor="${state.strokeColor}"` : '';
 
   return `<PaperShape
   preset="${state.preset}"
@@ -41,7 +43,7 @@ export function toPaperShapeJSX(state: PaperShapeExportState): string {
   height={${state.height}}
   seed={${state.seed}}
   roughness={${state.roughness.toFixed(2)}}
-  paperColor="${state.paperColor}"
+  paperColor="${state.paperColor}"${strokeColorStr}
   strokeWidth={${state.strokeWidth}}
   patternType="${state.patternType}"
   showPattern={${state.patternType !== 'none'}}${patternParamsStr}${paramsStr}${decoStr}

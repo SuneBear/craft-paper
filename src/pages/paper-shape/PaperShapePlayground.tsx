@@ -7,6 +7,7 @@ import { presetInfo, type PaperPreset, type PresetParams } from '@/components/pa
 import { createDecoration, type DecorationItem, type DecorationTransform, type DecorationType } from '@/components/paper-shape/decorations';
 import { downloadText, serializeSvg, toPaperShapeJSX, toPaperShapeRecipe } from '@/lib/paper-shape-export';
 import { decodeShareState, encodeShareState } from '@/lib/paper-shape-share';
+import { createRandomPresetParams } from '@/lib/paper-shape-random';
 
 const allPresets: PaperPreset[] = [
   'stamp', 'coupon', 'ticket', 'tag',
@@ -26,6 +27,7 @@ export default function PaperShapePlayground() {
   const [seed, setSeed] = useState(42);
   const [roughness, setRoughness] = useState(0.3);
   const [paperColor, setPaperColor] = useState('cream');
+  const [strokeColor, setStrokeColor] = useState('#7a553f');
   const [strokeWidth, setStrokeWidth] = useState(1.8);
   const [patternType, setPatternType] = useState<PaperPatternType>('none');
   const [patternParams, setPatternParams] = useState<PatternParams>({});
@@ -42,6 +44,7 @@ export default function PaperShapePlayground() {
     if (typeof shared.seed === 'number') setSeed(shared.seed);
     if (typeof shared.roughness === 'number') setRoughness(shared.roughness);
     if (typeof shared.paperColor === 'string') setPaperColor(shared.paperColor);
+    if (typeof shared.strokeColor === 'string') setStrokeColor(shared.strokeColor);
     if (typeof shared.strokeWidth === 'number') setStrokeWidth(shared.strokeWidth);
     if (shared.patternType) setPatternType(shared.patternType);
     if (shared.patternParams) setPatternParams(shared.patternParams);
@@ -60,9 +63,9 @@ export default function PaperShapePlayground() {
     setRoughness(Math.random() * 0.6 + 0.1);
     setPaperColor(paperColors[Math.floor(Math.random() * paperColors.length)]);
     setPatternType(randomPatternTypes[Math.floor(Math.random() * randomPatternTypes.length)]);
-    setPresetParams({});
+    setPresetParams(createRandomPresetParams(preset, width, height, presetParams));
     setPatternParams({});
-  }, []);
+  }, [preset, width, height, presetParams]);
 
   const addDecoration = useCallback((type: DecorationType, variant: string) => {
     const x = width * 0.3 + Math.random() * width * 0.4;
@@ -90,12 +93,13 @@ export default function PaperShapePlayground() {
     seed,
     roughness,
     paperColor,
+    strokeColor,
     strokeWidth,
     patternType,
     patternParams,
     presetParams,
     decorations,
-  }), [preset, width, height, seed, roughness, paperColor, strokeWidth, patternType, patternParams, presetParams, decorations]);
+  }), [preset, width, height, seed, roughness, paperColor, strokeColor, strokeWidth, patternType, patternParams, presetParams, decorations]);
 
   const copyText = useCallback(async (text: string) => {
     try {
@@ -163,6 +167,7 @@ export default function PaperShapePlayground() {
           seed={seed}
           roughness={roughness}
           paperColor={paperColor}
+          strokeColor={strokeColor}
           strokeWidth={strokeWidth}
           showPattern={patternType !== 'none'}
           patternType={patternType}
@@ -195,6 +200,7 @@ export default function PaperShapePlayground() {
             seed={seed}
             roughness={roughness}
             paperColor={paperColor}
+            strokeColor={strokeColor}
             strokeWidth={strokeWidth}
             patternType={patternType}
             patternParams={patternParams}
@@ -204,6 +210,7 @@ export default function PaperShapePlayground() {
             setSeed={setSeed}
             setRoughness={setRoughness}
             setPaperColor={setPaperColor}
+            setStrokeColor={setStrokeColor}
             setStrokeWidth={setStrokeWidth}
             setPatternType={setPatternType}
             setPatternParams={setPatternParams}
