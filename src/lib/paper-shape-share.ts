@@ -14,6 +14,19 @@ export interface PaperShapeShareState {
   patternParams?: PatternParams;
   presetParams?: PresetParams;
   decorations?: DecorationItem[];
+  content?: {
+    enabled: boolean;
+    title: string;
+    subtitle: string;
+    emoji: string;
+    x?: number;
+    y?: number;
+    titleSize?: number;
+    subtitleSize?: number;
+    fontWeight?: number;
+    align?: 'left' | 'center' | 'right';
+    color?: string;
+  };
 }
 
 function toBase64Url(input: string): string {
@@ -41,4 +54,3 @@ export function decodeShareState(encoded: string | null): Partial<PaperShapeShar
     return null;
   }
 }
-

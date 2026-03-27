@@ -1,9 +1,11 @@
 import { PaperShape } from '@/components/paper-shape/PaperShape';
 import { presetInfo, type PaperPreset, type PresetParams } from '@/components/paper-shape/geometry';
 import type { DecorationItem } from '@/components/paper-shape/decorations';
+import { PaperShapeSampleContent } from '@/components/paper-shape/PaperShapeSampleContent';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { encodeShareState } from '@/lib/paper-shape-share';
 
 const allPresets: PaperPreset[] = [
   'stamp', 'coupon', 'ticket', 'tag',
@@ -21,6 +23,7 @@ interface ExampleItem {
   pattern: 'none' | 'lines' | 'grid' | 'dots';
   seed: number;
   title: string;
+  contentMode: number;
   presetParams?: PresetParams;
   decorations?: DecorationItem[];
 }
@@ -28,8 +31,8 @@ interface ExampleItem {
 function generateExamples(): ExampleItem[] {
   const examples: ExampleItem[] = [];
   const variantCountByPreset: Partial<Record<PaperPreset, number>> = {
-    coupon: 4,
-    ticket: 4,
+    coupon: 2,
+    ticket: 2,
     folded: 4,
   };
 
@@ -91,6 +94,20 @@ function generateExamples(): ExampleItem[] {
           { id: 'ex-staple-2', type: 'staple', variant: 'gold', transform: { x: 75, y: 5, rotation: 0, scale: 1.1 } },
         );
       }
+      if (preset === 'receipt' && v === 1) {
+        presetParams = {
+          zigzagHeight: 9,
+          zigzagEdge: 2, // 左侧锯齿，展示多方向能力
+        };
+      }
+      if (preset === 'scalloped-edge' && v === 1) {
+        presetParams = {
+          scallopRadius: 12,
+          scallopEdge: 2, // 仅右侧花边（与其他单边案例错开）
+          scallopGap: 24,
+          scallopDepth: 10,
+        };
+      }
 
       if (preset === 'coupon') {
         if (v === 0) {
@@ -98,6 +115,7 @@ function generateExamples(): ExampleItem[] {
             holeRadius: 16,
             notchRadius: 10,
             perforationMode: 0,
+            perforationOffset: 28,
           };
         }
         if (v === 1) {
@@ -109,31 +127,7 @@ function generateExamples(): ExampleItem[] {
             perforationMode: 1,
             perforationGap: 11,
             perforationDotRadius: 1.9,
-          };
-        }
-        if (v === 2) {
-          presetParams = {
-            holeRadius: 12,
-            notchRadius: 9,
-            couponHoleCount: 2,
-            couponHoleOffsetY: -22,
-            couponNotchOffsetX: -30,
-            perforationMode: 1,
             perforationOffset: -24,
-            perforationGap: 9,
-            perforationDotRadius: 1.4,
-          };
-        }
-        if (v === 3) {
-          presetParams = {
-            holeRadius: 10,
-            notchRadius: 7,
-            couponHoleCount: 4,
-            couponHoleSpread: 0.95,
-            couponNotchOffsetX: 24,
-            perforationMode: 0,
-            perforationGap: 7,
-            perforationOffset: 20,
           };
         }
       }
@@ -146,6 +140,7 @@ function generateExamples(): ExampleItem[] {
             ticketStubWidth: 46,
             ticketCutCount: 1,
             perforationMode: 0,
+            perforationOffset: -10,
           };
         }
         if (v === 1) {
@@ -158,33 +153,7 @@ function generateExamples(): ExampleItem[] {
             perforationMode: 1,
             perforationGap: 10,
             perforationDotRadius: 1.8,
-          };
-        }
-        if (v === 2) {
-          presetParams = {
-            cutRadius: 9,
-            ticketStubSide: 2,
-            ticketStubWidth: 36,
-            ticketCutCount: 4,
-            ticketCutSpread: 0.9,
-            ticketCutOffsetY: -18,
-            perforationMode: 1,
-            perforationOffset: -16,
-            perforationGap: 8,
-            perforationDotRadius: 1.3,
-          };
-        }
-        if (v === 3) {
-          presetParams = {
-            cutRadius: 14,
-            cornerRadius: 16,
-            ticketStubSide: 3,
-            ticketStubWidth: 34,
-            ticketCutCount: 2,
-            ticketCutOffsetY: 22,
-            perforationMode: 0,
-            perforationGap: 6,
-            perforationOffset: 18,
+            perforationOffset: 10,
           };
         }
       }
@@ -196,6 +165,7 @@ function generateExamples(): ExampleItem[] {
         pattern: patternTypes[(i + v) % patternTypes.length],
         seed: i * 13 + v * 7 + 42,
         title: `${presetInfo[preset].label} ${v > 0 ? `变体 ${v + 1}` : ''}`.trim(),
+        contentMode: (i + v) % 5,
         presetParams,
         decorations: decos.length > 0 ? decos : undefined,
       });
@@ -237,6 +207,20 @@ export default function PaperShapeExamples() {
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
         {filtered.map((ex, i) => {
           const info = presetInfo[ex.preset];
+          const encodedState = encodeShareState({
+            preset: ex.preset,
+            width: 180,
+            height: 140,
+            seed: ex.seed,
+            roughness: 0.3,
+            paperColor: ex.color,
+            strokeWidth: 1.8,
+            patternType: ex.pattern,
+            patternParams: {},
+            presetParams: ex.presetParams,
+            decorations: ex.decorations,
+          });
+          const detailLink = `/ui/paper-shape/preset/${ex.preset}?s=${encodeURIComponent(encodedState)}&cm=${ex.contentMode}&ct=${encodeURIComponent(ex.title)}`;
           return (
             <motion.div
               key={ex.id}
@@ -245,7 +229,7 @@ export default function PaperShapeExamples() {
               transition={{ delay: i * 0.04 }}
               className="flex flex-col items-center gap-2 group cursor-pointer"
             >
-              <Link to={`/ui/paper-shape/preset/${ex.preset}`} className="flex flex-col items-center gap-2">
+              <Link to={detailLink} className="flex flex-col items-center gap-2">
                 <div className="transition-transform group-hover:scale-105 group-hover:-rotate-1">
                   <PaperShape
                     preset={ex.preset}
@@ -258,12 +242,7 @@ export default function PaperShapeExamples() {
                     presetParams={ex.presetParams}
                     decorations={ex.decorations}
                   >
-                    <div className="text-center">
-                      <span className="text-2xl block">{info.emoji}</span>
-                      <span className="text-xs font-craft text-ink-stroke mt-1 block opacity-70">
-                        {ex.title}
-                      </span>
-                    </div>
+                    <PaperShapeSampleContent mode={ex.contentMode} title={ex.title} emoji={info.emoji} preset={ex.preset} />
                   </PaperShape>
                 </div>
                 <div className="text-center">

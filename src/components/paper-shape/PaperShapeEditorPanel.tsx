@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { presetInfo, presetParamsDefs, type PaperPreset, type PresetParams } from './geometry';
 import type { PaperPatternType, PatternParams } from './PaperShape';
+import { cn } from '@/lib/utils';
 
 const paperColors = [
   { key: 'cream', label: '奶油' },
@@ -12,6 +13,21 @@ const paperColors = [
   { key: 'sky', label: '天空蓝' },
   { key: 'lavender', label: '薰衣草' },
 ];
+
+const paperColorHexMap: Record<string, string> = {
+  cream: '#f9ec8f',
+  cloud: '#f6f2df',
+  pink: '#f8c0cf',
+  apricot: '#f7c28f',
+  peach: '#f7a78f',
+  mint: '#beeecd',
+  sky: '#b7dbff',
+  lavender: '#d8bff3',
+};
+
+function isHexColor(value: string): boolean {
+  return /^#([0-9a-fA-F]{6})$/.test(value);
+}
 
 const patternOptions = [
   { key: 'none' as const, label: '无' },
@@ -60,9 +76,28 @@ interface PaperShapeEditorPanelProps {
   onCopyRecipe: () => void;
   onCopySvg: () => void;
   onDownloadSvg: () => void;
+  onCopyShareLink?: () => void;
   headerTitle?: string;
   headerRight?: ReactNode;
   extraSections?: ReactNode;
+  internalScroll?: boolean;
+  textContent?: {
+    enabled: boolean;
+    title: string;
+    subtitle: string;
+    emoji: string;
+  };
+  setTextContent?: (fn: (prev: {
+    enabled: boolean;
+    title: string;
+    subtitle: string;
+    emoji: string;
+  }) => {
+    enabled: boolean;
+    title: string;
+    subtitle: string;
+    emoji: string;
+  }) => void;
 }
 
 export function PaperShapeEditorPanel({
@@ -89,9 +124,13 @@ export function PaperShapeEditorPanel({
   onCopyRecipe,
   onCopySvg,
   onDownloadSvg,
+  onCopyShareLink,
   headerTitle,
   headerRight,
   extraSections,
+  internalScroll = false,
+  textContent,
+  setTextContent,
 }: PaperShapeEditorPanelProps) {
   const currentParamDefs = presetParamsDefs[preset];
   const foldCornerMask = Math.round(presetParams.foldCorners ?? 2) || 2;
@@ -106,13 +145,62 @@ export function PaperShapeEditorPanel({
   const setParamValue = (key: keyof PresetParams, val: number) => {
     setPresetParams((prev) => ({ ...prev, [key]: val }));
   };
+  const paperColorPickerValue = isHexColor(paperColor) ? paperColor : (paperColorHexMap[paperColor] || '#f7e8bf');
 
   return (
-    <div className="space-y-4 bg-card rounded-2xl border border-border p-5 self-stretch">
+    <div
+      className={cn(
+        'space-y-4 bg-card rounded-2xl border border-border p-5 self-stretch',
+        internalScroll && 'lg:h-full lg:max-h-[calc(100vh-220px)] lg:overflow-y-auto'
+      )}
+      style={internalScroll ? { scrollbarGutter: 'stable' } : undefined}
+    >
       {(headerTitle || headerRight) && (
         <div className="flex items-center justify-between">
           {headerTitle ? <h3 className="font-hand text-xl font-semibold">{headerTitle}</h3> : <div />}
           {headerRight}
+        </div>
+      )}
+
+      {textContent && setTextContent && (
+        <div className="space-y-3 p-3 rounded-xl bg-muted/50 border border-border">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-craft font-semibold text-foreground block">📝 文字内容</label>
+            <button
+              onClick={() => setTextContent((prev) => ({ ...prev, enabled: !prev.enabled }))}
+              className={`px-2 py-1 rounded-md text-[10px] font-craft transition ${
+                textContent.enabled ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {textContent.enabled ? '已启用' : '已关闭'}
+            </button>
+          </div>
+          <div className="grid grid-cols-[56px_1fr] items-center gap-2">
+            <label className="text-[10px] font-craft text-muted-foreground">Emoji</label>
+            <input
+              type="text"
+              value={textContent.emoji}
+              onChange={(e) => setTextContent((prev) => ({ ...prev, emoji: e.target.value }))}
+              className="h-8 rounded-md border border-border bg-background px-2 text-xs font-craft text-foreground"
+              placeholder="🎟️"
+            />
+            <label className="text-[10px] font-craft text-muted-foreground">标题</label>
+            <input
+              type="text"
+              value={textContent.title}
+              onChange={(e) => setTextContent((prev) => ({ ...prev, title: e.target.value }))}
+              className="h-8 rounded-md border border-border bg-background px-2 text-xs font-craft text-foreground"
+              placeholder="输入主标题"
+            />
+            <label className="text-[10px] font-craft text-muted-foreground">副标题</label>
+            <input
+              type="text"
+              value={textContent.subtitle}
+              onChange={(e) => setTextContent((prev) => ({ ...prev, subtitle: e.target.value }))}
+              className="h-8 rounded-md border border-border bg-background px-2 text-xs font-craft text-foreground"
+              placeholder="输入副标题"
+            />
+          </div>
         </div>
       )}
 
@@ -236,6 +324,22 @@ export function PaperShapeEditorPanel({
               {c.label}
             </button>
           ))}
+        </div>
+        <div className="mt-2 flex items-center gap-2">
+          <input
+            type="color"
+            value={paperColorPickerValue}
+            onChange={(e) => setPaperColor(e.target.value)}
+            className="h-8 w-10 p-0 border border-border rounded bg-transparent cursor-pointer"
+            title="自定义颜色"
+          />
+          <input
+            type="text"
+            value={paperColor}
+            onChange={(e) => setPaperColor(e.target.value)}
+            className="h-8 flex-1 rounded-md border border-border bg-background px-2 text-xs font-craft text-foreground"
+            placeholder="输入 #RRGGBB / hsl(...) / rgb(...)"
+          />
         </div>
       </div>
 
@@ -383,9 +487,16 @@ export function PaperShapeEditorPanel({
           <button onClick={onDownloadSvg} className="px-3 py-2 rounded-lg bg-muted text-foreground font-craft text-xs font-medium hover:opacity-90 transition">
             ⬇️ 下载 SVG
           </button>
+          {onCopyShareLink && (
+            <button
+              onClick={onCopyShareLink}
+              className="col-span-2 px-3 py-2 rounded-lg bg-accent text-accent-foreground font-craft text-xs font-medium hover:opacity-90 transition"
+            >
+              🔗 复制分享链接
+            </button>
+          )}
         </div>
       </div>
     </div>
   );
 }
-

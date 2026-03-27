@@ -1,4 +1,5 @@
-import React, { useMemo, useId, useRef, useCallback } from 'react';
+import React, { useMemo, useId, useRef, useCallback, useEffect, useState } from 'react';
+import { DndContext, type DragEndEvent, type DragMoveEvent, type DragStartEvent } from '@dnd-kit/core';
 import { generatePath, getTagHole, getFoldTriangles, getStitchPath, generateStitchDashes } from './geometry';
 import type { PaperPreset, ShapeConfig, PresetParams } from './geometry';
 import type { DecorationItem, DecorationTransform } from './decorations';
@@ -44,6 +45,7 @@ export interface PaperShapeProps {
   onDecorationChange?: (id: string, transform: DecorationTransform) => void;
   onDecorationRemove?: (id: string) => void;
   interactiveDecorations?: boolean;
+  contentInteractive?: boolean;
 }
 
 const PAPER_COLORS: Record<string, string> = {
@@ -86,6 +88,7 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
   onDecorationChange,
   onDecorationRemove,
   interactiveDecorations = false,
+  contentInteractive = false,
 }) => {
   const uid = useId().replace(/:/g, '');
   const clipId = `clip-${uid}`;
@@ -130,7 +133,8 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
 
     if (preset === 'coupon') {
       const notchR = presetParams?.notchRadius ?? Math.min(width, height) * 0.06;
-      const x = width / 2 + offset;
+      const notchOffset = presetParams?.couponPosition ?? presetParams?.couponNotchOffsetX ?? 0;
+      const x = width / 2 + (presetParams?.perforationOffset ?? notchOffset);
       const y1 = notchR + inset;
       const y2 = height - notchR - inset;
       if (y2 <= y1) return null;
@@ -208,8 +212,12 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     presetParams?.perforationGap,
     presetParams?.perforationInset,
     presetParams?.perforationOffset,
+    presetParams?.couponNotchOffsetX,
+    presetParams?.couponPosition,
     presetParams?.perforationDotRadius,
     presetParams?.perforationMode,
+    presetParams?.ticketStubSide,
+    presetParams?.ticketStubWidth,
     width,
     height,
   ]);
@@ -231,10 +239,103 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     return points;
   }, [perforationGuide]);
   const hasCutoutMask = !!tagHole || perforationDots.length > 0;
+  const contentSafeInsets = useMemo(() => {
+    const insets = { top: 0, right: 0, bottom: 0, left: 0 };
+    const reserveBandOnLargerSide = (axis: 'vertical' | 'horizontal', pos: number, halfBand: number) => {
+      if (axis === 'vertical') {
+        const clampedX = Math.max(0, Math.min(width, pos));
+        const leftSpan = Math.max(0, clampedX - halfBand);
+        const rightSpan = Math.max(0, width - (clampedX + halfBand));
+        if (Math.max(leftSpan, rightSpan) < 96) return;
+        if (leftSpan >= rightSpan) {
+          insets.right = Math.max(insets.right, width - (clampedX - halfBand));
+        } else {
+          insets.left = Math.max(insets.left, clampedX + halfBand);
+        }
+        return;
+      }
+
+      const clampedY = Math.max(0, Math.min(height, pos));
+      const topSpan = Math.max(0, clampedY - halfBand);
+      const bottomSpan = Math.max(0, height - (clampedY + halfBand));
+      if (Math.max(topSpan, bottomSpan) < 72) return;
+      if (topSpan >= bottomSpan) {
+        insets.bottom = Math.max(insets.bottom, height - (clampedY - halfBand));
+      } else {
+        insets.top = Math.max(insets.top, clampedY + halfBand);
+      }
+    };
+
+    if (preset === 'coupon') {
+      const holeR = Math.max(4, presetParams?.holeRadius ?? Math.min(width, height) * 0.1);
+      const notchR = Math.max(3, presetParams?.notchRadius ?? Math.min(width, height) * 0.06);
+      const direction = Math.round(presetParams?.couponDirection ?? 0);
+      const edgeSafe = Math.max(8, holeR + 4);
+      const notchSafe = Math.max(8, notchR + 4);
+
+      if (direction === 1) {
+        insets.top = Math.max(insets.top, edgeSafe);
+        insets.bottom = Math.max(insets.bottom, edgeSafe);
+        insets.left = Math.max(insets.left, notchSafe);
+        insets.right = Math.max(insets.right, notchSafe);
+      } else {
+        insets.left = Math.max(insets.left, edgeSafe);
+        insets.right = Math.max(insets.right, edgeSafe);
+        insets.top = Math.max(insets.top, notchSafe);
+        insets.bottom = Math.max(insets.bottom, notchSafe);
+      }
+    }
+
+    if (preset === 'ticket') {
+      const cutR = Math.max(4, presetParams?.cutRadius ?? Math.min(width, height) * 0.11);
+      const side = presetParams?.ticketStubSide;
+      const edgeSafe = Math.max(8, cutR + 4);
+      if (side === undefined) {
+        insets.left = Math.max(insets.left, edgeSafe);
+        insets.right = Math.max(insets.right, edgeSafe);
+      } else if (side === 0) {
+        insets.right = Math.max(insets.right, edgeSafe);
+      } else if (side === 1) {
+        insets.left = Math.max(insets.left, edgeSafe);
+      } else if (side === 2) {
+        insets.top = Math.max(insets.top, edgeSafe);
+      } else {
+        insets.bottom = Math.max(insets.bottom, edgeSafe);
+      }
+    }
+
+    if (perforationGuide) {
+      const isCenteredCouponPerforation = (
+        preset === 'coupon' &&
+        perforationGuide.axis === 'vertical' &&
+        Math.abs(perforationGuide.x1 - width / 2) < width * 0.2
+      );
+      const isCenteredTicketPerforation = (
+        preset === 'ticket' &&
+        (
+          (perforationGuide.axis === 'vertical' && Math.abs(perforationGuide.x1 - width / 2) < width * 0.22) ||
+          (perforationGuide.axis === 'horizontal' && Math.abs(perforationGuide.y1 - height / 2) < height * 0.22)
+        )
+      );
+
+      if (!isCenteredCouponPerforation && !isCenteredTicketPerforation) {
+        const halfBand = Math.max(7, perforationGuide.dotRadius * 2.8 + 3);
+        if (perforationGuide.axis === 'vertical') {
+          reserveBandOnLargerSide('vertical', perforationGuide.x1, halfBand);
+        } else {
+          reserveBandOnLargerSide('horizontal', perforationGuide.y1, halfBand);
+        }
+      }
+    }
+
+    return insets;
+  }, [preset, presetParams, perforationGuide, width, height]);
 
   const padding = 16;
   const svgW = width + padding * 2;
   const svgH = height + padding * 2;
+  const dragOriginRef = useRef<Record<string, DecorationTransform>>({});
+  const [selectedDecorationId, setSelectedDecorationId] = useState<string | null>(null);
 
   const handleDecoChange = useCallback((id: string, t: DecorationTransform) => {
     onDecorationChange?.(id, t);
@@ -244,10 +345,48 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     onDecorationRemove?.(id);
   }, [onDecorationRemove]);
 
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    const id = String(event.active.id);
+    const current = decorations.find((d) => d.id === id)?.transform;
+    if (!current) return;
+    dragOriginRef.current[id] = current;
+  }, [decorations]);
+
+  const handleDragMove = useCallback((event: DragMoveEvent) => {
+    const id = String(event.active.id);
+    const origin = dragOriginRef.current[id];
+    if (!origin) return;
+    onDecorationChange?.(id, {
+      ...origin,
+      x: origin.x + event.delta.x,
+      y: origin.y + event.delta.y,
+    });
+  }, [onDecorationChange]);
+
+  const clearDragState = useCallback((event: DragEndEvent | DragMoveEvent | DragStartEvent) => {
+    const id = String(event.active.id);
+    delete dragOriginRef.current[id];
+  }, []);
+
+  useEffect(() => {
+    if (!selectedDecorationId) return;
+    if (!decorations.some((d) => d.id === selectedDecorationId)) {
+      setSelectedDecorationId(null);
+    }
+  }, [decorations, selectedDecorationId]);
+
+  const handleCanvasPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (!interactiveDecorations) return;
+    const target = event.target;
+    if (target instanceof Element && target.closest('[data-decoration-id]')) return;
+    setSelectedDecorationId(null);
+  }, [interactiveDecorations]);
+
   return (
     <div
       className={cn('relative inline-block', className)}
       style={{ width: svgW, height: svgH, ...style }}
+      onPointerDown={handleCanvasPointerDown}
       onClick={onClick}
     >
       <svg
@@ -404,16 +543,24 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
         )}
 
         {/* Decorations layer */}
-        {decorations.map((deco) => (
-          <DraggableDecoration
-            key={deco.id}
-            item={deco}
-            onChange={handleDecoChange}
-            onRemove={handleDecoRemove}
-            interactive={interactiveDecorations}
-            containerRef={svgRef}
-          />
-        ))}
+        <DndContext
+          onDragStart={handleDragStart}
+          onDragMove={handleDragMove}
+          onDragEnd={clearDragState}
+          onDragCancel={clearDragState}
+        >
+          {decorations.map((deco) => (
+            <DraggableDecoration
+              key={deco.id}
+              item={deco}
+              onChange={handleDecoChange}
+              onRemove={handleDecoRemove}
+              selected={selectedDecorationId === deco.id}
+              onSelect={setSelectedDecorationId}
+              interactive={interactiveDecorations}
+            />
+          ))}
+        </DndContext>
       </svg>
 
       {/* Content overlay */}
@@ -421,8 +568,11 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
         <div
           className="absolute inset-0 flex items-center justify-center"
           style={{
-            padding: `${padding + 12}px`,
-            pointerEvents: interactiveDecorations ? 'none' : 'auto',
+            paddingTop: `${padding + 12 + contentSafeInsets.top}px`,
+            paddingRight: `${padding + 12 + contentSafeInsets.right}px`,
+            paddingBottom: `${padding + 12 + contentSafeInsets.bottom}px`,
+            paddingLeft: `${padding + 12 + contentSafeInsets.left}px`,
+            pointerEvents: contentInteractive ? 'auto' : (interactiveDecorations ? 'none' : 'auto'),
           }}
         >
           {children}

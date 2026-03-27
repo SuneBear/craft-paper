@@ -1,9 +1,12 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { PaperShape, type PaperPatternType, type PatternParams } from '@/components/paper-shape/PaperShape';
 import { PaperShapeEditorPanel } from '@/components/paper-shape/PaperShapeEditorPanel';
+import { DecorationEditorSection } from '@/components/paper-shape/DecorationEditorSection';
 import { presetInfo, type PaperPreset, type PresetParams } from '@/components/paper-shape/geometry';
-import { decorationCatalog, createDecoration, type DecorationItem, type DecorationTransform, type DecorationType } from '@/components/paper-shape/decorations';
+import { createDecoration, type DecorationItem, type DecorationTransform, type DecorationType } from '@/components/paper-shape/decorations';
 import { downloadText, serializeSvg, toPaperShapeJSX, toPaperShapeRecipe } from '@/lib/paper-shape-export';
+import { decodeShareState, encodeShareState } from '@/lib/paper-shape-share';
 
 const allPresets: PaperPreset[] = [
   'stamp', 'coupon', 'ticket', 'tag',
@@ -15,6 +18,7 @@ const paperColors = ['cream', 'cloud', 'pink', 'apricot', 'peach', 'mint', 'sky'
 const randomPatternTypes: PaperPatternType[] = ['none', 'lines', 'grid', 'dots', 'diagonal', 'waves'];
 
 export default function PaperShapePlayground() {
+  const [searchParams] = useSearchParams();
   const previewRef = useRef<HTMLDivElement>(null);
   const [preset, setPreset] = useState<PaperPreset>('stamp');
   const [width, setWidth] = useState(280);
@@ -28,6 +32,22 @@ export default function PaperShapePlayground() {
   const [presetParams, setPresetParams] = useState<PresetParams>({});
   const [decorations, setDecorations] = useState<DecorationItem[]>([]);
   const [activeDecoTab, setActiveDecoTab] = useState<DecorationType>('staple');
+
+  useEffect(() => {
+    const shared = decodeShareState(searchParams.get('s'));
+    if (!shared) return;
+    if (shared.preset && allPresets.includes(shared.preset)) setPreset(shared.preset);
+    if (typeof shared.width === 'number') setWidth(shared.width);
+    if (typeof shared.height === 'number') setHeight(shared.height);
+    if (typeof shared.seed === 'number') setSeed(shared.seed);
+    if (typeof shared.roughness === 'number') setRoughness(shared.roughness);
+    if (typeof shared.paperColor === 'string') setPaperColor(shared.paperColor);
+    if (typeof shared.strokeWidth === 'number') setStrokeWidth(shared.strokeWidth);
+    if (shared.patternType) setPatternType(shared.patternType);
+    if (shared.patternParams) setPatternParams(shared.patternParams);
+    if (shared.presetParams) setPresetParams(shared.presetParams);
+    if (shared.decorations) setDecorations(shared.decorations);
+  }, [searchParams]);
 
   const handlePresetChange = useCallback((p: PaperPreset) => {
     setPreset(p);
@@ -110,11 +130,32 @@ export default function PaperShapePlayground() {
     downloadText(`paper-shape-${preset}.svg`, svgText, 'image/svg+xml;charset=utf-8');
   }, [getSvgText, preset]);
 
-  const activeCategory = decorationCatalog.find(c => c.type === activeDecoTab)!;
+  const handleCopyShareLink = useCallback(() => {
+    const encoded = encodeShareState(getExportState());
+    const url = new URL(window.location.href);
+    url.searchParams.set('s', encoded);
+    void copyText(url.toString());
+  }, [copyText, getExportState]);
 
   return (
-    <div className="grid lg:grid-cols-[1fr_340px] gap-8 lg:min-h-[calc(100vh-180px)]">
-      <div ref={previewRef} className="flex flex-col items-center justify-center min-h-[400px] lg:min-h-full bg-card rounded-2xl border border-border p-8">
+    <div className="grid lg:grid-cols-[minmax(0,1fr)_340px] gap-8 lg:h-[calc(100vh-220px)] lg:overflow-hidden">
+      <div ref={previewRef} className="relative flex flex-col items-center justify-center min-h-[400px] lg:min-h-0 lg:h-full bg-card rounded-2xl border border-border p-8">
+        <div className="absolute top-3 left-3 right-3 z-10 flex items-center gap-1.5 overflow-x-auto pb-1 px-1 py-1">
+          <span className="shrink-0 text-[11px] font-craft text-muted-foreground px-1">形状</span>
+          {allPresets.map((p) => (
+            <button
+              key={p}
+              onClick={() => handlePresetChange(p)}
+              className={`shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-craft transition ${
+                preset === p
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {presetInfo[p].emoji} {presetInfo[p].label}
+            </button>
+          ))}
+        </div>
         <PaperShape
           preset={preset}
           width={width}
@@ -145,109 +186,55 @@ export default function PaperShapePlayground() {
         )}
       </div>
 
-      <div className="space-y-5 self-stretch">
-        <div className="bg-card rounded-2xl border border-border p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-craft font-medium text-muted-foreground">形状预设</label>
-            <button
-              onClick={randomize}
-              className="px-3 py-1.5 rounded-lg bg-secondary text-secondary-foreground text-xs font-craft font-medium hover:opacity-80 transition"
-            >
-              🎲 随机
-            </button>
-          </div>
-          <div className="grid grid-cols-2 gap-1.5">
-            {allPresets.map((p) => (
+      <div className="self-stretch lg:min-h-0 lg:h-full flex flex-col gap-5">
+        <div className="lg:min-h-0 lg:flex-1">
+          <PaperShapeEditorPanel
+            preset={preset}
+            width={width}
+            height={height}
+            seed={seed}
+            roughness={roughness}
+            paperColor={paperColor}
+            strokeWidth={strokeWidth}
+            patternType={patternType}
+            patternParams={patternParams}
+            presetParams={presetParams}
+            setWidth={setWidth}
+            setHeight={setHeight}
+            setSeed={setSeed}
+            setRoughness={setRoughness}
+            setPaperColor={setPaperColor}
+            setStrokeWidth={setStrokeWidth}
+            setPatternType={setPatternType}
+            setPatternParams={setPatternParams}
+            setPresetParams={setPresetParams}
+            onCopyJSX={handleCopyJSX}
+            onCopyRecipe={handleCopyRecipe}
+            onCopySvg={handleCopySvg}
+            onDownloadSvg={handleDownloadSvg}
+            onCopyShareLink={handleCopyShareLink}
+            headerTitle="参数调节"
+            internalScroll
+            headerRight={(
               <button
-                key={p}
-                onClick={() => handlePresetChange(p)}
-                className={`px-2 py-1.5 rounded-lg text-xs font-craft transition ${
-                  preset === p
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted text-muted-foreground hover:text-foreground'
-                }`}
+                onClick={randomize}
+                className="px-3 py-1.5 rounded-lg bg-secondary text-secondary-foreground text-xs font-craft font-medium hover:opacity-80 transition"
               >
-                {presetInfo[p].emoji} {presetInfo[p].label}
+                🎲 随机
               </button>
-            ))}
-          </div>
+            )}
+            extraSections={(
+              <DecorationEditorSection
+                activeType={activeDecoTab}
+                onChangeType={setActiveDecoTab}
+                onAdd={addDecoration}
+                count={decorations.length}
+                onClear={clearDecorations}
+              />
+            )}
+          />
         </div>
-
-        <PaperShapeEditorPanel
-          preset={preset}
-          width={width}
-          height={height}
-          seed={seed}
-          roughness={roughness}
-          paperColor={paperColor}
-          strokeWidth={strokeWidth}
-          patternType={patternType}
-          patternParams={patternParams}
-          presetParams={presetParams}
-          setWidth={setWidth}
-          setHeight={setHeight}
-          setSeed={setSeed}
-          setRoughness={setRoughness}
-          setPaperColor={setPaperColor}
-          setStrokeWidth={setStrokeWidth}
-          setPatternType={setPatternType}
-          setPatternParams={setPatternParams}
-          setPresetParams={setPresetParams}
-          onCopyJSX={handleCopyJSX}
-          onCopyRecipe={handleCopyRecipe}
-          onCopySvg={handleCopySvg}
-          onDownloadSvg={handleDownloadSvg}
-          headerTitle="参数调节"
-          extraSections={(
-            <div className="space-y-3 p-3 rounded-xl bg-muted/50 border border-border">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-craft font-semibold text-foreground block">🎨 装饰元素</label>
-                {decorations.length > 0 && (
-                  <button onClick={clearDecorations} className="text-[10px] font-craft text-destructive hover:underline">
-                    清空全部
-                  </button>
-                )}
-              </div>
-
-              <div className="flex gap-1">
-                {decorationCatalog.map((cat) => (
-                  <button
-                    key={cat.type}
-                    onClick={() => setActiveDecoTab(cat.type)}
-                    className={`flex-1 px-2 py-1.5 rounded-lg text-[11px] font-craft transition ${
-                      activeDecoTab === cat.type
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-background text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {cat.emoji} {cat.label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex gap-1.5 flex-wrap">
-                {activeCategory.variants.map((v) => (
-                  <button
-                    key={v.key}
-                    onClick={() => addDecoration(activeDecoTab, v.key)}
-                    className="px-2.5 py-1.5 rounded-lg text-[10px] font-craft bg-background text-foreground border border-border hover:border-primary hover:bg-primary/5 transition"
-                    title={`添加 ${v.label}`}
-                  >
-                    + {v.label}
-                  </button>
-                ))}
-              </div>
-
-              {decorations.length > 0 && (
-                <p className="text-[10px] text-muted-foreground font-craft">
-                  已添加 {decorations.length} 个装饰
-                </p>
-              )}
-            </div>
-          )}
-        />
       </div>
     </div>
   );
 }
-

@@ -68,16 +68,31 @@ export default function PaperShapeStack() {
             <h3 className="font-hand text-xl font-semibold mb-1">{stack.title}</h3>
             <p className="text-xs text-muted-foreground font-craft mb-5">{stack.desc}</p>
 
-            <div className="relative flex items-center justify-center min-h-[240px]">
+            <motion.div
+              className="relative flex items-center justify-center min-h-[240px]"
+              initial="rest"
+              animate="rest"
+              whileHover="hover"
+            >
               {stack.items.map((item, i) => (
                 <motion.div
                   key={i}
                   className="absolute"
-                  style={{
-                    transform: `translate(${item.offsetX}px, ${item.offsetY}px) rotate(${item.rotate}deg)`,
-                    zIndex: i,
+                  variants={{
+                    rest: {
+                      x: item.offsetX,
+                      y: item.offsetY,
+                      rotate: item.rotate,
+                      scale: 1,
+                    },
+                    hover: {
+                      x: item.offsetX + (i - (stack.items.length - 1) / 2) * 2,
+                      y: item.offsetY - (2 + i * 1.5),
+                      rotate: item.rotate + (item.rotate >= 0 ? 1.8 : -1.8),
+                      scale: 1.03 + i * 0.01,
+                    },
                   }}
-                  whileHover={{ scale: 1.08, zIndex: 10, rotate: 0 }}
+                  style={{ zIndex: i }}
                   transition={{ type: 'spring', stiffness: 300 }}
                 >
                   <PaperShape
@@ -93,7 +108,7 @@ export default function PaperShapeStack() {
                   </PaperShape>
                 </motion.div>
               ))}
-            </div>
+            </motion.div>
           </motion.div>
         ))}
       </div>

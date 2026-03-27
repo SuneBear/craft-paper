@@ -54,6 +54,9 @@ export interface PresetParams {
   cornerRadius?: number;        // 圆角大小
   // scalloped-edge
   scallopRadius?: number;       // 花边半径
+  scallopEdge?: number;         // 花边方向: 0四边 1上 2右 3下 4左
+  scallopGap?: number;          // 花边间距
+  scallopDepth?: number;        // 花边深度
   // receipt
   zigzagHeight?: number;        // 锯齿高度
   zigzagEdge?: number;          // 锯齿边方向: 0下 1上 2左 3右
@@ -218,7 +221,7 @@ function couponPath(w: number, h: number, rng: () => number, r: number, p: Prese
   const notchR = p.notchRadius ?? Math.min(w, h) * 0.06;
   const cr = p.cornerRadius ?? 14;
   const direction = Math.round(p.couponDirection ?? 0);
-  const position = p.couponPosition ?? p.couponNotchOffsetX ?? 0;
+  const position = p.couponPosition ?? p.couponNotchOffsetX ?? p.perforationOffset ?? 0;
 
   if (direction === 1) {
     const notchCenterY = clamp(h / 2 + position, cr + notchR + 2, h - cr - notchR - 2);
@@ -406,12 +409,67 @@ export function getStitchPath(w: number, h: number, params?: PresetParams): stri
 
 function scallopedPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
   const sr = p.scallopRadius ?? 12;
+  const edge = Math.round(p.scallopEdge ?? 0);
+  const spacing = Math.max(8, p.scallopGap ?? sr * 2.2);
+  const depthBase = Math.max(1, p.scallopDepth ?? sr * 0.7);
   const points: string[] = [];
 
-  const countH = Math.max(4, Math.round(w / (sr * 2.2)));
-  const countV = Math.max(3, Math.round(h / (sr * 2.2)));
+  const countH = Math.max(2, Math.round(w / spacing));
+  const countV = Math.max(2, Math.round(h / spacing));
   const stepH = w / countH;
   const stepV = h / countV;
+
+  if (edge === 1) {
+    points.push('M 0 0');
+    for (let i = 0; i < countH; i++) {
+      const x1 = i * stepH;
+      const x2 = (i + 1) * stepH;
+      const mid = (x1 + x2) / 2;
+      const d = wobble(depthBase, r * 2, rng);
+      points.push(`Q ${mid} ${-d} ${x2} 0`);
+    }
+    points.push(`L ${w} ${h} L 0 ${h} Z`);
+    return points.join(' ');
+  }
+
+  if (edge === 2) {
+    points.push(`M 0 0 L ${w} 0`);
+    for (let i = 0; i < countV; i++) {
+      const y1 = i * stepV;
+      const y2 = (i + 1) * stepV;
+      const mid = (y1 + y2) / 2;
+      const d = wobble(depthBase, r * 2, rng);
+      points.push(`Q ${w + d} ${mid} ${w} ${y2}`);
+    }
+    points.push(`L 0 ${h} Z`);
+    return points.join(' ');
+  }
+
+  if (edge === 3) {
+    points.push(`M 0 0 L ${w} 0 L ${w} ${h}`);
+    for (let i = countH; i > 0; i--) {
+      const x1 = i * stepH;
+      const x2 = (i - 1) * stepH;
+      const mid = (x1 + x2) / 2;
+      const d = wobble(depthBase, r * 2, rng);
+      points.push(`Q ${mid} ${h + d} ${x2} ${h}`);
+    }
+    points.push('Z');
+    return points.join(' ');
+  }
+
+  if (edge === 4) {
+    points.push(`M 0 0 L ${w} 0 L ${w} ${h} L 0 ${h}`);
+    for (let i = countV; i > 0; i--) {
+      const y1 = i * stepV;
+      const y2 = (i - 1) * stepV;
+      const mid = (y1 + y2) / 2;
+      const d = wobble(depthBase, r * 2, rng);
+      points.push(`Q ${-d} ${mid} 0 ${y2}`);
+    }
+    points.push('Z');
+    return points.join(' ');
+  }
 
   points.push(`M 0 0`);
 
@@ -419,7 +477,7 @@ function scallopedPath(w: number, h: number, rng: () => number, r: number, p: Pr
     const x1 = i * stepH;
     const x2 = (i + 1) * stepH;
     const mid = (x1 + x2) / 2;
-    const d = wobble(sr * 0.7, r * 2, rng);
+    const d = wobble(depthBase, r * 2, rng);
     points.push(`Q ${mid} ${-d} ${x2} 0`);
   }
 
@@ -427,7 +485,7 @@ function scallopedPath(w: number, h: number, rng: () => number, r: number, p: Pr
     const y1 = i * stepV;
     const y2 = (i + 1) * stepV;
     const mid = (y1 + y2) / 2;
-    const d = wobble(sr * 0.7, r * 2, rng);
+    const d = wobble(depthBase, r * 2, rng);
     points.push(`Q ${w + d} ${mid} ${w} ${y2}`);
   }
 
@@ -435,7 +493,7 @@ function scallopedPath(w: number, h: number, rng: () => number, r: number, p: Pr
     const x1 = i * stepH;
     const x2 = (i - 1) * stepH;
     const mid = (x1 + x2) / 2;
-    const d = wobble(sr * 0.7, r * 2, rng);
+    const d = wobble(depthBase, r * 2, rng);
     points.push(`Q ${mid} ${h + d} ${x2} ${h}`);
   }
 
@@ -443,7 +501,7 @@ function scallopedPath(w: number, h: number, rng: () => number, r: number, p: Pr
     const y1 = i * stepV;
     const y2 = (i - 1) * stepV;
     const mid = (y1 + y2) / 2;
-    const d = wobble(sr * 0.7, r * 2, rng);
+    const d = wobble(depthBase, r * 2, rng);
     points.push(`Q ${-d} ${mid} 0 ${y2}`);
   }
 
@@ -453,17 +511,55 @@ function scallopedPath(w: number, h: number, rng: () => number, r: number, p: Pr
 
 function receiptPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
   const zigH = p.zigzagHeight ?? 8;
+  const edge = Math.round(p.zigzagEdge ?? 0);
+
+  if (edge === 1) {
+    const steps = Math.max(8, Math.round(w / 12));
+    const stepW = w / steps;
+    let path = 'M 0 0';
+    for (let i = 1; i <= steps; i++) {
+      const x = i * stepW;
+      const peak = i % 2 === 0 ? 0 : -zigH;
+      path += ` L ${x} ${wobble(peak, r * 3, rng)}`;
+    }
+    path += ` L ${w} ${h} L 0 ${h} Z`;
+    return path;
+  }
+
+  if (edge === 2) {
+    const steps = Math.max(8, Math.round(h / 12));
+    const stepH = h / steps;
+    let path = `M 0 0 L ${w} 0 L ${w} ${h} L 0 ${h}`;
+    for (let i = steps - 1; i >= 0; i--) {
+      const y = i * stepH;
+      const peak = i % 2 === 0 ? -zigH : 0;
+      path += ` L ${wobble(peak, r * 3, rng)} ${y}`;
+    }
+    path += ' Z';
+    return path;
+  }
+
+  if (edge === 3) {
+    const steps = Math.max(8, Math.round(h / 12));
+    const stepH = h / steps;
+    let path = `M 0 0 L ${w} 0`;
+    for (let i = 1; i <= steps; i++) {
+      const y = i * stepH;
+      const peak = i % 2 === 0 ? w : w + zigH;
+      path += ` L ${wobble(peak, r * 3, rng)} ${y}`;
+    }
+    path += ` L 0 ${h} Z`;
+    return path;
+  }
+
   const steps = Math.max(8, Math.round(w / 12));
   const stepW = w / steps;
-
   let path = `M 0 0 L ${w} 0 L ${w} ${h}`;
-
   for (let i = steps; i >= 0; i--) {
     const x = i * stepW;
     const peak = i % 2 === 0 ? h + zigH : h;
     path += ` L ${x} ${wobble(peak, r * 3, rng)}`;
   }
-
   path += ' Z';
   return path;
 }
@@ -527,10 +623,13 @@ export const presetParamsDefs: Record<PaperPreset, { key: keyof PresetParams; la
     { key: 'cornerRadius', label: '圆角', min: 0, max: 30, step: 1, defaultVal: () => 12 },
   ],
   'scalloped-edge': [
-    { key: 'scallopRadius', label: '花边大小', min: 5, max: 30, step: 1, defaultVal: () => 12 },
+    { key: 'scallopEdge', label: '花边方向(0四边/1上/2右/3下/4左)', min: 0, max: 4, step: 1, defaultVal: () => 0 },
+    { key: 'scallopGap', label: '花边间距', min: 8, max: 80, step: 1, defaultVal: () => 26 },
+    { key: 'scallopDepth', label: '花边深度', min: 1, max: 28, step: 0.5, defaultVal: () => 8.4 },
   ],
   receipt: [
     { key: 'zigzagHeight', label: '锯齿高度', min: 2, max: 20, step: 1, defaultVal: () => 8 },
+    { key: 'zigzagEdge', label: '锯齿方向(0下/1上/2左/3右)', min: 0, max: 3, step: 1, defaultVal: () => 0 },
   ],
   'basic-paper': [
     { key: 'cornerRadius', label: '圆角', min: 0, max: 30, step: 1, defaultVal: () => 6 },
