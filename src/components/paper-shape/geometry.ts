@@ -204,19 +204,28 @@ function ticketPath(w: number, h: number, rng: () => number, r: number, p: Prese
 }
 
 function tagPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
-  const cs = p.cutSize ?? Math.min(w, h) * 0.15;
+  // Classic gift-tag shape: pointed top, rounded bottom corners
+  const pointH = p.cutSize ?? h * 0.2; // height of the pointed top triangle
+  const cr = p.cornerRadius ?? Math.min(w, h) * 0.08; // bottom corner radius
+  const midX = w / 2;
 
-  let path = `M 0 0 L ${w - cs} 0 L ${w} ${cs} L ${w} ${h}`;
-  path += ` L 0 ${h} Z`;
+  let path = `M ${midX} 0`; // top point
+  path += ` L ${w} ${pointH}`; // right slope
+  path += ` L ${w} ${h - cr}`; // right side down
+  path += ` Q ${w} ${h} ${w - cr} ${h}`; // bottom-right rounded corner
+  path += ` L ${cr} ${h}`; // bottom edge
+  path += ` Q 0 ${h} 0 ${h - cr}`; // bottom-left rounded corner
+  path += ` L 0 ${pointH}`; // left side up
+  path += ` Z`; // back to top point
   return path;
 }
 
 export function getTagHole(w: number, h: number, params?: PresetParams): { cx: number; cy: number; r: number } {
-  const cs = params?.cutSize ?? Math.min(w, h) * 0.15;
-  const hr = params?.tagHoleRadius ?? Math.min(w, h) * 0.05;
+  const pointH = params?.cutSize ?? h * 0.2;
+  const hr = params?.tagHoleRadius ?? Math.min(w, h) * 0.04;
   return {
-    cx: w - cs * 0.55,
-    cy: cs * 0.55,
+    cx: w / 2,
+    cy: pointH * 0.7,
     r: hr,
   };
 }
@@ -351,8 +360,9 @@ export const presetParamsDefs: Record<PaperPreset, { key: keyof PresetParams; la
     { key: 'cornerRadius', label: '圆角', min: 0, max: 30, step: 1, defaultVal: () => 10 },
   ],
   tag: [
-    { key: 'cutSize', label: '切角大小', min: 5, max: 60, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.15 },
-    { key: 'tagHoleRadius', label: '孔径', min: 2, max: 15, step: 0.5, defaultVal: (w, h) => Math.min(w, h) * 0.05 },
+    { key: 'cutSize', label: '尖顶高度', min: 10, max: 100, step: 1, defaultVal: (_w, h) => h * 0.2 },
+    { key: 'tagHoleRadius', label: '孔径', min: 2, max: 15, step: 0.5, defaultVal: (w, h) => Math.min(w, h) * 0.04 },
+    { key: 'cornerRadius', label: '底部圆角', min: 0, max: 30, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.08 },
   ],
   folded: [
     { key: 'foldSize', label: '折角大小', min: 10, max: 80, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.18 },
