@@ -1,6 +1,8 @@
-import React, { useMemo, useId } from 'react';
+import React, { useMemo, useId, useRef, useCallback } from 'react';
 import { generatePath, getTagHole, getFoldTriangle, getStitchPath, generateStitchDashes } from './geometry';
 import type { PaperPreset, ShapeConfig, PresetParams } from './geometry';
+import type { DecorationItem, DecorationTransform } from './decorations';
+import { DraggableDecoration } from './DraggableDecoration';
 import { cn } from '@/lib/utils';
 
 export interface PaperShapeProps {
@@ -19,6 +21,10 @@ export interface PaperShapeProps {
   style?: React.CSSProperties;
   onClick?: () => void;
   presetParams?: PresetParams;
+  decorations?: DecorationItem[];
+  onDecorationChange?: (id: string, transform: DecorationTransform) => void;
+  onDecorationRemove?: (id: string) => void;
+  interactiveDecorations?: boolean;
 }
 
 const PAPER_COLORS: Record<string, string> = {
@@ -56,11 +62,16 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
   style,
   onClick,
   presetParams,
+  decorations = [],
+  onDecorationChange,
+  onDecorationRemove,
+  interactiveDecorations = false,
 }) => {
   const uid = useId().replace(/:/g, '');
   const clipId = `clip-${uid}`;
   const patternId = `pat-${uid}`;
   const maskId = `mask-${uid}`;
+  const svgRef = useRef<SVGSVGElement>(null);
 
   const config: ShapeConfig = useMemo(() => ({
     width, height, preset, seed, roughness, params: presetParams,
@@ -82,6 +93,14 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
   const svgW = width + padding * 2;
   const svgH = height + padding * 2;
 
+  const handleDecoChange = useCallback((id: string, t: DecorationTransform) => {
+    onDecorationChange?.(id, t);
+  }, [onDecorationChange]);
+
+  const handleDecoRemove = useCallback((id: string) => {
+    onDecorationRemove?.(id);
+  }, [onDecorationRemove]);
+
   return (
     <div
       className={cn('relative inline-block', className)}
@@ -89,18 +108,17 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
       onClick={onClick}
     >
       <svg
+        ref={svgRef}
         width={svgW}
         height={svgH}
         viewBox={`${-padding} ${-padding} ${svgW} ${svgH}`}
         className="absolute inset-0"
       >
         <defs>
-          {/* Clip path for content */}
           <clipPath id={clipId}>
             <path d={path} />
           </clipPath>
 
-          {/* Tag hole mask */}
           {tagHole && (
             <mask id={maskId}>
               <rect x={-padding} y={-padding} width={svgW} height={svgH} fill="white" />
@@ -108,7 +126,6 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
             </mask>
           )}
 
-          {/* Paper pattern */}
           {showPattern && patternType !== 'none' && (
             <pattern id={patternId} width={patternType === 'dots' ? 16 : 20} height={patternType === 'dots' ? 16 : 20} patternUnits="userSpaceOnUse">
               {patternType === 'lines' && (
@@ -196,6 +213,18 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
             strokeLinecap="round"
           />
         )}
+
+        {/* Decorations layer */}
+        {decorations.map((deco) => (
+          <DraggableDecoration
+            key={deco.id}
+            item={deco}
+            onChange={handleDecoChange}
+            onRemove={handleDecoRemove}
+            interactive={interactiveDecorations}
+            containerRef={svgRef}
+          />
+        ))}
       </svg>
 
       {/* Content overlay */}
@@ -204,6 +233,7 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
           className="absolute inset-0 flex items-center justify-center"
           style={{
             padding: `${padding + 12}px`,
+            pointerEvents: interactiveDecorations ? 'none' : 'auto',
           }}
         >
           {children}

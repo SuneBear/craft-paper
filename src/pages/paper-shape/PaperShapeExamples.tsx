@@ -1,5 +1,6 @@
 import { PaperShape } from '@/components/paper-shape/PaperShape';
 import { presetInfo, type PaperPreset } from '@/components/paper-shape/geometry';
+import type { DecorationItem } from '@/components/paper-shape/decorations';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 
@@ -19,13 +20,44 @@ interface ExampleItem {
   pattern: 'none' | 'lines' | 'grid' | 'dots';
   seed: number;
   title: string;
+  decorations?: DecorationItem[];
 }
 
 function generateExamples(): ExampleItem[] {
   const examples: ExampleItem[] = [];
   allPresets.forEach((preset, i) => {
-    // 2-3 variations per preset
     for (let v = 0; v < 2; v++) {
+      const decos: DecorationItem[] = [];
+      
+      // Add decorations to some examples for showcase
+      if (preset === 'basic-paper' && v === 0) {
+        decos.push(
+          { id: 'ex-staple-1', type: 'staple', variant: 'silver', transform: { x: 80, y: 4, rotation: 0, scale: 1 } },
+          { id: 'ex-sticker-1', type: 'sticker', variant: 'star', transform: { x: 140, y: 100, rotation: 12, scale: 0.9 } },
+        );
+      }
+      if (preset === 'folded' && v === 0) {
+        decos.push(
+          { id: 'ex-tape-1', type: 'washi-tape', variant: 'stripe-pink', transform: { x: 30, y: -8, rotation: -5, scale: 0.7 } },
+        );
+      }
+      if (preset === 'torn' && v === 1) {
+        decos.push(
+          { id: 'ex-tape-2', type: 'washi-tape', variant: 'dots-mint', transform: { x: 20, y: 10, rotation: 2, scale: 0.65 } },
+          { id: 'ex-sticker-2', type: 'sticker', variant: 'cat', transform: { x: 130, y: 90, rotation: -8, scale: 1.1 } },
+        );
+      }
+      if (preset === 'stitched' && v === 0) {
+        decos.push(
+          { id: 'ex-sticker-3', type: 'sticker', variant: 'heart', transform: { x: 145, y: 8, rotation: 15, scale: 0.85 } },
+        );
+      }
+      if (preset === 'receipt' && v === 0) {
+        decos.push(
+          { id: 'ex-staple-2', type: 'staple', variant: 'gold', transform: { x: 75, y: 5, rotation: 0, scale: 1.1 } },
+        );
+      }
+
       examples.push({
         id: `${preset}-${v}`,
         preset,
@@ -33,6 +65,7 @@ function generateExamples(): ExampleItem[] {
         pattern: patternTypes[(i + v) % patternTypes.length],
         seed: i * 13 + v * 7 + 42,
         title: `${presetInfo[preset].label} ${v > 0 ? `变体 ${v + 1}` : ''}`.trim(),
+        decorations: decos.length > 0 ? decos : undefined,
       });
     }
   });
@@ -89,6 +122,7 @@ export default function PaperShapeExamples() {
                   paperColor={ex.color}
                   showPattern={ex.pattern !== 'none'}
                   patternType={ex.pattern}
+                  decorations={ex.decorations}
                 >
                   <div className="text-center">
                     <span className="text-2xl block">{info.emoji}</span>
@@ -102,6 +136,7 @@ export default function PaperShapeExamples() {
                 <p className="text-xs font-craft font-medium text-foreground">{ex.title}</p>
                 <p className="text-[10px] text-muted-foreground font-craft">
                   {ex.color} · {ex.pattern === 'none' ? '无纹理' : ex.pattern}
+                  {ex.decorations && ` · ${ex.decorations.length}个装饰`}
                 </p>
               </div>
             </motion.div>
