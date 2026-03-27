@@ -107,17 +107,24 @@ export const StickerSVG: React.FC<RendererProps> = ({ variant, scale = 1 }) => {
 
   return (
     <g>
-      {/* Subtle shadow */}
-      <circle cx={size / 2 + 1} cy={size / 2 + 1} r={size / 2} fill="hsl(0,0%,0%)" opacity={0.06} />
-      {/* Background circle */}
-      <circle cx={size / 2} cy={size / 2} r={size / 2} fill="hsl(40, 40%, 97%)" stroke="hsl(25, 18%, 78%)" strokeWidth={0.8 * scale} />
-      {/* Emoji */}
       <text
         x={size / 2}
-        y={size / 2 + 1}
+        y={size / 2 + 1.4}
         textAnchor="middle"
         dominantBaseline="central"
-        fontSize={size * 0.55}
+        fontSize={size * 0.82}
+        style={{
+          filter: `
+            drop-shadow(1px 0 0 hsl(0 0% 100%))
+            drop-shadow(-1px 0 0 hsl(0 0% 100%))
+            drop-shadow(0 1px 0 hsl(0 0% 100%))
+            drop-shadow(0 -1px 0 hsl(0 0% 100%))
+            drop-shadow(1px 1px 0 hsl(0 0% 100%))
+            drop-shadow(-1px 1px 0 hsl(0 0% 100%))
+            drop-shadow(1px -1px 0 hsl(0 0% 100%))
+            drop-shadow(-1px -1px 0 hsl(0 0% 100%))
+          `,
+        }}
       >
         {v.emoji}
       </text>
