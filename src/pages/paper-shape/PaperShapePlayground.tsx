@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { PaperShape } from '@/components/paper-shape/PaperShape';
-import { presetInfo, presetParamsDefs, type PaperPreset, type PresetParams, generatePath } from '@/components/paper-shape/geometry';
+import { presetInfo, presetParamsDefs, type PaperPreset, type PresetParams } from '@/components/paper-shape/geometry';
+import { decorationCatalog, createDecoration, type DecorationItem, type DecorationTransform, type DecorationType } from '@/components/paper-shape/decorations';
 
 const allPresets: PaperPreset[] = [
   'stamp', 'coupon', 'ticket', 'tag',
@@ -36,8 +37,9 @@ export default function PaperShapePlayground() {
   const [strokeWidth, setStrokeWidth] = useState(1.8);
   const [patternType, setPatternType] = useState<'none' | 'lines' | 'grid' | 'dots'>('none');
   const [presetParams, setPresetParams] = useState<PresetParams>({});
+  const [decorations, setDecorations] = useState<DecorationItem[]>([]);
+  const [activeDecoTab, setActiveDecoTab] = useState<DecorationType>('staple');
 
-  // Get default values for current preset params
   const currentParamDefs = presetParamsDefs[preset];
 
   const getParamValue = useCallback((key: keyof PresetParams) => {
@@ -50,7 +52,6 @@ export default function PaperShapePlayground() {
     setPresetParams(prev => ({ ...prev, [key]: val }));
   }, []);
 
-  // Reset preset params when preset changes
   const handlePresetChange = useCallback((p: PaperPreset) => {
     setPreset(p);
     setPresetParams({});
@@ -64,13 +65,39 @@ export default function PaperShapePlayground() {
     setPresetParams({});
   }, []);
 
+  // ─── Decoration handlers ───
+  const addDecoration = useCallback((type: DecorationType, variant: string) => {
+    // Place near center of the paper with slight random offset
+    const x = width * 0.3 + Math.random() * width * 0.4;
+    const y = height * 0.3 + Math.random() * height * 0.4;
+    const deco = createDecoration(type, variant, x, y);
+    setDecorations(prev => [...prev, deco]);
+  }, [width, height]);
+
+  const handleDecorationChange = useCallback((id: string, transform: DecorationTransform) => {
+    setDecorations(prev => prev.map(d => d.id === id ? { ...d, transform } : d));
+  }, []);
+
+  const handleDecorationRemove = useCallback((id: string) => {
+    setDecorations(prev => prev.filter(d => d.id !== id));
+  }, []);
+
+  const clearDecorations = useCallback(() => {
+    setDecorations([]);
+  }, []);
+
   const copyCode = () => {
     const paramsStr = Object.keys(presetParams).length > 0
       ? `\n  presetParams={${JSON.stringify(presetParams)}}`
       : '';
-    const code = `<PaperShape\n  preset="${preset}"\n  width={${width}}\n  height={${height}}\n  seed={${seed}}\n  roughness={${roughness.toFixed(2)}}\n  paperColor="${paperColor}"\n  strokeWidth={${strokeWidth}}\n  patternType="${patternType}"\n  showPattern={${patternType !== 'none'}}${paramsStr}\n/>`;
+    const decoStr = decorations.length > 0
+      ? `\n  decorations={${JSON.stringify(decorations, null, 2)}}`
+      : '';
+    const code = `<PaperShape\n  preset="${preset}"\n  width={${width}}\n  height={${height}}\n  seed={${seed}}\n  roughness={${roughness.toFixed(2)}}\n  paperColor="${paperColor}"\n  strokeWidth={${strokeWidth}}\n  patternType="${patternType}"\n  showPattern={${patternType !== 'none'}}${paramsStr}${decoStr}\n/>`;
     navigator.clipboard.writeText(code);
   };
+
+  const activeCategory = decorationCatalog.find(c => c.type === activeDecoTab)!;
 
   return (
     <div className="grid lg:grid-cols-[1fr_340px] gap-8">
@@ -87,12 +114,22 @@ export default function PaperShapePlayground() {
           showPattern={patternType !== 'none'}
           patternType={patternType}
           presetParams={presetParams}
+          decorations={decorations}
+          onDecorationChange={handleDecorationChange}
+          onDecorationRemove={handleDecorationRemove}
+          interactiveDecorations={true}
         >
           <div className="text-center">
             <span className="text-4xl block mb-1">{presetInfo[preset].emoji}</span>
             <span className="font-hand text-lg text-foreground">{presetInfo[preset].label}</span>
           </div>
         </PaperShape>
+
+        {decorations.length > 0 && (
+          <p className="text-[10px] text-muted-foreground font-craft mt-3">
+            💡 点击装饰可旋转/缩放/删除，拖拽可移动位置
+          </p>
+        )}
       </div>
 
       {/* Controls */}
@@ -155,6 +192,60 @@ export default function PaperShapePlayground() {
             })}
           </div>
         )}
+
+        {/* ─── Decorations ─── */}
+        <div className="space-y-3 p-3 rounded-xl bg-muted/50 border border-border">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-craft font-semibold text-foreground block">
+              🎨 装饰元素
+            </label>
+            {decorations.length > 0 && (
+              <button
+                onClick={clearDecorations}
+                className="text-[10px] font-craft text-destructive hover:underline"
+              >
+                清空全部
+              </button>
+            )}
+          </div>
+
+          {/* Decoration type tabs */}
+          <div className="flex gap-1">
+            {decorationCatalog.map((cat) => (
+              <button
+                key={cat.type}
+                onClick={() => setActiveDecoTab(cat.type)}
+                className={`flex-1 px-2 py-1.5 rounded-lg text-[11px] font-craft transition ${
+                  activeDecoTab === cat.type
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-background text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {cat.emoji} {cat.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Variants grid */}
+          <div className="flex gap-1.5 flex-wrap">
+            {activeCategory.variants.map((v) => (
+              <button
+                key={v.key}
+                onClick={() => addDecoration(activeDecoTab, v.key)}
+                className="px-2.5 py-1.5 rounded-lg text-[10px] font-craft bg-background text-foreground border border-border hover:border-primary hover:bg-primary/5 transition"
+                title={`添加 ${v.label}`}
+              >
+                + {v.label}
+              </button>
+            ))}
+          </div>
+
+          {decorations.length > 0 && (
+            <p className="text-[10px] text-muted-foreground font-craft">
+              已添加 {decorations.length} 个装饰
+            </p>
+          )}
+        </div>
 
         {/* Size */}
         <div className="grid grid-cols-2 gap-3">
