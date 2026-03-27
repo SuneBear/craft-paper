@@ -52,6 +52,19 @@ const ticketStubSideOptions = [
   { value: 3, label: '下方票根' },
 ] as const;
 
+const cutoutEdgeOptions = [
+  { bit: 1, label: '上边' },
+  { bit: 2, label: '右边' },
+  { bit: 4, label: '下边' },
+  { bit: 8, label: '左边' },
+] as const;
+
+const cutoutShapeOptions = [
+  { value: 0, label: '三角' },
+  { value: 1, label: '圆弧' },
+  { value: 2, label: '圆角矩形' },
+] as const;
+
 interface PaperShapeEditorPanelProps {
   preset: PaperPreset;
   width: number;
@@ -133,8 +146,39 @@ export function PaperShapeEditorPanel({
   setTextContent,
 }: PaperShapeEditorPanelProps) {
   const currentParamDefs = presetParamsDefs[preset];
+  const visibleParamDefs = currentParamDefs.filter(
+    (d) => ![
+      'cutoutEdges',
+      'cutoutShape',
+      'cutoutRadius',
+      'cutoutDepth',
+      'cutoutOffset',
+      'cornerRadius',
+      'cornerRadiusTL',
+      'cornerRadiusTR',
+      'cornerRadiusBR',
+      'cornerRadiusBL',
+    ].includes(d.key as string)
+  );
   const foldCornerMask = Math.round(presetParams.foldCorners ?? 2) || 2;
   const ticketStubSide = Math.round(presetParams.ticketStubSide ?? 0);
+  const cutoutEdgeMask = Math.max(0, Math.round(presetParams.cutoutEdges ?? 0));
+  const cutoutShape = Math.max(0, Math.min(2, Math.round(presetParams.cutoutShape ?? 0)));
+  const cutoutRadius = presetParams.cutoutRadius ?? Math.min(width, height) * 0.07;
+  const cutoutDepth = presetParams.cutoutDepth ?? Math.max(1.5, cutoutRadius * 0.85);
+  const cutoutOffset = presetParams.cutoutOffset ?? 0;
+  const cornerDefault =
+    preset === 'coupon' ? 14 :
+    preset === 'ticket' ? 10 :
+    preset === 'stitched' ? 12 :
+    preset === 'basic-paper' ? 6 :
+    0;
+  const cornerMax = Math.max(8, Math.min(80, Math.floor(Math.min(width, height) * 0.5)));
+  const cornerBase = presetParams.cornerRadius ?? cornerDefault;
+  const cornerTL = presetParams.cornerRadiusTL ?? cornerBase;
+  const cornerTR = presetParams.cornerRadiusTR ?? cornerBase;
+  const cornerBR = presetParams.cornerRadiusBR ?? cornerBase;
+  const cornerBL = presetParams.cornerRadiusBL ?? cornerBase;
 
   const getParamValue = (key: keyof PresetParams) => {
     if (presetParams[key] !== undefined) return presetParams[key] as number;
@@ -204,12 +248,12 @@ export function PaperShapeEditorPanel({
         </div>
       )}
 
-      {currentParamDefs.length > 0 && (
+      {visibleParamDefs.length > 0 && (
         <div className="space-y-3 p-3 rounded-xl bg-muted/50 border border-border">
           <label className="text-xs font-craft font-semibold text-foreground block">
             ✨ {presetInfo[preset].label}专属参数
           </label>
-          {currentParamDefs.map((def) => {
+          {visibleParamDefs.map((def) => {
             const val = getParamValue(def.key);
             return (
               <div key={def.key}>
@@ -231,6 +275,163 @@ export function PaperShapeEditorPanel({
           })}
         </div>
       )}
+
+      <div className="space-y-3 p-3 rounded-xl bg-muted/50 border border-border">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-craft font-semibold text-foreground block">◻️ 圆角（CSS风格）</label>
+          <button
+            onClick={() => setPresetParams((prev) => ({
+              ...prev,
+              cornerRadius: 0,
+              cornerRadiusTL: undefined,
+              cornerRadiusTR: undefined,
+              cornerRadiusBR: undefined,
+              cornerRadiusBL: undefined,
+            }))}
+            className="text-[10px] font-craft text-muted-foreground hover:text-foreground"
+          >
+            重置
+          </button>
+        </div>
+        <div>
+          <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+            <span>基础圆角</span>
+            <span className="text-foreground">{cornerBase.toFixed(1)}</span>
+          </label>
+          <input
+            type="range"
+            min={0}
+            max={cornerMax}
+            step={0.5}
+            value={cornerBase}
+            onChange={(e) => setPresetParams((prev) => ({ ...prev, cornerRadius: Number(e.target.value) }))}
+            className="w-full accent-primary"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            ['cornerRadiusTL', '左上', cornerTL],
+            ['cornerRadiusTR', '右上', cornerTR],
+            ['cornerRadiusBL', '左下', cornerBL],
+            ['cornerRadiusBR', '右下', cornerBR],
+          ].map(([key, label, val]) => (
+            <div key={key}>
+              <label className="text-[10px] font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+                <span>{label}</span>
+                <span className="text-foreground">{Number(val).toFixed(1)}</span>
+              </label>
+              <input
+                type="range"
+                min={0}
+                max={cornerMax}
+                step={0.5}
+                value={Number(val)}
+                onChange={(e) => setPresetParams((prev) => ({ ...prev, [key]: Number(e.target.value) }))}
+                className="w-full accent-primary"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-2 p-3 rounded-xl bg-muted/50 border border-border">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-craft font-semibold text-foreground block">✂️ 裁剪边（多选）</label>
+          <button
+            onClick={() => setPresetParams((prev) => ({ ...prev, cutoutEdges: 0 }))}
+            className="text-[10px] font-craft text-muted-foreground hover:text-foreground"
+          >
+            清空
+          </button>
+        </div>
+          <div className="grid grid-cols-4 gap-1.5">
+            {cutoutEdgeOptions.map((edge) => {
+              const active = (cutoutEdgeMask & edge.bit) !== 0;
+              return (
+                <button
+                  key={edge.bit}
+                  onClick={() => {
+                    setPresetParams((prev) => {
+                      const current = Math.max(0, Math.round(prev.cutoutEdges ?? 0));
+                      const next = current ^ edge.bit;
+                      return { ...prev, cutoutEdges: next };
+                    });
+                  }}
+                  className={`px-2 py-1.5 rounded-lg text-xs font-craft transition ${
+                    active ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {edge.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div>
+            <label className="text-xs font-craft font-medium text-muted-foreground mb-1 block">裁剪形状</label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {cutoutShapeOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setPresetParams((prev) => ({ ...prev, cutoutShape: opt.value }))}
+                  className={`px-2 py-1.5 rounded-lg text-xs font-craft transition ${
+                    cutoutShape === opt.value
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-background text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+              <span>裁剪宽度</span>
+              <span className="text-foreground">{cutoutRadius.toFixed(1)}</span>
+            </label>
+            <input
+              type="range"
+              min={3}
+              max={Math.max(16, Math.min(width, height) * 0.3)}
+              step={0.5}
+              value={cutoutRadius}
+              onChange={(e) => setPresetParams((prev) => ({ ...prev, cutoutRadius: Number(e.target.value) }))}
+              className="w-full accent-primary"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+              <span>裁剪深度</span>
+              <span className="text-foreground">{cutoutDepth.toFixed(1)}</span>
+            </label>
+            <input
+              type="range"
+              min={1.5}
+              max={Math.max(12, Math.min(width, height) * 0.25)}
+              step={0.5}
+              value={cutoutDepth}
+              onChange={(e) => setPresetParams((prev) => ({ ...prev, cutoutDepth: Number(e.target.value) }))}
+              className="w-full accent-primary"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+              <span>裁剪偏移</span>
+              <span className="text-foreground">{cutoutOffset.toFixed(0)}</span>
+            </label>
+            <input
+              type="range"
+              min={-Math.max(width, height) / 2}
+              max={Math.max(width, height) / 2}
+              step={1}
+              value={cutoutOffset}
+              onChange={(e) => setPresetParams((prev) => ({ ...prev, cutoutOffset: Number(e.target.value) }))}
+              className="w-full accent-primary"
+            />
+          </div>
+      </div>
 
       {preset === 'folded' && (
         <div className="space-y-2 p-3 rounded-xl bg-muted/50 border border-border">

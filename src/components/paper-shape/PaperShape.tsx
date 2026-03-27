@@ -238,7 +238,192 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     }
     return points;
   }, [perforationGuide]);
-  const hasCutoutMask = !!tagHole || perforationDots.length > 0;
+  const cutoutMaskShapes = useMemo(() => {
+    const edgeMask = Math.max(0, Math.round(presetParams?.cutoutEdges ?? 0));
+    if (edgeMask === 0) return [] as Array<
+      | { kind: 'polygon'; points: string }
+      | { kind: 'ellipse'; cx: number; cy: number; rx: number; ry: number }
+      | { kind: 'rect'; x: number; y: number; width: number; height: number; rx: number; ry: number }
+    >;
+
+    const clampN = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+    const cutR = Math.max(3, Math.min(Math.min(width, height) * 0.24, presetParams?.cutoutRadius ?? Math.min(width, height) * 0.07));
+    const cutDepth = Math.max(1.5, Math.min(Math.min(width, height) * 0.3, presetParams?.cutoutDepth ?? cutR * 0.85));
+    const cutShape = Math.max(0, Math.min(2, Math.round(presetParams?.cutoutShape ?? 0)));
+    const bleed = cutShape === 0
+      ? Math.max(0.8, strokeWidth * 0.85 + 0.35)
+      : 0.12;
+    const maskR = cutR + bleed;
+    const maskDepth = cutDepth + bleed;
+    const cutOffset = presetParams?.cutoutOffset ?? 0;
+    const cutSkew = clampN(maskR * 0.42, 1, maskR * 0.78);
+    const rr = clampN(Math.min(maskR * 0.45, maskDepth * 0.55), 0.8, Math.min(maskR - 0.4, maskDepth - 0.4));
+    const outer = bleed + 0.4;
+
+    const topCx = clampN(width / 2 + cutOffset, maskR + 2, width - maskR - 2);
+    const rightCy = clampN(height / 2 + cutOffset, maskR + 2, height - maskR - 2);
+    const bottomCx = clampN(width / 2 + cutOffset, maskR + 2, width - maskR - 2);
+    const leftCy = clampN(height / 2 + cutOffset, maskR + 2, height - maskR - 2);
+
+    const shapes: Array<
+      | { kind: 'polygon'; points: string }
+      | { kind: 'ellipse'; cx: number; cy: number; rx: number; ry: number }
+      | { kind: 'rect'; x: number; y: number; width: number; height: number; rx: number; ry: number }
+    > = [];
+
+    const addTop = () => {
+      if (cutShape === 1) {
+        shapes.push({ kind: 'ellipse', cx: topCx, cy: 0, rx: maskR, ry: maskDepth });
+      } else if (cutShape === 2) {
+        shapes.push({ kind: 'rect', x: topCx - maskR, y: 0, width: maskR * 2, height: maskDepth, rx: rr, ry: rr });
+      } else {
+        const apexX = clampN(topCx + cutSkew, topCx - maskR + 1, topCx + maskR - 1);
+        shapes.push({ kind: 'polygon', points: `${topCx - maskR},${-outer} ${topCx + maskR},${-outer} ${apexX},${maskDepth}` });
+      }
+    };
+    const addRight = () => {
+      if (cutShape === 1) {
+        shapes.push({ kind: 'ellipse', cx: width, cy: rightCy, rx: maskDepth, ry: maskR });
+      } else if (cutShape === 2) {
+        shapes.push({ kind: 'rect', x: width - maskDepth, y: rightCy - maskR, width: maskDepth, height: maskR * 2, rx: rr, ry: rr });
+      } else {
+        const apexY = clampN(rightCy + cutSkew, rightCy - maskR + 1, rightCy + maskR - 1);
+        shapes.push({ kind: 'polygon', points: `${width + outer},${rightCy - maskR} ${width + outer},${rightCy + maskR} ${width - maskDepth},${apexY}` });
+      }
+    };
+    const addBottom = () => {
+      if (cutShape === 1) {
+        shapes.push({ kind: 'ellipse', cx: bottomCx, cy: height, rx: maskR, ry: maskDepth });
+      } else if (cutShape === 2) {
+        shapes.push({ kind: 'rect', x: bottomCx - maskR, y: height - maskDepth, width: maskR * 2, height: maskDepth, rx: rr, ry: rr });
+      } else {
+        const apexX = clampN(bottomCx - cutSkew, bottomCx - maskR + 1, bottomCx + maskR - 1);
+        shapes.push({ kind: 'polygon', points: `${bottomCx + maskR},${height + outer} ${bottomCx - maskR},${height + outer} ${apexX},${height - maskDepth}` });
+      }
+    };
+    const addLeft = () => {
+      if (cutShape === 1) {
+        shapes.push({ kind: 'ellipse', cx: 0, cy: leftCy, rx: maskDepth, ry: maskR });
+      } else if (cutShape === 2) {
+        shapes.push({ kind: 'rect', x: 0, y: leftCy - maskR, width: maskDepth, height: maskR * 2, rx: rr, ry: rr });
+      } else {
+        const apexY = clampN(leftCy - cutSkew, leftCy - maskR + 1, leftCy + maskR - 1);
+        shapes.push({ kind: 'polygon', points: `${-outer},${leftCy + maskR} ${-outer},${leftCy - maskR} ${maskDepth},${apexY}` });
+      }
+    };
+
+    if (edgeMask & 1) addTop();
+    if (edgeMask & 2) addRight();
+    if (edgeMask & 4) addBottom();
+    if (edgeMask & 8) addLeft();
+    return shapes;
+  }, [
+    presetParams?.cutoutEdges,
+    presetParams?.cutoutRadius,
+    presetParams?.cutoutDepth,
+    presetParams?.cutoutOffset,
+    presetParams?.cutoutShape,
+    strokeWidth,
+    width,
+    height,
+  ]);
+  const cutoutStrokePaths = useMemo(() => {
+    const edgeMask = Math.max(0, Math.round(presetParams?.cutoutEdges ?? 0));
+    if (edgeMask === 0) return [] as string[];
+
+    const clampN = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+    const cutR = Math.max(3, Math.min(Math.min(width, height) * 0.24, presetParams?.cutoutRadius ?? Math.min(width, height) * 0.07));
+    const cutDepth = Math.max(1.5, Math.min(Math.min(width, height) * 0.3, presetParams?.cutoutDepth ?? cutR * 0.85));
+    const cutOffset = presetParams?.cutoutOffset ?? 0;
+    const cutShape = Math.max(0, Math.min(2, Math.round(presetParams?.cutoutShape ?? 0)));
+    const cutSkew = clampN(cutR * 0.42, 1, cutR * 0.78);
+    const rr = clampN(Math.min(cutR * 0.45, cutDepth * 0.55), 0.8, Math.min(cutR - 0.4, cutDepth - 0.4));
+
+    const topCx = clampN(width / 2 + cutOffset, cutR + 2, width - cutR - 2);
+    const rightCy = clampN(height / 2 + cutOffset, cutR + 2, height - cutR - 2);
+    const bottomCx = clampN(width / 2 + cutOffset, cutR + 2, width - cutR - 2);
+    const leftCy = clampN(height / 2 + cutOffset, cutR + 2, height - cutR - 2);
+    const paths: string[] = [];
+
+    if (edgeMask & 1) {
+      if (cutShape === 1) {
+        paths.push(`M ${topCx - cutR} 0 A ${cutR} ${cutDepth} 0 0 0 ${topCx + cutR} 0`);
+      } else if (cutShape === 2) {
+        paths.push(
+          `M ${topCx - cutR} 0 L ${topCx - cutR} ${cutDepth - rr} ` +
+          `Q ${topCx - cutR} ${cutDepth} ${topCx - cutR + rr} ${cutDepth} ` +
+          `L ${topCx + cutR - rr} ${cutDepth} ` +
+          `Q ${topCx + cutR} ${cutDepth} ${topCx + cutR} ${cutDepth - rr} ` +
+          `L ${topCx + cutR} 0`
+        );
+      } else {
+        const apexX = clampN(topCx + cutSkew, topCx - cutR + 1, topCx + cutR - 1);
+        paths.push(`M ${topCx - cutR} 0 L ${apexX} ${cutDepth} L ${topCx + cutR} 0`);
+      }
+    }
+
+    if (edgeMask & 2) {
+      if (cutShape === 1) {
+        paths.push(`M ${width} ${rightCy - cutR} A ${cutDepth} ${cutR} 0 0 0 ${width} ${rightCy + cutR}`);
+      } else if (cutShape === 2) {
+        paths.push(
+          `M ${width} ${rightCy - cutR} L ${width - cutDepth + rr} ${rightCy - cutR} ` +
+          `Q ${width - cutDepth} ${rightCy - cutR} ${width - cutDepth} ${rightCy - cutR + rr} ` +
+          `L ${width - cutDepth} ${rightCy + cutR - rr} ` +
+          `Q ${width - cutDepth} ${rightCy + cutR} ${width - cutDepth + rr} ${rightCy + cutR} ` +
+          `L ${width} ${rightCy + cutR}`
+        );
+      } else {
+        const apexY = clampN(rightCy + cutSkew, rightCy - cutR + 1, rightCy + cutR - 1);
+        paths.push(`M ${width} ${rightCy - cutR} L ${width - cutDepth} ${apexY} L ${width} ${rightCy + cutR}`);
+      }
+    }
+
+    if (edgeMask & 4) {
+      if (cutShape === 1) {
+        paths.push(`M ${bottomCx + cutR} ${height} A ${cutR} ${cutDepth} 0 0 0 ${bottomCx - cutR} ${height}`);
+      } else if (cutShape === 2) {
+        paths.push(
+          `M ${bottomCx + cutR} ${height} L ${bottomCx + cutR} ${height - cutDepth + rr} ` +
+          `Q ${bottomCx + cutR} ${height - cutDepth} ${bottomCx + cutR - rr} ${height - cutDepth} ` +
+          `L ${bottomCx - cutR + rr} ${height - cutDepth} ` +
+          `Q ${bottomCx - cutR} ${height - cutDepth} ${bottomCx - cutR} ${height - cutDepth + rr} ` +
+          `L ${bottomCx - cutR} ${height}`
+        );
+      } else {
+        const apexX = clampN(bottomCx - cutSkew, bottomCx - cutR + 1, bottomCx + cutR - 1);
+        paths.push(`M ${bottomCx + cutR} ${height} L ${apexX} ${height - cutDepth} L ${bottomCx - cutR} ${height}`);
+      }
+    }
+
+    if (edgeMask & 8) {
+      if (cutShape === 1) {
+        paths.push(`M 0 ${leftCy + cutR} A ${cutDepth} ${cutR} 0 0 0 0 ${leftCy - cutR}`);
+      } else if (cutShape === 2) {
+        paths.push(
+          `M 0 ${leftCy + cutR} L ${cutDepth - rr} ${leftCy + cutR} ` +
+          `Q ${cutDepth} ${leftCy + cutR} ${cutDepth} ${leftCy + cutR - rr} ` +
+          `L ${cutDepth} ${leftCy - cutR + rr} ` +
+          `Q ${cutDepth} ${leftCy - cutR} ${cutDepth - rr} ${leftCy - cutR} ` +
+          `L 0 ${leftCy - cutR}`
+        );
+      } else {
+        const apexY = clampN(leftCy - cutSkew, leftCy - cutR + 1, leftCy + cutR - 1);
+        paths.push(`M 0 ${leftCy + cutR} L ${cutDepth} ${apexY} L 0 ${leftCy - cutR}`);
+      }
+    }
+
+    return paths;
+  }, [
+    presetParams?.cutoutEdges,
+    presetParams?.cutoutRadius,
+    presetParams?.cutoutDepth,
+    presetParams?.cutoutOffset,
+    presetParams?.cutoutShape,
+    width,
+    height,
+  ]);
+  const hasCutoutMask = !!tagHole || perforationDots.length > 0 || cutoutMaskShapes.length > 0;
   const contentSafeInsets = useMemo(() => {
     const insets = { top: 0, right: 0, bottom: 0, left: 0 };
     const reserveBandOnLargerSide = (axis: 'vertical' | 'horizontal', pos: number, halfBand: number) => {
@@ -328,6 +513,17 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
       }
     }
 
+    const cutoutEdgeMask = Math.max(0, Math.round(presetParams?.cutoutEdges ?? 0));
+    if (cutoutEdgeMask > 0) {
+      const cutR = Math.max(3, Math.min(Math.min(width, height) * 0.24, presetParams?.cutoutRadius ?? Math.min(width, height) * 0.07));
+      const cutDepth = Math.max(1.5, Math.min(Math.min(width, height) * 0.3, presetParams?.cutoutDepth ?? cutR * 0.85));
+      const safe = Math.max(4, cutDepth + 4);
+      if (cutoutEdgeMask & 1) insets.top = Math.max(insets.top, safe);
+      if (cutoutEdgeMask & 2) insets.right = Math.max(insets.right, safe);
+      if (cutoutEdgeMask & 4) insets.bottom = Math.max(insets.bottom, safe);
+      if (cutoutEdgeMask & 8) insets.left = Math.max(insets.left, safe);
+    }
+
     return insets;
   }, [preset, presetParams, perforationGuide, width, height]);
 
@@ -367,6 +563,7 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     const id = String(event.active.id);
     delete dragOriginRef.current[id];
   }, []);
+  const shouldEnableDecorationDnd = interactiveDecorations && decorations.length > 0;
 
   useEffect(() => {
     if (!selectedDecorationId) return;
@@ -409,6 +606,24 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
               )}
               {perforationDots.map((dot, i) => (
                 <circle key={`mask-dot-${i}`} cx={dot.x} cy={dot.y} r={dot.r} fill="black" />
+              ))}
+              {cutoutMaskShapes.map((shape, i) => (
+                shape.kind === 'polygon' ? (
+                  <polygon key={`mask-cut-${i}`} points={shape.points} fill="black" />
+                ) : shape.kind === 'ellipse' ? (
+                  <ellipse key={`mask-cut-${i}`} cx={shape.cx} cy={shape.cy} rx={shape.rx} ry={shape.ry} fill="black" />
+                ) : (
+                  <rect
+                    key={`mask-cut-${i}`}
+                    x={shape.x}
+                    y={shape.y}
+                    width={shape.width}
+                    height={shape.height}
+                    rx={shape.rx}
+                    ry={shape.ry}
+                    fill="black"
+                  />
+                )
               ))}
             </mask>
           )}
@@ -516,6 +731,17 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
           strokeLinecap="round"
           mask={hasCutoutMask ? `url(#${maskId})` : undefined}
         />
+        {cutoutStrokePaths.map((d, i) => (
+          <path
+            key={`cutout-stroke-${i}`}
+            d={d}
+            fill="none"
+            stroke={stroke}
+            strokeWidth={strokeWidth + 0.15}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ))}
 
         {/* Tag hole ring */}
         {tagHole && (
@@ -543,24 +769,37 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
         )}
 
         {/* Decorations layer */}
-        <DndContext
-          onDragStart={handleDragStart}
-          onDragMove={handleDragMove}
-          onDragEnd={clearDragState}
-          onDragCancel={clearDragState}
-        >
-          {decorations.map((deco) => (
+        {shouldEnableDecorationDnd ? (
+          <DndContext
+            onDragStart={handleDragStart}
+            onDragMove={handleDragMove}
+            onDragEnd={clearDragState}
+            onDragCancel={clearDragState}
+          >
+            {decorations.map((deco) => (
+              <DraggableDecoration
+                key={deco.id}
+                item={deco}
+                onChange={handleDecoChange}
+                onRemove={handleDecoRemove}
+                selected={selectedDecorationId === deco.id}
+                onSelect={setSelectedDecorationId}
+                interactive={true}
+              />
+            ))}
+          </DndContext>
+        ) : (
+          decorations.map((deco) => (
             <DraggableDecoration
               key={deco.id}
               item={deco}
               onChange={handleDecoChange}
               onRemove={handleDecoRemove}
-              selected={selectedDecorationId === deco.id}
-              onSelect={setSelectedDecorationId}
-              interactive={interactiveDecorations}
+              selected={false}
+              interactive={false}
             />
-          ))}
-        </DndContext>
+          ))
+        )}
       </svg>
 
       {/* Content overlay */}

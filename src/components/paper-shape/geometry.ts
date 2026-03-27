@@ -52,6 +52,10 @@ export interface PresetParams {
   // stitched
   stitchInset?: number;         // 缝线内缩
   cornerRadius?: number;        // 圆角大小
+  cornerRadiusTL?: number;      // 左上圆角
+  cornerRadiusTR?: number;      // 右上圆角
+  cornerRadiusBR?: number;      // 右下圆角
+  cornerRadiusBL?: number;      // 左下圆角
   // scalloped-edge
   scallopRadius?: number;       // 花边半径
   scallopEdge?: number;         // 花边方向: 0四边 1上 2右 3下 4左
@@ -60,6 +64,12 @@ export interface PresetParams {
   // receipt
   zigzagHeight?: number;        // 锯齿高度
   zigzagEdge?: number;          // 锯齿边方向: 0下 1上 2左 3右
+  // cutout (for smooth-edge papers)
+  cutoutEdges?: number;         // 裁剪边位掩码: 1上 2右 4下 8左
+  cutoutRadius?: number;        // 裁剪半径（宽度）
+  cutoutDepth?: number;         // 裁剪深度
+  cutoutOffset?: number;        // 裁剪偏移（沿边中心偏移）
+  cutoutShape?: number;         // 裁剪形状: 0三角 1圆弧 2圆角矩形
 }
 
 export interface ShapeConfig {
@@ -86,6 +96,29 @@ function wobble(val: number, amount: number, rng: () => number): number {
 
 function clamp(val: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, val));
+}
+
+function getCornerRadii(w: number, h: number, p: PresetParams, defaultRadius: number) {
+  const maxR = Math.min(w, h) * 0.5;
+  const base = clamp(p.cornerRadius ?? defaultRadius, 0, maxR);
+  let tl = clamp(p.cornerRadiusTL ?? base, 0, maxR);
+  let tr = clamp(p.cornerRadiusTR ?? base, 0, maxR);
+  let br = clamp(p.cornerRadiusBR ?? base, 0, maxR);
+  let bl = clamp(p.cornerRadiusBL ?? base, 0, maxR);
+
+  const fitPair = (a: number, b: number, limit: number): [number, number] => {
+    const sum = a + b;
+    if (sum <= limit || sum <= 0) return [a, b];
+    const k = limit / sum;
+    return [a * k, b * k];
+  };
+
+  [tl, tr] = fitPair(tl, tr, w);
+  [bl, br] = fitPair(bl, br, w);
+  [tl, bl] = fitPair(tl, bl, h);
+  [tr, br] = fitPair(tr, br, h);
+
+  return { tl, tr, br, bl };
 }
 
 function buildSideCenters(
@@ -219,87 +252,79 @@ function stampPath(w: number, h: number, rng: () => number, r: number, p: Preset
 function couponPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
   const holeR = p.holeRadius ?? Math.min(w, h) * 0.1;
   const notchR = p.notchRadius ?? Math.min(w, h) * 0.06;
-  const cr = p.cornerRadius ?? 14;
+  const { tl, tr, br, bl } = getCornerRadii(w, h, p, 14);
   const direction = Math.round(p.couponDirection ?? 0);
   const position = p.couponPosition ?? p.couponNotchOffsetX ?? p.perforationOffset ?? 0;
 
   if (direction === 1) {
-    const notchCenterY = clamp(h / 2 + position, cr + notchR + 2, h - cr - notchR - 2);
-    const edgeCenters = buildSideCenters(w, cr, holeR, p.couponHoleCount, p.couponHoleSpread, p.couponHoleOffsetY);
+    const notchCenterY = clamp(h / 2 + position, Math.max(tr, br) + notchR + 2, h - Math.max(tr, br) - notchR - 2);
+    const edgeCenters = buildSideCenters(w, Math.max(tl, tr, br, bl), holeR, p.couponHoleCount, p.couponHoleSpread, p.couponHoleOffsetY);
 
-    let path = `M ${cr} 0`;
+    let path = `M ${tl} 0`;
     for (const cx of edgeCenters) {
       path += ` L ${cx - holeR} 0`;
       path += ` A ${holeR} ${holeR} 0 0 0 ${cx + holeR} 0`;
     }
-    path += ` L ${w - cr} 0 Q ${w} 0 ${w} ${cr}`;
+    path += ` L ${w - tr} 0 Q ${w} 0 ${w} ${tr}`;
     path += ` L ${w} ${notchCenterY - notchR}`;
     path += ` A ${notchR} ${notchR} 0 0 0 ${w} ${notchCenterY + notchR}`;
-    path += ` L ${w} ${h - cr} Q ${w} ${h} ${w - cr} ${h}`;
+    path += ` L ${w} ${h - br} Q ${w} ${h} ${w - br} ${h}`;
 
     for (let i = edgeCenters.length - 1; i >= 0; i--) {
       const cx = edgeCenters[i];
       path += ` L ${cx + holeR} ${h}`;
       path += ` A ${holeR} ${holeR} 0 0 0 ${cx - holeR} ${h}`;
     }
-    path += ` L ${cr} ${h} Q 0 ${h} 0 ${h - cr}`;
+    path += ` L ${bl} ${h} Q 0 ${h} 0 ${h - bl}`;
     path += ` L 0 ${notchCenterY + notchR}`;
     path += ` A ${notchR} ${notchR} 0 0 0 0 ${notchCenterY - notchR}`;
-    path += ` L 0 ${cr} Q 0 0 ${cr} 0 Z`;
+    path += ` L 0 ${tl} Q 0 0 ${tl} 0 Z`;
     return path;
   }
 
-  const notchCenterX = clamp(w / 2 + position, cr + notchR + 2, w - cr - notchR - 2);
-  const sideCenters = buildSideCenters(h, cr, holeR, p.couponHoleCount, p.couponHoleSpread, p.couponHoleOffsetY);
+  const notchCenterX = clamp(w / 2 + position, Math.max(tl, bl) + notchR + 2, w - Math.max(tr, br) - notchR - 2);
+  const sideCenters = buildSideCenters(h, Math.max(tl, tr, br, bl), holeR, p.couponHoleCount, p.couponHoleSpread, p.couponHoleOffsetY);
 
-  let path = `M ${cr} 0`;
+  let path = `M ${tl} 0`;
   path += ` L ${notchCenterX - notchR} 0`;
   path += ` A ${notchR} ${notchR} 0 0 0 ${notchCenterX + notchR} 0`;
-  path += ` L ${w - cr} 0 Q ${w} 0 ${w} ${cr}`;
+  path += ` L ${w - tr} 0 Q ${w} 0 ${w} ${tr}`;
 
   for (const cy of sideCenters) {
     path += ` L ${w} ${cy - holeR}`;
     path += ` A ${holeR} ${holeR} 0 0 0 ${w} ${cy + holeR}`;
   }
-  path += ` L ${w} ${h - cr} Q ${w} ${h} ${w - cr} ${h}`;
+  path += ` L ${w} ${h - br} Q ${w} ${h} ${w - br} ${h}`;
 
   path += ` L ${notchCenterX + notchR} ${h}`;
   path += ` A ${notchR} ${notchR} 0 0 0 ${notchCenterX - notchR} ${h}`;
-  path += ` L ${cr} ${h} Q 0 ${h} 0 ${h - cr}`;
+  path += ` L ${bl} ${h} Q 0 ${h} 0 ${h - bl}`;
 
   for (let i = sideCenters.length - 1; i >= 0; i--) {
     const cy = sideCenters[i];
     path += ` L 0 ${cy + holeR}`;
     path += ` A ${holeR} ${holeR} 0 0 0 0 ${cy - holeR}`;
   }
-  path += ` L 0 ${cr} Q 0 0 ${cr} 0 Z`;
+  path += ` L 0 ${tl} Q 0 0 ${tl} 0 Z`;
   return path;
 }
 
 function ticketPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
+  // Keep "ticket" as a separate preset in product semantics,
+  // but reuse coupon contour generator to avoid duplicate shape logic.
   const cutR = p.cutRadius ?? Math.min(w, h) * 0.11;
-  const cr = p.cornerRadius ?? 10;
-  const sideCenters = buildSideCenters(h, cr, cutR, p.ticketCutCount, p.ticketCutSpread, p.ticketCutOffsetY);
-
-  let path = `M ${cr} 0 L ${w - cr} 0 Q ${w} 0 ${w} ${cr}`;
-
-  for (const cy of sideCenters) {
-    path += ` L ${w} ${cy - cutR}`;
-    path += ` A ${cutR} ${cutR} 0 0 0 ${w} ${cy + cutR}`;
-  }
-  path += ` L ${w} ${h - cr} Q ${w} ${h} ${w - cr} ${h}`;
-
-  path += ` L ${cr} ${h} Q 0 ${h} 0 ${h - cr}`;
-
-  for (let i = sideCenters.length - 1; i >= 0; i--) {
-    const cy = sideCenters[i];
-    path += ` L 0 ${cy + cutR}`;
-    path += ` A ${cutR} ${cutR} 0 0 0 0 ${cy - cutR}`;
-  }
-  path += ` L 0 ${cr} Q 0 0 ${cr} 0`;
-
-  path += ' Z';
-  return path;
+  const mapped: PresetParams = {
+    cornerRadius: p.cornerRadius ?? 10,
+    holeRadius: cutR,
+    // Ticket now shares coupon-like top/bottom notch contour by default.
+    notchRadius: p.notchRadius ?? Math.max(4, cutR * 0.72),
+    couponDirection: 0,
+    couponPosition: p.couponPosition ?? p.couponNotchOffsetX ?? p.perforationOffset ?? 0,
+    couponHoleCount: p.ticketCutCount,
+    couponHoleSpread: p.ticketCutSpread,
+    couponHoleOffsetY: p.ticketCutOffsetY,
+  };
+  return couponPath(w, h, rng, r, mapped);
 }
 
 function tagPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
@@ -396,8 +421,7 @@ function tornPath(w: number, h: number, rng: () => number, r: number, p: PresetP
 }
 
 function stitchedPath(w: number, h: number, _rng: () => number, _r: number, p: PresetParams): string {
-  const cr = p.cornerRadius ?? 12;
-  return `M ${cr} 0 L ${w - cr} 0 Q ${w} 0 ${w} ${cr} L ${w} ${h - cr} Q ${w} ${h} ${w - cr} ${h} L ${cr} ${h} Q 0 ${h} 0 ${h - cr} L 0 ${cr} Q 0 0 ${cr} 0 Z`;
+  return roundedRectPath(w, h, p, 12);
 }
 
 export function getStitchPath(w: number, h: number, params?: PresetParams): string {
@@ -564,11 +588,22 @@ function receiptPath(w: number, h: number, rng: () => number, r: number, p: Pres
   return path;
 }
 
-function basicPaperPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
-  const cr = p.cornerRadius ?? 6;
-  const w1 = wobble(0, r * 2, rng);
-  const w2 = wobble(0, r * 2, rng);
-  return `M ${cr + w1} 0 L ${w - cr + w2} 0 Q ${w} 0 ${w} ${cr} L ${w} ${h - cr} Q ${w} ${h} ${w - cr} ${h} L ${cr} ${h} Q 0 ${h} 0 ${h - cr} L 0 ${cr} Q 0 0 ${cr + w1} 0 Z`;
+function roundedRectPath(w: number, h: number, p: PresetParams, defaultCornerRadius: number): string {
+  const { tl, tr, br, bl } = getCornerRadii(w, h, p, defaultCornerRadius);
+  let path = `M ${tl} 0`;
+  path += ` L ${w - tr} 0`;
+  path += ` Q ${w} 0 ${w} ${tr}`;
+  path += ` L ${w} ${h - br}`;
+  path += ` Q ${w} ${h} ${w - br} ${h}`;
+  path += ` L ${bl} ${h}`;
+  path += ` Q 0 ${h} 0 ${h - bl}`;
+  path += ` L 0 ${tl}`;
+  path += ` Q 0 0 ${tl} 0 Z`;
+  return path;
+}
+
+function basicPaperPath(w: number, h: number, _rng: () => number, _r: number, p: PresetParams): string {
+  return roundedRectPath(w, h, p, 6);
 }
 
 // Generate dash pattern for stitch lines
@@ -582,7 +617,7 @@ export const presetParamsDefs: Record<PaperPreset, { key: keyof PresetParams; la
     { key: 'perforationRadius', label: '齿孔大小', min: 2, max: 20, step: 0.5, defaultVal: (w, h) => Math.min(w, h) * 0.04 },
   ],
   coupon: [
-    { key: 'holeRadius', label: '打孔半径', min: 5, max: 40, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.1 },
+    { key: 'holeRadius', label: '侧边孔', min: 5, max: 40, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.1 },
     { key: 'notchRadius', label: '缺口半径', min: 3, max: 25, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.06 },
     { key: 'couponHoleCount', label: '侧边孔数量', min: 1, max: 5, step: 1, defaultVal: () => 1 },
     { key: 'couponHoleSpread', label: '孔分布范围', min: 0.3, max: 1, step: 0.05, defaultVal: () => 0.68 },
