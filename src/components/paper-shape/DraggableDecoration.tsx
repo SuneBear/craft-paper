@@ -25,10 +25,11 @@ export const DraggableDecoration: React.FC<DraggableDecorationProps> = ({
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (!interactive) return;
+    if (e.button !== 0) return;
     e.stopPropagation();
     e.preventDefault();
-    setDragging(true);
     setSelected(true);
+    setDragging(false);
 
     // Get SVG coordinate transform
     const svg = containerRef?.current;
@@ -46,11 +47,11 @@ export const DraggableDecoration: React.FC<DraggableDecorationProps> = ({
     }
 
     dragStart.current = { mx, my, ox: transform.x, oy: transform.y };
-    (e.target as Element).setPointerCapture(e.pointerId);
+    (e.currentTarget as Element).setPointerCapture(e.pointerId);
   }, [interactive, transform.x, transform.y, containerRef]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    if (!dragging || !dragStart.current) return;
+    if (!dragStart.current) return;
     e.stopPropagation();
 
     const svg = containerRef?.current;
@@ -69,6 +70,10 @@ export const DraggableDecoration: React.FC<DraggableDecorationProps> = ({
 
     const dx = mx - dragStart.current.mx;
     const dy = my - dragStart.current.my;
+    const moved = Math.hypot(dx, dy) > 1;
+    if (!moved) return;
+    if (!dragging) setDragging(true);
+
     onChange(item.id, {
       ...transform,
       x: dragStart.current.ox + dx,
@@ -77,7 +82,19 @@ export const DraggableDecoration: React.FC<DraggableDecorationProps> = ({
   }, [dragging, item.id, transform, onChange, containerRef]);
 
   const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    if (!interactive) return;
     e.stopPropagation();
+    if ((e.currentTarget as Element).hasPointerCapture(e.pointerId)) {
+      (e.currentTarget as Element).releasePointerCapture(e.pointerId);
+    }
+    setDragging(false);
+    dragStart.current = null;
+  }, [interactive]);
+
+  const handlePointerCancel = useCallback((e: React.PointerEvent) => {
+    if ((e.currentTarget as Element).hasPointerCapture(e.pointerId)) {
+      (e.currentTarget as Element).releasePointerCapture(e.pointerId);
+    }
     setDragging(false);
     dragStart.current = null;
   }, []);
@@ -105,13 +122,17 @@ export const DraggableDecoration: React.FC<DraggableDecorationProps> = ({
   return (
     <g
       transform={`translate(${transform.x}, ${transform.y}) rotate(${transform.rotation})`}
-      style={{ cursor: interactive ? (dragging ? 'grabbing' : 'grab') : 'default' }}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onClick={(e) => { if (interactive) { e.stopPropagation(); setSelected(s => !s); } }}
     >
-      {renderContent()}
+      <g
+        style={{ cursor: interactive ? (dragging ? 'grabbing' : 'grab') : 'default' }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        onClick={(e) => { if (interactive) { e.stopPropagation(); setSelected(true); } }}
+      >
+        {renderContent()}
+      </g>
 
       {/* Selection controls */}
       {interactive && selected && !dragging && (

@@ -22,13 +22,27 @@ export interface PresetParams {
   // coupon
   holeRadius?: number;          // 打孔半径
   notchRadius?: number;         // 缺口半径
+  couponHoleCount?: number;     // 侧边孔数量
+  couponHoleSpread?: number;    // 多孔分布范围 (0-1)
+  couponHoleOffsetY?: number;   // 侧边孔整体纵向偏移
+  couponNotchOffsetX?: number;  // 顶底缺口横向偏移
   // ticket
   cutRadius?: number;           // 切口半径
+  ticketCutCount?: number;      // 侧边切口数量
+  ticketCutSpread?: number;     // 多切口分布范围 (0-1)
+  ticketCutOffsetY?: number;    // 侧边切口整体纵向偏移
+  // coupon + ticket perforation guide
+  perforationMode?: number;     // 0=虚线, 1=打孔点
+  perforationGap?: number;      // 间距
+  perforationDotRadius?: number;// 打孔点半径
+  perforationInset?: number;    // 距端点内缩
+  perforationOffset?: number;   // 撕线偏移（coupon 为X，ticket 为Y）
   // tag
   cutSize?: number;             // 切角大小
   tagHoleRadius?: number;       // 吊牌孔半径
   // folded
   foldSize?: number;            // 折角大小
+  foldCorners?: number;         // 折角角点位掩码: 1左上 2右上 4右下 8左下
   // torn
   tearAmplitude?: number;       // 撕裂幅度
   // stitched
@@ -38,6 +52,7 @@ export interface PresetParams {
   scallopRadius?: number;       // 花边半径
   // receipt
   zigzagHeight?: number;        // 锯齿高度
+  zigzagEdge?: number;          // 锯齿边方向: 0下 1上 2左 3右
 }
 
 export interface ShapeConfig {
@@ -60,6 +75,42 @@ function seededRandom(seed: number) {
 
 function wobble(val: number, amount: number, rng: () => number): number {
   return val + (rng() - 0.5) * amount * 2;
+}
+
+function clamp(val: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, val));
+}
+
+function buildSideCenters(
+  h: number,
+  cornerRadius: number,
+  holeRadius: number,
+  countRaw: number | undefined,
+  spreadRaw: number | undefined,
+  offsetRaw: number | undefined
+): number[] {
+  const minY = cornerRadius + holeRadius + 2;
+  const maxY = h - cornerRadius - holeRadius - 2;
+  const available = Math.max(0, maxY - minY);
+  if (available <= 0) return [h / 2];
+
+  const maxCount = Math.max(1, Math.floor(available / (holeRadius * 2 + 2)) + 1);
+  let count = Math.round(countRaw ?? 1);
+  count = clamp(count, 1, maxCount);
+
+  if (count === 1) {
+    const center = clamp(h / 2 + (offsetRaw ?? 0), minY, maxY);
+    return [center];
+  }
+
+  const spread = clamp(spreadRaw ?? 0.68, 0.25, 1);
+  const minSpan = (count - 1) * (holeRadius * 2 + 2);
+  const span = Math.min(available, Math.max(available * spread, minSpan));
+  const center = clamp(h / 2 + (offsetRaw ?? 0), minY + span / 2, maxY - span / 2);
+  const start = center - span / 2;
+  const step = span / (count - 1);
+
+  return Array.from({ length: count }, (_, i) => start + i * step);
 }
 
 export function generatePath(config: ShapeConfig): string {
@@ -95,8 +146,9 @@ export function generatePath(config: ShapeConfig): string {
 function stampPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
   const margin = Math.min(w, h) * 0.08;
   const perfR = p.perforationRadius ?? Math.min(w, h) * 0.04;
-  const innerW = w - margin * 2;
-  const innerH = h - margin * 2;
+  const cornerR = Math.min(perfR * 0.8, Math.min(w, h) * 0.08);
+  const innerW = w - margin * 2 - cornerR * 2;
+  const innerH = h - margin * 2 - cornerR * 2;
 
   const countH = Math.max(4, Math.round(innerW / (perfR * 3)));
   const countV = Math.max(3, Math.round(innerH / (perfR * 3)));
@@ -104,78 +156,87 @@ function stampPath(w: number, h: number, rng: () => number, r: number, p: Preset
   const stepH = innerW / countH;
   const stepV = innerH / countV;
 
-  let path = `M ${margin} ${margin}`;
+  let path = `M ${margin + cornerR} ${margin}`;
 
   // Top edge
   for (let i = 0; i < countH; i++) {
-    const x1 = margin + i * stepH;
+    const x1 = margin + cornerR + i * stepH;
     const x2 = x1 + stepH;
     const mid = (x1 + x2) / 2;
-    const pr = wobble(perfR, r * 1.5, rng);
+    const pr = wobble(perfR, r * 1.2, rng);
     path += ` L ${mid - pr} ${margin}`;
     path += ` A ${pr} ${pr} 0 0 1 ${mid + pr} ${margin}`;
   }
-  path += ` L ${w - margin} ${margin}`;
+  path += ` L ${w - margin - cornerR} ${margin}`;
+  path += ` Q ${w - margin} ${margin} ${w - margin} ${margin + cornerR}`;
 
   // Right edge
   for (let i = 0; i < countV; i++) {
-    const y1 = margin + i * stepV;
+    const y1 = margin + cornerR + i * stepV;
     const y2 = y1 + stepV;
     const mid = (y1 + y2) / 2;
-    const pr = wobble(perfR, r * 1.5, rng);
+    const pr = wobble(perfR, r * 1.2, rng);
     path += ` L ${w - margin} ${mid - pr}`;
     path += ` A ${pr} ${pr} 0 0 1 ${w - margin} ${mid + pr}`;
   }
-  path += ` L ${w - margin} ${h - margin}`;
+  path += ` L ${w - margin} ${h - margin - cornerR}`;
+  path += ` Q ${w - margin} ${h - margin} ${w - margin - cornerR} ${h - margin}`;
 
   // Bottom edge (right to left)
   for (let i = countH - 1; i >= 0; i--) {
-    const x1 = margin + i * stepH;
+    const x1 = margin + cornerR + i * stepH;
     const x2 = x1 + stepH;
     const mid = (x1 + x2) / 2;
-    const pr = wobble(perfR, r * 1.5, rng);
+    const pr = wobble(perfR, r * 1.2, rng);
     path += ` L ${mid + pr} ${h - margin}`;
     path += ` A ${pr} ${pr} 0 0 1 ${mid - pr} ${h - margin}`;
   }
-  path += ` L ${margin} ${h - margin}`;
+  path += ` L ${margin + cornerR} ${h - margin}`;
+  path += ` Q ${margin} ${h - margin} ${margin} ${h - margin - cornerR}`;
 
   // Left edge (bottom to top)
   for (let i = countV - 1; i >= 0; i--) {
-    const y1 = margin + i * stepV;
+    const y1 = margin + cornerR + i * stepV;
     const y2 = y1 + stepV;
     const mid = (y1 + y2) / 2;
-    const pr = wobble(perfR, r * 1.5, rng);
+    const pr = wobble(perfR, r * 1.2, rng);
     path += ` L ${margin} ${mid + pr}`;
     path += ` A ${pr} ${pr} 0 0 1 ${margin} ${mid - pr}`;
   }
+  path += ` L ${margin} ${margin + cornerR}`;
+  path += ` Q ${margin} ${margin} ${margin + cornerR} ${margin}`;
 
-  path += ' Z';
-  return path;
+  return `${path} Z`;
 }
 
 function couponPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
   const holeR = p.holeRadius ?? Math.min(w, h) * 0.1;
   const notchR = p.notchRadius ?? Math.min(w, h) * 0.06;
   const cr = p.cornerRadius ?? 14;
+  const notchOffsetX = p.couponNotchOffsetX ?? 0;
+  const notchCenter = clamp(w / 2 + notchOffsetX, cr + notchR + 2, w - cr - notchR - 2);
+  const sideCenters = buildSideCenters(h, cr, holeR, p.couponHoleCount, p.couponHoleSpread, p.couponHoleOffsetY);
 
   let path = `M ${cr} 0`;
-  const topMid = w / 2;
-  path += ` L ${topMid - notchR} 0`;
-  path += ` A ${notchR} ${notchR} 0 0 0 ${topMid + notchR} 0`;
+  path += ` L ${notchCenter - notchR} 0`;
+  path += ` A ${notchR} ${notchR} 0 0 0 ${notchCenter + notchR} 0`;
   path += ` L ${w - cr} 0 Q ${w} 0 ${w} ${cr}`;
 
-  const rightHoleY = h / 2;
-  path += ` L ${w} ${rightHoleY - holeR}`;
-  path += ` A ${holeR} ${holeR} 0 0 0 ${w} ${rightHoleY + holeR}`;
+  for (const cy of sideCenters) {
+    path += ` L ${w} ${cy - holeR}`;
+    path += ` A ${holeR} ${holeR} 0 0 0 ${w} ${cy + holeR}`;
+  }
   path += ` L ${w} ${h - cr} Q ${w} ${h} ${w - cr} ${h}`;
 
-  path += ` L ${topMid + notchR} ${h}`;
-  path += ` A ${notchR} ${notchR} 0 0 0 ${topMid - notchR} ${h}`;
+  path += ` L ${notchCenter + notchR} ${h}`;
+  path += ` A ${notchR} ${notchR} 0 0 0 ${notchCenter - notchR} ${h}`;
   path += ` L ${cr} ${h} Q 0 ${h} 0 ${h - cr}`;
 
-  const leftHoleY = h / 2;
-  path += ` L 0 ${leftHoleY + holeR}`;
-  path += ` A ${holeR} ${holeR} 0 0 0 0 ${leftHoleY - holeR}`;
+  for (let i = sideCenters.length - 1; i >= 0; i--) {
+    const cy = sideCenters[i];
+    path += ` L 0 ${cy + holeR}`;
+    path += ` A ${holeR} ${holeR} 0 0 0 0 ${cy - holeR}`;
+  }
   path += ` L 0 ${cr} Q 0 0 ${cr} 0`;
 
   path += ' Z';
@@ -185,18 +246,23 @@ function couponPath(w: number, h: number, rng: () => number, r: number, p: Prese
 function ticketPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
   const cutR = p.cutRadius ?? Math.min(w, h) * 0.11;
   const cr = p.cornerRadius ?? 10;
+  const sideCenters = buildSideCenters(h, cr, cutR, p.ticketCutCount, p.ticketCutSpread, p.ticketCutOffsetY);
 
   let path = `M ${cr} 0 L ${w - cr} 0 Q ${w} 0 ${w} ${cr}`;
 
-  const cutY = h / 2;
-  path += ` L ${w} ${cutY - cutR}`;
-  path += ` A ${cutR} ${cutR} 0 0 0 ${w} ${cutY + cutR}`;
+  for (const cy of sideCenters) {
+    path += ` L ${w} ${cy - cutR}`;
+    path += ` A ${cutR} ${cutR} 0 0 0 ${w} ${cy + cutR}`;
+  }
   path += ` L ${w} ${h - cr} Q ${w} ${h} ${w - cr} ${h}`;
 
   path += ` L ${cr} ${h} Q 0 ${h} 0 ${h - cr}`;
 
-  path += ` L 0 ${cutY + cutR}`;
-  path += ` A ${cutR} ${cutR} 0 0 0 0 ${cutY - cutR}`;
+  for (let i = sideCenters.length - 1; i >= 0; i--) {
+    const cy = sideCenters[i];
+    path += ` L 0 ${cy + cutR}`;
+    path += ` A ${cutR} ${cutR} 0 0 0 0 ${cy - cutR}`;
+  }
   path += ` L 0 ${cr} Q 0 0 ${cr} 0`;
 
   path += ' Z';
@@ -231,13 +297,51 @@ export function getTagHole(w: number, h: number, params?: PresetParams): { cx: n
 }
 
 function foldedPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
-  const fs = p.foldSize ?? Math.min(w, h) * 0.18;
-  return `M 0 0 L ${w - fs} 0 L ${w} ${fs} L ${w} ${h} L 0 ${h} Z`;
+  const fs = clamp(p.foldSize ?? Math.min(w, h) * 0.18, 6, Math.min(w, h) * 0.42);
+  const mask = Math.round(p.foldCorners ?? 2) || 2;
+  const tl = (mask & 1) !== 0;
+  const tr = (mask & 2) !== 0;
+  const br = (mask & 4) !== 0;
+  const bl = (mask & 8) !== 0;
+
+  const topLeftX = tl ? fs : 0;
+  const topRightX = tr ? w - fs : w;
+  const rightTopY = tr ? fs : 0;
+  const rightBottomY = br ? h - fs : h;
+  const bottomRightX = br ? w - fs : w;
+  const bottomLeftX = bl ? fs : 0;
+  const leftBottomY = bl ? h - fs : h;
+  const leftTopY = tl ? fs : 0;
+
+  let path = `M ${topLeftX} 0`;
+  path += ` L ${topRightX} 0`;
+  path += tr ? ` L ${w} ${rightTopY}` : ` L ${w} 0`;
+  path += ` L ${w} ${rightBottomY}`;
+  path += br ? ` L ${bottomRightX} ${h}` : ` L ${w} ${h}`;
+  path += ` L ${bottomLeftX} ${h}`;
+  path += bl ? ` L 0 ${leftBottomY}` : ` L 0 ${h}`;
+  path += ` L 0 ${leftTopY}`;
+  path += tl ? ` L ${topLeftX} 0` : ` L 0 0`;
+  path += ' Z';
+  return path;
 }
 
 export function getFoldTriangle(w: number, h: number, params?: PresetParams): string {
-  const fs = params?.foldSize ?? Math.min(w, h) * 0.18;
-  return `M ${w - fs} 0 L ${w} ${fs} L ${w - fs} ${fs} Z`;
+  const first = getFoldTriangles(w, h, params)[0];
+  return first ?? '';
+}
+
+export function getFoldTriangles(w: number, h: number, params?: PresetParams): string[] {
+  const fs = clamp(params?.foldSize ?? Math.min(w, h) * 0.18, 6, Math.min(w, h) * 0.42);
+  const mask = Math.round(params?.foldCorners ?? 2) || 2;
+  const triangles: string[] = [];
+
+  if (mask & 1) triangles.push(`M ${fs} 0 L 0 ${fs} L ${fs} ${fs} Z`);
+  if (mask & 2) triangles.push(`M ${w - fs} 0 L ${w} ${fs} L ${w - fs} ${fs} Z`);
+  if (mask & 4) triangles.push(`M ${w} ${h - fs} L ${w - fs} ${h} L ${w - fs} ${h - fs} Z`);
+  if (mask & 8) triangles.push(`M ${fs} ${h} L 0 ${h - fs} L ${fs} ${h - fs} Z`);
+
+  return triangles;
 }
 
 function tornPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
@@ -354,10 +458,27 @@ export const presetParamsDefs: Record<PaperPreset, { key: keyof PresetParams; la
   coupon: [
     { key: 'holeRadius', label: '打孔半径', min: 5, max: 40, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.1 },
     { key: 'notchRadius', label: '缺口半径', min: 3, max: 25, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.06 },
+    { key: 'couponHoleCount', label: '侧边孔数量', min: 1, max: 5, step: 1, defaultVal: () => 1 },
+    { key: 'couponHoleSpread', label: '孔分布范围', min: 0.3, max: 1, step: 0.05, defaultVal: () => 0.68 },
+    { key: 'couponHoleOffsetY', label: '孔位纵向偏移', min: -80, max: 80, step: 1, defaultVal: () => 0 },
+    { key: 'couponNotchOffsetX', label: '中缝横向偏移', min: -120, max: 120, step: 1, defaultVal: () => 0 },
+    { key: 'perforationMode', label: '撕线模式(0虚线/1打孔)', min: 0, max: 1, step: 1, defaultVal: () => 0 },
+    { key: 'perforationGap', label: '撕线间距', min: 4, max: 24, step: 1, defaultVal: () => 10 },
+    { key: 'perforationDotRadius', label: '打孔点半径', min: 0.8, max: 4, step: 0.1, defaultVal: () => 1.6 },
+    { key: 'perforationInset', label: '撕线内缩', min: 2, max: 30, step: 1, defaultVal: () => 7 },
+    { key: 'perforationOffset', label: '撕线偏移', min: -120, max: 120, step: 1, defaultVal: () => 0 },
   ],
   ticket: [
     { key: 'cutRadius', label: '切口半径', min: 5, max: 35, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.11 },
     { key: 'cornerRadius', label: '圆角', min: 0, max: 30, step: 1, defaultVal: () => 10 },
+    { key: 'ticketCutCount', label: '侧边切口数量', min: 1, max: 5, step: 1, defaultVal: () => 1 },
+    { key: 'ticketCutSpread', label: '切口分布范围', min: 0.3, max: 1, step: 0.05, defaultVal: () => 0.68 },
+    { key: 'ticketCutOffsetY', label: '切口纵向偏移', min: -80, max: 80, step: 1, defaultVal: () => 0 },
+    { key: 'perforationMode', label: '撕线模式(0虚线/1打孔)', min: 0, max: 1, step: 1, defaultVal: () => 0 },
+    { key: 'perforationGap', label: '撕线间距', min: 4, max: 24, step: 1, defaultVal: () => 10 },
+    { key: 'perforationDotRadius', label: '打孔点半径', min: 0.8, max: 4, step: 0.1, defaultVal: () => 1.6 },
+    { key: 'perforationInset', label: '撕线内缩', min: 2, max: 30, step: 1, defaultVal: () => 7 },
+    { key: 'perforationOffset', label: '撕线偏移', min: -120, max: 120, step: 1, defaultVal: () => 0 },
   ],
   tag: [
     { key: 'cutSize', label: '尖顶高度', min: 10, max: 100, step: 1, defaultVal: (_w, h) => h * 0.2 },
@@ -388,8 +509,8 @@ export const presetParamsDefs: Record<PaperPreset, { key: keyof PresetParams; la
 // Preset display info
 export const presetInfo: Record<PaperPreset, { label: string; emoji: string; description: string }> = {
   stamp: { label: '邮票', emoji: '📮', description: '四边连续齿边，经典邮票形态' },
-  coupon: { label: '优惠券', emoji: '🎟️', description: '左右半圆打孔 + 顶部中缺口' },
-  ticket: { label: '门票', emoji: '🎫', description: '票根切口，清晰的撕线语义' },
+  coupon: { label: '优惠券', emoji: '🎟️', description: '左右半圆打孔 + 中轴撕线' },
+  ticket: { label: '门票', emoji: '🎫', description: '票根切口 + 横向撕线语义' },
   tag: { label: '吊牌', emoji: '🏷️', description: '异形切角 + 单孔位挂绳' },
   folded: { label: '折角', emoji: '📄', description: '单角折角，带双层阴影' },
   torn: { label: '撕纸', emoji: '📃', description: '不规则撕裂边缘' },

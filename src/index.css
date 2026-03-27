@@ -4,54 +4,54 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Paper-craft design system —童趣日式可爱手绘風 */
+/* Paper-craft design system - 童趣可爱手绘风 */
 
 @layer base {
   :root {
-    --background: 40 33% 97%;
-    --foreground: 25 20% 20%;
+    --background: 36 33% 97%;
+    --foreground: 24 28% 22%;
 
-    --card: 40 40% 96%;
-    --card-foreground: 25 20% 20%;
+    --card: 40 38% 95%;
+    --card-foreground: 24 28% 22%;
 
-    --popover: 40 40% 96%;
-    --popover-foreground: 25 20% 20%;
+    --popover: 40 38% 95%;
+    --popover-foreground: 24 28% 22%;
 
-    --primary: 12 60% 68%;
-    --primary-foreground: 40 33% 97%;
+    --primary: 14 78% 56%;
+    --primary-foreground: 48 78% 96%;
 
-    --secondary: 160 30% 78%;
-    --secondary-foreground: 25 20% 20%;
+    --secondary: 154 54% 66%;
+    --secondary-foreground: 24 28% 22%;
 
-    --muted: 35 25% 92%;
-    --muted-foreground: 25 10% 50%;
+    --muted: 38 30% 90%;
+    --muted-foreground: 24 20% 42%;
 
-    --accent: 210 45% 76%;
-    --accent-foreground: 25 20% 20%;
+    --accent: 204 74% 72%;
+    --accent-foreground: 24 28% 22%;
 
-    --destructive: 0 65% 55%;
-    --destructive-foreground: 40 33% 97%;
+    --destructive: 0 74% 54%;
+    --destructive-foreground: 48 78% 96%;
 
-    --border: 30 20% 85%;
-    --input: 30 20% 85%;
-    --ring: 12 60% 68%;
+    --border: 30 46% 74%;
+    --input: 30 46% 74%;
+    --ring: 14 78% 56%;
 
     --radius: 0.75rem;
 
     /* Paper craft tokens */
-    --paper-cream: 40 40% 96%;
-    --paper-cloud: 40 20% 98%;
-    --paper-pink: 15 50% 95%;
-    --paper-apricot: 30 30% 93%;
+    --paper-cream: 48 88% 89%;
+    --paper-cloud: 52 72% 94%;
+    --paper-pink: 342 84% 86%;
+    --paper-apricot: 28 90% 84%;
 
-    --ink-stroke: 25 18% 42%;
-    --ink-light: 25 12% 62%;
+    --ink-stroke: 24 36% 35%;
+    --ink-light: 24 22% 56%;
 
-    --sweet-peach: 12 60% 68%;
-    --sweet-mint: 160 30% 70%;
-    --sweet-sky: 210 45% 72%;
-    --sweet-lavender: 270 30% 76%;
-    --sweet-orange: 30 65% 68%;
+    --sweet-peach: 16 92% 74%;
+    --sweet-mint: 152 64% 74%;
+    --sweet-sky: 204 86% 74%;
+    --sweet-lavender: 268 72% 78%;
+    --sweet-orange: 30 90% 68%;
 
     --paper-shadow: 0 0% 0% / 0.08;
     --paper-shadow-md: 0 2px 8px -2px hsl(var(--paper-shadow));

@@ -1,5 +1,5 @@
 import React, { useMemo, useId, useRef, useCallback } from 'react';
-import { generatePath, getTagHole, getFoldTriangle, getStitchPath, generateStitchDashes } from './geometry';
+import { generatePath, getTagHole, getFoldTriangles, getStitchPath, generateStitchDashes } from './geometry';
 import type { PaperPreset, ShapeConfig, PresetParams } from './geometry';
 import type { DecorationItem, DecorationTransform } from './decorations';
 import { DraggableDecoration } from './DraggableDecoration';
@@ -28,14 +28,14 @@ export interface PaperShapeProps {
 }
 
 const PAPER_COLORS: Record<string, string> = {
-  cream: 'hsl(40, 40%, 96%)',
-  cloud: 'hsl(40, 20%, 98%)',
-  pink: 'hsl(15, 50%, 95%)',
-  apricot: 'hsl(30, 30%, 93%)',
-  peach: 'hsl(12, 60%, 92%)',
-  mint: 'hsl(160, 30%, 93%)',
-  sky: 'hsl(210, 45%, 94%)',
-  lavender: 'hsl(270, 30%, 94%)',
+  cream: 'hsl(48, 88%, 89%)',
+  cloud: 'hsl(52, 72%, 94%)',
+  pink: 'hsl(342, 84%, 86%)',
+  apricot: 'hsl(28, 90%, 84%)',
+  peach: 'hsl(16, 92%, 82%)',
+  mint: 'hsl(152, 64%, 84%)',
+  sky: 'hsl(204, 86%, 86%)',
+  lavender: 'hsl(268, 72%, 87%)',
 };
 
 const ACCENT_COLORS = [
@@ -83,11 +83,67 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     ? (PAPER_COLORS[paperColor] || paperColor) 
     : PAPER_COLORS.cream;
   
-  const stroke = strokeColor || 'hsl(25, 18%, 42%)';
+  const stroke = strokeColor || 'hsl(24, 36%, 35%)';
 
   const tagHole = preset === 'tag' ? getTagHole(width, height, presetParams) : null;
-  const foldTriangle = preset === 'folded' ? getFoldTriangle(width, height, presetParams) : null;
+  const foldTriangles = preset === 'folded' ? getFoldTriangles(width, height, presetParams) : [];
   const stitchPath = preset === 'stitched' ? getStitchPath(width, height, presetParams) : null;
+  const perforationGuide = useMemo(() => {
+    const gap = Math.max(2, presetParams?.perforationGap ?? 10);
+    const inset = Math.max(0, presetParams?.perforationInset ?? 7);
+    const offset = presetParams?.perforationOffset ?? 0;
+    const dotRadius = Math.max(0.5, presetParams?.perforationDotRadius ?? 1.6);
+    const mode = Math.round(presetParams?.perforationMode ?? 0);
+
+    if (preset === 'coupon') {
+      const notchR = presetParams?.notchRadius ?? Math.min(width, height) * 0.06;
+      const x = width / 2 + offset;
+      const y1 = notchR + inset;
+      const y2 = height - notchR - inset;
+      if (y2 <= y1) return null;
+      return {
+        axis: 'vertical' as const,
+        mode,
+        gap,
+        dotRadius,
+        x1: x,
+        y1,
+        x2: x,
+        y2,
+      };
+    }
+
+    if (preset === 'ticket') {
+      const cutR = presetParams?.cutRadius ?? Math.min(width, height) * 0.11;
+      const y = height / 2 + offset;
+      const x1 = cutR + inset;
+      const x2 = width - cutR - inset;
+      if (x2 <= x1) return null;
+      return {
+        axis: 'horizontal' as const,
+        mode,
+        gap,
+        dotRadius,
+        x1,
+        y1: y,
+        x2,
+        y2: y,
+      };
+    }
+
+    return null;
+  }, [
+    preset,
+    presetParams?.notchRadius,
+    presetParams?.cutRadius,
+    presetParams?.perforationGap,
+    presetParams?.perforationInset,
+    presetParams?.perforationOffset,
+    presetParams?.perforationDotRadius,
+    presetParams?.perforationMode,
+    width,
+    height,
+  ]);
 
   const padding = 16;
   const svgW = width + padding * 2;
@@ -169,12 +225,77 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
           />
         )}
 
+        {/* Perforation guide for tear/cut semantics */}
+        {perforationGuide && (
+          perforationGuide.mode === 1 ? (
+            <g clipPath={`url(#${clipId})`}>
+              {Array.from({
+                length: Math.max(
+                  1,
+                  Math.floor(
+                    (perforationGuide.axis === 'vertical'
+                      ? Math.abs(perforationGuide.y2 - perforationGuide.y1)
+                      : Math.abs(perforationGuide.x2 - perforationGuide.x1)) /
+                      perforationGuide.gap
+                  ) + 1
+                ),
+              }).map((_, i) => {
+                const t = Math.max(
+                  0,
+                  Math.min(
+                    1,
+                    i /
+                      Math.max(
+                        1,
+                        Math.floor(
+                          (perforationGuide.axis === 'vertical'
+                            ? Math.abs(perforationGuide.y2 - perforationGuide.y1)
+                            : Math.abs(perforationGuide.x2 - perforationGuide.x1)) /
+                            perforationGuide.gap
+                        )
+                      )
+                  )
+                );
+                const x = perforationGuide.x1 + (perforationGuide.x2 - perforationGuide.x1) * t;
+                const y = perforationGuide.y1 + (perforationGuide.y2 - perforationGuide.y1) * t;
+                return (
+                  <circle
+                    key={`perf-dot-${i}`}
+                    cx={x}
+                    cy={y}
+                    r={perforationGuide.dotRadius}
+                    fill={stroke}
+                    opacity="0.6"
+                  />
+                );
+              })}
+            </g>
+          ) : (
+            <line
+              x1={perforationGuide.x1}
+              y1={perforationGuide.y1}
+              x2={perforationGuide.x2}
+              y2={perforationGuide.y2}
+              stroke={stroke}
+              strokeWidth={Math.max(1, strokeWidth * 0.75)}
+              strokeDasharray={`2.5 ${Math.max(3, perforationGuide.gap)}`}
+              strokeLinecap="round"
+              opacity="0.5"
+              clipPath={`url(#${clipId})`}
+            />
+          )
+        )}
+
         {/* Fold triangle overlay */}
-        {foldTriangle && (
+        {foldTriangles.length > 0 && (
           <>
-            <path d={foldTriangle} fill="hsl(25, 15%, 30%)" opacity="0.08" />
-            <path d={foldTriangle} fill="hsl(40, 35%, 90%)" />
-            <path d={foldTriangle} fill="none" stroke={stroke} strokeWidth={strokeWidth * 0.6} opacity="0.4" />
+            {foldTriangles.map((d, i) => (
+              <g key={`fold-${i}`}>
+                <path d={d} fill="hsl(25, 15%, 30%)" opacity="0.08" />
+                <path d={d} fill="hsl(40, 35%, 90%)" />
+                <path d={d} fill="none" stroke={stroke} strokeWidth={strokeWidth * 0.6} opacity="0.4" />
+              </g>
+            ))}
           </>
         )}
 

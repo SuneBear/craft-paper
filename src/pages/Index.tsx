@@ -15,7 +15,7 @@ const Index = () => {
           ✂️ Paper Shape Studio
         </h1>
         <p className="text-lg text-muted-foreground font-craft max-w-md mx-auto">
-          童趣日式可爱手绘风纸张形状组件系统
+          童趣可爱手绘风纸张形状组件系统
         </p>
 
         <div className="flex gap-6 justify-center flex-wrap">
@@ -44,7 +44,7 @@ const Index = () => {
           to="/ui/paper-shape"
           className="inline-block px-8 py-3 rounded-xl bg-primary text-primary-foreground font-craft font-medium text-lg shadow-md hover:opacity-90 transition"
         >
-          进入工作室 →
+          进入创作台 →
         </Link>
       </motion.div>
     </div>

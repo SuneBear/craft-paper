@@ -28,11 +28,11 @@ export const stapleVariants = [
 
 // ─── Washi tape variants ───
 export const washiTapeVariants = [
-  { key: 'stripe-pink', label: '粉色条纹', bg: 'hsl(350, 60%, 82%)', pattern: 'stripes', accent: 'hsl(350, 50%, 72%)' },
-  { key: 'dots-mint', label: '薄荷圆点', bg: 'hsl(160, 40%, 78%)', pattern: 'dots', accent: 'hsl(160, 35%, 65%)' },
-  { key: 'stars-yellow', label: '黄色星星', bg: 'hsl(45, 70%, 80%)', pattern: 'stars', accent: 'hsl(40, 60%, 60%)' },
-  { key: 'plain-lavender', label: '薰衣草纯色', bg: 'hsl(270, 35%, 82%)', pattern: 'plain', accent: 'hsl(270, 30%, 70%)' },
-  { key: 'check-sky', label: '天蓝格子', bg: 'hsl(210, 50%, 82%)', pattern: 'check', accent: 'hsl(210, 45%, 68%)' },
+  { key: 'stripe-pink', label: '粉色条纹', bg: 'hsl(346, 86%, 78%)', pattern: 'stripes', accent: 'hsl(344, 74%, 62%)' },
+  { key: 'dots-mint', label: '薄荷圆点', bg: 'hsl(154, 62%, 74%)', pattern: 'dots', accent: 'hsl(152, 58%, 56%)' },
+  { key: 'stars-yellow', label: '黄色星星', bg: 'hsl(48, 94%, 76%)', pattern: 'stars', accent: 'hsl(42, 82%, 56%)' },
+  { key: 'plain-lavender', label: '薰衣草纯色', bg: 'hsl(268, 72%, 79%)', pattern: 'plain', accent: 'hsl(266, 62%, 63%)' },
+  { key: 'check-sky', label: '天蓝格子', bg: 'hsl(204, 84%, 78%)', pattern: 'check', accent: 'hsl(202, 74%, 60%)' },
 ] as const;
 
 // ─── Sticker variants ───

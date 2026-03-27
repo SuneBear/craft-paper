@@ -10,7 +10,7 @@ export function PaperShapeLayout() {
             📐 Paper Shape
           </h1>
           <p className="text-muted-foreground font-craft mt-1">
-            童趣日式可爱手绘风纸张形状组件系统
+            童趣可爱手绘风纸张形状组件系统
           </p>
         </header>
         <PaperShapeNav />

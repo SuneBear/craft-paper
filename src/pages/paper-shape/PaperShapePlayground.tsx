@@ -27,6 +27,13 @@ const patternOptions = [
   { key: 'dots' as const, label: '点阵' },
 ];
 
+const foldCornerOptions = [
+  { bit: 1, label: '左上' },
+  { bit: 2, label: '右上' },
+  { bit: 4, label: '右下' },
+  { bit: 8, label: '左下' },
+] as const;
+
 export default function PaperShapePlayground() {
   const [preset, setPreset] = useState<PaperPreset>('stamp');
   const [width, setWidth] = useState(280);
@@ -50,6 +57,16 @@ export default function PaperShapePlayground() {
 
   const setParamValue = useCallback((key: keyof PresetParams, val: number) => {
     setPresetParams(prev => ({ ...prev, [key]: val }));
+  }, []);
+
+  const foldCornerMask = Math.round(presetParams.foldCorners ?? 2) || 2;
+  const toggleFoldCorner = useCallback((bit: number) => {
+    setPresetParams((prev) => {
+      const current = Math.round(prev.foldCorners ?? 2) || 2;
+      let next = current ^ bit;
+      if (next === 0) next = bit;
+      return { ...prev, foldCorners: next };
+    });
   }, []);
 
   const handlePresetChange = useCallback((p: PaperPreset) => {
@@ -190,6 +207,32 @@ export default function PaperShapePlayground() {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {preset === 'folded' && (
+          <div className="space-y-2 p-3 rounded-xl bg-muted/50 border border-border">
+            <label className="text-xs font-craft font-semibold text-foreground block">
+              📐 折角方向（可多选）
+            </label>
+            <div className="grid grid-cols-2 gap-1.5">
+              {foldCornerOptions.map((corner) => {
+                const active = (foldCornerMask & corner.bit) !== 0;
+                return (
+                  <button
+                    key={corner.bit}
+                    onClick={() => toggleFoldCorner(corner.bit)}
+                    className={`px-2 py-1.5 rounded-lg text-xs font-craft transition ${
+                      active
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-background text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {corner.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 

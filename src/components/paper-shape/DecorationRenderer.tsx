@@ -43,21 +43,23 @@ export const WashiTapeSVG: React.FC<RendererProps & { uid: string }> = ({ varian
   const w = 80 * scale;
   const h = 22 * scale;
   const patId = `washi-pat-${uid}`;
+  const segments = 20;
+  const step = w / segments;
 
   // Torn edges
-  const tornTop = `M 0 ${1.5 * scale} ` + Array.from({ length: 20 }, (_, i) => {
-    const x = (i + 1) * (w / 20);
+  const tornTop = `M 0 ${1.5 * scale} ` + Array.from({ length: segments }, (_, i) => {
+    const x = (i + 1) * step;
     const y = (i % 2 === 0 ? 0.8 : 1.8) * scale;
     return `L ${x} ${y}`;
   }).join(' ');
 
-  const tornBottom = Array.from({ length: 20 }, (_, i) => {
-    const x = i * (w / 20);
+  const tornBottom = Array.from({ length: segments + 1 }, (_, i) => {
+    const x = w - i * step;
     const y = h + (i % 2 === 0 ? -0.8 : 0.5) * scale;
-    return `${i === 0 ? 'L' : 'L'} ${x} ${y}`;
+    return `L ${x} ${y}`;
   }).join(' ');
 
-  const clipPath = `${tornTop} L ${w} ${h} ${tornBottom} Z`;
+  const clipPath = `${tornTop} ${tornBottom} Z`;
 
   return (
     <g opacity={0.85}>

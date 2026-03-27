@@ -4,8 +4,8 @@ import { cn } from '@/lib/utils';
 const navItems = [
   { to: '/ui/paper-shape', label: '✨ 总览', end: true },
   { to: '/ui/paper-shape/examples', label: '📋 示例库' },
-  { to: '/ui/paper-shape/playground', label: '🎮 参数编辑器' },
   { to: '/ui/paper-shape/stack', label: '📚 堆叠组合' },
+  { to: '/ui/paper-shape/playground', label: '🎮 参数编辑器' },
 ];
 
 export function PaperShapeNav() {
