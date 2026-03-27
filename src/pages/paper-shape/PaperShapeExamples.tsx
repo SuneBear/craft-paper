@@ -3,6 +3,7 @@ import { presetInfo, type PaperPreset, type PresetParams } from '@/components/pa
 import type { DecorationItem } from '@/components/paper-shape/decorations';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 
 const allPresets: PaperPreset[] = [
   'stamp', 'coupon', 'ticket', 'tag',
@@ -29,6 +30,7 @@ function generateExamples(): ExampleItem[] {
   const variantCountByPreset: Partial<Record<PaperPreset, number>> = {
     coupon: 4,
     ticket: 4,
+    folded: 4,
   };
 
   allPresets.forEach((preset, i) => {
@@ -44,10 +46,34 @@ function generateExamples(): ExampleItem[] {
           { id: 'ex-sticker-1', type: 'sticker', variant: 'star', transform: { x: 140, y: 100, rotation: 12, scale: 0.9 } },
         );
       }
-      if (preset === 'folded' && v === 0) {
-        decos.push(
-          { id: 'ex-tape-1', type: 'washi-tape', variant: 'stripe-pink', transform: { x: 30, y: -8, rotation: -5, scale: 0.7 } },
-        );
+      if (preset === 'folded') {
+        if (v === 0) {
+          presetParams = {
+            foldSize: 26,
+            foldCorners: 2, // 右上
+          };
+          decos.push(
+            { id: 'ex-tape-1', type: 'washi-tape', variant: 'stripe-pink', transform: { x: 30, y: -8, rotation: -5, scale: 0.7 } },
+          );
+        }
+        if (v === 1) {
+          presetParams = {
+            foldSize: 24,
+            foldCorners: 1, // 左上
+          };
+        }
+        if (v === 2) {
+          presetParams = {
+            foldSize: 22,
+            foldCorners: 5, // 左上 + 右下
+          };
+        }
+        if (v === 3) {
+          presetParams = {
+            foldSize: 18,
+            foldCorners: 15, // 四角
+          };
+        }
       }
       if (preset === 'torn' && v === 1) {
         decos.push(
@@ -116,6 +142,8 @@ function generateExamples(): ExampleItem[] {
         if (v === 0) {
           presetParams = {
             cutRadius: 16,
+            ticketStubSide: 0,
+            ticketStubWidth: 46,
             ticketCutCount: 1,
             perforationMode: 0,
           };
@@ -123,6 +151,8 @@ function generateExamples(): ExampleItem[] {
         if (v === 1) {
           presetParams = {
             cutRadius: 12,
+            ticketStubSide: 1,
+            ticketStubWidth: 50,
             ticketCutCount: 3,
             ticketCutSpread: 0.78,
             perforationMode: 1,
@@ -133,6 +163,8 @@ function generateExamples(): ExampleItem[] {
         if (v === 2) {
           presetParams = {
             cutRadius: 9,
+            ticketStubSide: 2,
+            ticketStubWidth: 36,
             ticketCutCount: 4,
             ticketCutSpread: 0.9,
             ticketCutOffsetY: -18,
@@ -146,6 +178,8 @@ function generateExamples(): ExampleItem[] {
           presetParams = {
             cutRadius: 14,
             cornerRadius: 16,
+            ticketStubSide: 3,
+            ticketStubWidth: 34,
             ticketCutCount: 2,
             ticketCutOffsetY: 22,
             perforationMode: 0,
@@ -211,33 +245,35 @@ export default function PaperShapeExamples() {
               transition={{ delay: i * 0.04 }}
               className="flex flex-col items-center gap-2 group cursor-pointer"
             >
-              <div className="transition-transform group-hover:scale-105 group-hover:-rotate-1">
-                <PaperShape
-                  preset={ex.preset}
-                  width={180}
-                  height={140}
-                  seed={ex.seed}
-                  paperColor={ex.color}
-                  showPattern={ex.pattern !== 'none'}
-                  patternType={ex.pattern}
-                  presetParams={ex.presetParams}
-                  decorations={ex.decorations}
-                >
-                  <div className="text-center">
-                    <span className="text-2xl block">{info.emoji}</span>
-                    <span className="text-xs font-craft text-ink-stroke mt-1 block opacity-70">
-                      {ex.title}
-                    </span>
-                  </div>
-                </PaperShape>
-              </div>
-              <div className="text-center">
-                <p className="text-xs font-craft font-medium text-foreground">{ex.title}</p>
-                <p className="text-[10px] text-muted-foreground font-craft">
-                  {ex.color} · {ex.pattern === 'none' ? '无纹理' : ex.pattern}
-                  {ex.decorations && ` · ${ex.decorations.length}个装饰`}
-                </p>
-              </div>
+              <Link to={`/ui/paper-shape/preset/${ex.preset}`} className="flex flex-col items-center gap-2">
+                <div className="transition-transform group-hover:scale-105 group-hover:-rotate-1">
+                  <PaperShape
+                    preset={ex.preset}
+                    width={180}
+                    height={140}
+                    seed={ex.seed}
+                    paperColor={ex.color}
+                    showPattern={ex.pattern !== 'none'}
+                    patternType={ex.pattern}
+                    presetParams={ex.presetParams}
+                    decorations={ex.decorations}
+                  >
+                    <div className="text-center">
+                      <span className="text-2xl block">{info.emoji}</span>
+                      <span className="text-xs font-craft text-ink-stroke mt-1 block opacity-70">
+                        {ex.title}
+                      </span>
+                    </div>
+                  </PaperShape>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs font-craft font-medium text-foreground">{ex.title}</p>
+                  <p className="text-[10px] text-muted-foreground font-craft">
+                    {ex.color} · {ex.pattern === 'none' ? '无纹理' : ex.pattern}
+                    {ex.decorations && ` · ${ex.decorations.length}个装饰`}
+                  </p>
+                </div>
+              </Link>
             </motion.div>
           );
         })}

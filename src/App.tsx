@@ -10,6 +10,7 @@ import PaperShapeOverview from "./pages/paper-shape/PaperShapeOverview";
 import PaperShapeExamples from "./pages/paper-shape/PaperShapeExamples";
 import PaperShapePlayground from "./pages/paper-shape/PaperShapePlayground";
 import PaperShapeStack from "./pages/paper-shape/PaperShapeStack";
+import PaperShapePresetDetail from "./pages/paper-shape/PaperShapePresetDetail";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/ui/paper-shape" element={<PaperShapeLayout />}>
             <Route index element={<PaperShapeOverview />} />
             <Route path="examples" element={<PaperShapeExamples />} />
+            <Route path="preset/:preset" element={<PaperShapePresetDetail />} />
             <Route path="playground" element={<PaperShapePlayground />} />
             <Route path="stack" element={<PaperShapeStack />} />
           </Route>

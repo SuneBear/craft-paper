@@ -55,25 +55,27 @@ export default function PaperShapeOverview() {
                 transition={{ delay: i * 0.06, duration: 0.4 }}
                 className="flex flex-col items-center gap-2"
               >
-                <PaperShape
-                  preset={preset}
-                  width={160}
-                  height={120}
-                  seed={i * 7 + 13}
-                  paperColor={COLORS[i % COLORS.length]}
-                  showPattern={i % 3 === 0}
-                  patternType={i % 3 === 0 ? 'dots' : 'none'}
-                >
-                  <span className="text-3xl">{info.emoji}</span>
-                </PaperShape>
-                <div className="text-center">
-                  <p className="font-craft font-medium text-sm text-foreground">
-                    {info.emoji} {info.label}
-                  </p>
-                  <p className="text-xs text-muted-foreground font-craft">
-                    {info.description}
-                  </p>
-                </div>
+                <Link to={`/ui/paper-shape/preset/${preset}`} className="flex flex-col items-center gap-2">
+                  <PaperShape
+                    preset={preset}
+                    width={160}
+                    height={120}
+                    seed={i * 7 + 13}
+                    paperColor={COLORS[i % COLORS.length]}
+                    showPattern={i % 3 === 0}
+                    patternType={i % 3 === 0 ? 'dots' : 'none'}
+                  >
+                    <span className="text-3xl">{info.emoji}</span>
+                  </PaperShape>
+                  <div className="text-center">
+                    <p className="font-craft font-medium text-sm text-foreground">
+                      {info.emoji} {info.label}
+                    </p>
+                    <p className="text-xs text-muted-foreground font-craft">
+                      {info.description}
+                    </p>
+                  </div>
+                </Link>
               </motion.div>
             );
           })}

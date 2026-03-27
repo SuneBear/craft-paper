@@ -22,6 +22,8 @@ export interface PresetParams {
   // coupon
   holeRadius?: number;          // 打孔半径
   notchRadius?: number;         // 缺口半径
+  couponDirection?: number;     // 缺口方向: 0上下缺口(竖撕线) 1左右缺口(横撕线)
+  couponPosition?: number;      // 缺口/撕线位置偏移
   couponHoleCount?: number;     // 侧边孔数量
   couponHoleSpread?: number;    // 多孔分布范围 (0-1)
   couponHoleOffsetY?: number;   // 侧边孔整体纵向偏移
@@ -31,6 +33,8 @@ export interface PresetParams {
   ticketCutCount?: number;      // 侧边切口数量
   ticketCutSpread?: number;     // 多切口分布范围 (0-1)
   ticketCutOffsetY?: number;    // 侧边切口整体纵向偏移
+  ticketStubSide?: number;      // 票根方向: 0右 1左 2上 3下
+  ticketStubWidth?: number;     // 票根宽度
   // coupon + ticket perforation guide
   perforationMode?: number;     // 0=虚线, 1=打孔点
   perforationGap?: number;      // 间距
@@ -213,13 +217,41 @@ function couponPath(w: number, h: number, rng: () => number, r: number, p: Prese
   const holeR = p.holeRadius ?? Math.min(w, h) * 0.1;
   const notchR = p.notchRadius ?? Math.min(w, h) * 0.06;
   const cr = p.cornerRadius ?? 14;
-  const notchOffsetX = p.couponNotchOffsetX ?? 0;
-  const notchCenter = clamp(w / 2 + notchOffsetX, cr + notchR + 2, w - cr - notchR - 2);
+  const direction = Math.round(p.couponDirection ?? 0);
+  const position = p.couponPosition ?? p.couponNotchOffsetX ?? 0;
+
+  if (direction === 1) {
+    const notchCenterY = clamp(h / 2 + position, cr + notchR + 2, h - cr - notchR - 2);
+    const edgeCenters = buildSideCenters(w, cr, holeR, p.couponHoleCount, p.couponHoleSpread, p.couponHoleOffsetY);
+
+    let path = `M ${cr} 0`;
+    for (const cx of edgeCenters) {
+      path += ` L ${cx - holeR} 0`;
+      path += ` A ${holeR} ${holeR} 0 0 0 ${cx + holeR} 0`;
+    }
+    path += ` L ${w - cr} 0 Q ${w} 0 ${w} ${cr}`;
+    path += ` L ${w} ${notchCenterY - notchR}`;
+    path += ` A ${notchR} ${notchR} 0 0 0 ${w} ${notchCenterY + notchR}`;
+    path += ` L ${w} ${h - cr} Q ${w} ${h} ${w - cr} ${h}`;
+
+    for (let i = edgeCenters.length - 1; i >= 0; i--) {
+      const cx = edgeCenters[i];
+      path += ` L ${cx + holeR} ${h}`;
+      path += ` A ${holeR} ${holeR} 0 0 0 ${cx - holeR} ${h}`;
+    }
+    path += ` L ${cr} ${h} Q 0 ${h} 0 ${h - cr}`;
+    path += ` L 0 ${notchCenterY + notchR}`;
+    path += ` A ${notchR} ${notchR} 0 0 0 0 ${notchCenterY - notchR}`;
+    path += ` L 0 ${cr} Q 0 0 ${cr} 0 Z`;
+    return path;
+  }
+
+  const notchCenterX = clamp(w / 2 + position, cr + notchR + 2, w - cr - notchR - 2);
   const sideCenters = buildSideCenters(h, cr, holeR, p.couponHoleCount, p.couponHoleSpread, p.couponHoleOffsetY);
 
   let path = `M ${cr} 0`;
-  path += ` L ${notchCenter - notchR} 0`;
-  path += ` A ${notchR} ${notchR} 0 0 0 ${notchCenter + notchR} 0`;
+  path += ` L ${notchCenterX - notchR} 0`;
+  path += ` A ${notchR} ${notchR} 0 0 0 ${notchCenterX + notchR} 0`;
   path += ` L ${w - cr} 0 Q ${w} 0 ${w} ${cr}`;
 
   for (const cy of sideCenters) {
@@ -228,8 +260,8 @@ function couponPath(w: number, h: number, rng: () => number, r: number, p: Prese
   }
   path += ` L ${w} ${h - cr} Q ${w} ${h} ${w - cr} ${h}`;
 
-  path += ` L ${notchCenter + notchR} ${h}`;
-  path += ` A ${notchR} ${notchR} 0 0 0 ${notchCenter - notchR} ${h}`;
+  path += ` L ${notchCenterX + notchR} ${h}`;
+  path += ` A ${notchR} ${notchR} 0 0 0 ${notchCenterX - notchR} ${h}`;
   path += ` L ${cr} ${h} Q 0 ${h} 0 ${h - cr}`;
 
   for (let i = sideCenters.length - 1; i >= 0; i--) {
@@ -237,9 +269,7 @@ function couponPath(w: number, h: number, rng: () => number, r: number, p: Prese
     path += ` L 0 ${cy + holeR}`;
     path += ` A ${holeR} ${holeR} 0 0 0 0 ${cy - holeR}`;
   }
-  path += ` L 0 ${cr} Q 0 0 ${cr} 0`;
-
-  path += ' Z';
+  path += ` L 0 ${cr} Q 0 0 ${cr} 0 Z`;
   return path;
 }
 
@@ -471,6 +501,7 @@ export const presetParamsDefs: Record<PaperPreset, { key: keyof PresetParams; la
   ticket: [
     { key: 'cutRadius', label: '切口半径', min: 5, max: 35, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.11 },
     { key: 'cornerRadius', label: '圆角', min: 0, max: 30, step: 1, defaultVal: () => 10 },
+    { key: 'ticketStubWidth', label: '票根宽度', min: 20, max: 180, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.28 },
     { key: 'ticketCutCount', label: '侧边切口数量', min: 1, max: 5, step: 1, defaultVal: () => 1 },
     { key: 'ticketCutSpread', label: '切口分布范围', min: 0.3, max: 1, step: 0.05, defaultVal: () => 0.68 },
     { key: 'ticketCutOffsetY', label: '切口纵向偏移', min: -80, max: 80, step: 1, defaultVal: () => 0 },
