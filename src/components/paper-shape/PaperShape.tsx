@@ -243,9 +243,10 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     const cutR = Math.max(3, Math.min(Math.min(width, height) * 0.24, presetParams?.cutoutRadius ?? Math.min(width, height) * 0.07));
     const cutDepth = Math.max(1.5, Math.min(Math.min(width, height) * 0.3, presetParams?.cutoutDepth ?? cutR * 0.85));
     const cutShape = Math.max(0, Math.min(2, Math.round(presetParams?.cutoutShape ?? 0)));
-    const bleed = cutShape === 0
+    const defaultBleed = cutShape === 0
       ? Math.max(0.8, strokeWidth * 0.85 + 0.35)
-      : 0.12;
+      : Math.max(0.5, strokeWidth * 0.55 + 0.18);
+    const bleed = Math.max(0, Math.min(4, presetParams?.cutoutAABleed ?? defaultBleed));
     const maskR = cutR + bleed;
     const maskDepth = cutDepth + bleed;
     const cutOffset = presetParams?.cutoutOffset ?? 0;
@@ -268,7 +269,7 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
       if (cutShape === 1) {
         shapes.push({ kind: 'ellipse', cx: topCx, cy: 0, rx: maskR, ry: maskDepth });
       } else if (cutShape === 2) {
-        shapes.push({ kind: 'rect', x: topCx - maskR, y: 0, width: maskR * 2, height: maskDepth, rx: rr, ry: rr });
+        shapes.push({ kind: 'rect', x: topCx - maskR, y: -outer, width: maskR * 2, height: maskDepth + outer, rx: rr, ry: rr });
       } else {
         const apexX = clampN(topCx + cutSkew, topCx - maskR + 1, topCx + maskR - 1);
         shapes.push({ kind: 'polygon', points: `${topCx - maskR},${-outer} ${topCx + maskR},${-outer} ${apexX},${maskDepth}` });
@@ -278,7 +279,7 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
       if (cutShape === 1) {
         shapes.push({ kind: 'ellipse', cx: width, cy: rightCy, rx: maskDepth, ry: maskR });
       } else if (cutShape === 2) {
-        shapes.push({ kind: 'rect', x: width - maskDepth, y: rightCy - maskR, width: maskDepth, height: maskR * 2, rx: rr, ry: rr });
+        shapes.push({ kind: 'rect', x: width - maskDepth, y: rightCy - maskR, width: maskDepth + outer, height: maskR * 2, rx: rr, ry: rr });
       } else {
         const apexY = clampN(rightCy + cutSkew, rightCy - maskR + 1, rightCy + maskR - 1);
         shapes.push({ kind: 'polygon', points: `${width + outer},${rightCy - maskR} ${width + outer},${rightCy + maskR} ${width - maskDepth},${apexY}` });
@@ -288,7 +289,7 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
       if (cutShape === 1) {
         shapes.push({ kind: 'ellipse', cx: bottomCx, cy: height, rx: maskR, ry: maskDepth });
       } else if (cutShape === 2) {
-        shapes.push({ kind: 'rect', x: bottomCx - maskR, y: height - maskDepth, width: maskR * 2, height: maskDepth, rx: rr, ry: rr });
+        shapes.push({ kind: 'rect', x: bottomCx - maskR, y: height - maskDepth, width: maskR * 2, height: maskDepth + outer, rx: rr, ry: rr });
       } else {
         const apexX = clampN(bottomCx - cutSkew, bottomCx - maskR + 1, bottomCx + maskR - 1);
         shapes.push({ kind: 'polygon', points: `${bottomCx + maskR},${height + outer} ${bottomCx - maskR},${height + outer} ${apexX},${height - maskDepth}` });
@@ -298,7 +299,7 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
       if (cutShape === 1) {
         shapes.push({ kind: 'ellipse', cx: 0, cy: leftCy, rx: maskDepth, ry: maskR });
       } else if (cutShape === 2) {
-        shapes.push({ kind: 'rect', x: 0, y: leftCy - maskR, width: maskDepth, height: maskR * 2, rx: rr, ry: rr });
+        shapes.push({ kind: 'rect', x: -outer, y: leftCy - maskR, width: maskDepth + outer, height: maskR * 2, rx: rr, ry: rr });
       } else {
         const apexY = clampN(leftCy - cutSkew, leftCy - maskR + 1, leftCy + maskR - 1);
         shapes.push({ kind: 'polygon', points: `${-outer},${leftCy + maskR} ${-outer},${leftCy - maskR} ${maskDepth},${apexY}` });
@@ -316,6 +317,7 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     presetParams?.cutoutDepth,
     presetParams?.cutoutOffset,
     presetParams?.cutoutShape,
+    presetParams?.cutoutAABleed,
     strokeWidth,
     width,
     height,

@@ -19,6 +19,7 @@ export type PaperPreset =
 export interface PresetParams {
   // stamp
   perforationRadius?: number;   // 齿孔半径 (default: auto based on size)
+  stampArcDirection?: number;   // 齿边方向: 0朝内(外边平直) 1朝外(默认)
   // coupon
   holeRadius?: number;          // 打孔半径
   notchRadius?: number;         // 缺口半径
@@ -71,6 +72,7 @@ export interface PresetParams {
   scallopDepth?: number;        // 花边深度
   // receipt
   zigzagHeight?: number;        // 锯齿高度
+  zigzagSize?: number;          // 锯齿尺寸（越小越密）
   zigzagEdge?: number;          // 锯齿边方向: 0下 1上 2左 3右
   // cutout (for smooth-edge papers)
   cutoutEdges?: number;         // 裁剪边位掩码: 1上 2右 4下 8左
@@ -78,6 +80,7 @@ export interface PresetParams {
   cutoutDepth?: number;         // 裁剪深度
   cutoutOffset?: number;        // 裁剪偏移（沿边中心偏移）
   cutoutShape?: number;         // 裁剪形状: 0三角 1圆弧 2圆角矩形
+  cutoutAABleed?: number;       // 裁剪抗锯齿余量（mask 外扩）
 }
 
 export interface ShapeConfig {
@@ -203,6 +206,8 @@ export function generatePath(config: ShapeConfig): string {
 function stampPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
   const margin = Math.min(w, h) * 0.08;
   const perfR = p.perforationRadius ?? Math.min(w, h) * 0.04;
+  const inward = Math.round(p.stampArcDirection ?? 1) === 0;
+  const arcSweep = inward ? 1 : 0;
   const cornerR = Math.min(perfR * 0.8, Math.min(w, h) * 0.08);
   const innerW = w - margin * 2 - cornerR * 2;
   const innerH = h - margin * 2 - cornerR * 2;
@@ -222,7 +227,7 @@ function stampPath(w: number, h: number, rng: () => number, r: number, p: Preset
     const mid = (x1 + x2) / 2;
     const pr = wobble(perfR, r * 1.2, rng);
     path += ` L ${mid - pr} ${margin}`;
-    path += ` A ${pr} ${pr} 0 0 1 ${mid + pr} ${margin}`;
+    path += ` A ${pr} ${pr} 0 0 ${arcSweep} ${mid + pr} ${margin}`;
   }
   path += ` L ${w - margin - cornerR} ${margin}`;
   path += ` Q ${w - margin} ${margin} ${w - margin} ${margin + cornerR}`;
@@ -234,7 +239,7 @@ function stampPath(w: number, h: number, rng: () => number, r: number, p: Preset
     const mid = (y1 + y2) / 2;
     const pr = wobble(perfR, r * 1.2, rng);
     path += ` L ${w - margin} ${mid - pr}`;
-    path += ` A ${pr} ${pr} 0 0 1 ${w - margin} ${mid + pr}`;
+    path += ` A ${pr} ${pr} 0 0 ${arcSweep} ${w - margin} ${mid + pr}`;
   }
   path += ` L ${w - margin} ${h - margin - cornerR}`;
   path += ` Q ${w - margin} ${h - margin} ${w - margin - cornerR} ${h - margin}`;
@@ -246,7 +251,7 @@ function stampPath(w: number, h: number, rng: () => number, r: number, p: Preset
     const mid = (x1 + x2) / 2;
     const pr = wobble(perfR, r * 1.2, rng);
     path += ` L ${mid + pr} ${h - margin}`;
-    path += ` A ${pr} ${pr} 0 0 1 ${mid - pr} ${h - margin}`;
+    path += ` A ${pr} ${pr} 0 0 ${arcSweep} ${mid - pr} ${h - margin}`;
   }
   path += ` L ${margin + cornerR} ${h - margin}`;
   path += ` Q ${margin} ${h - margin} ${margin} ${h - margin - cornerR}`;
@@ -258,7 +263,7 @@ function stampPath(w: number, h: number, rng: () => number, r: number, p: Preset
     const mid = (y1 + y2) / 2;
     const pr = wobble(perfR, r * 1.2, rng);
     path += ` L ${margin} ${mid + pr}`;
-    path += ` A ${pr} ${pr} 0 0 1 ${margin} ${mid - pr}`;
+    path += ` A ${pr} ${pr} 0 0 ${arcSweep} ${margin} ${mid - pr}`;
   }
   path += ` L ${margin} ${margin + cornerR}`;
   path += ` Q ${margin} ${margin} ${margin + cornerR} ${margin}`;
@@ -628,10 +633,11 @@ function scallopedPath(w: number, h: number, rng: () => number, r: number, p: Pr
 
 function receiptPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
   const zigH = p.zigzagHeight ?? 8;
+  const zigSize = clamp(p.zigzagSize ?? 12, 6, 40);
   const edge = Math.round(p.zigzagEdge ?? 0);
 
   if (edge === 1) {
-    const steps = Math.max(8, Math.round(w / 12));
+    const steps = Math.max(8, Math.round(w / zigSize));
     const stepW = w / steps;
     let path = 'M 0 0';
     for (let i = 1; i <= steps; i++) {
@@ -644,7 +650,7 @@ function receiptPath(w: number, h: number, rng: () => number, r: number, p: Pres
   }
 
   if (edge === 2) {
-    const steps = Math.max(8, Math.round(h / 12));
+    const steps = Math.max(8, Math.round(h / zigSize));
     const stepH = h / steps;
     let path = `M 0 0 L ${w} 0 L ${w} ${h} L 0 ${h}`;
     for (let i = steps - 1; i >= 0; i--) {
@@ -657,7 +663,7 @@ function receiptPath(w: number, h: number, rng: () => number, r: number, p: Pres
   }
 
   if (edge === 3) {
-    const steps = Math.max(8, Math.round(h / 12));
+    const steps = Math.max(8, Math.round(h / zigSize));
     const stepH = h / steps;
     let path = `M 0 0 L ${w} 0`;
     for (let i = 1; i <= steps; i++) {
@@ -669,7 +675,7 @@ function receiptPath(w: number, h: number, rng: () => number, r: number, p: Pres
     return path;
   }
 
-  const steps = Math.max(8, Math.round(w / 12));
+  const steps = Math.max(8, Math.round(w / zigSize));
   const stepW = w / steps;
   let path = `M 0 0 L ${w} 0 L ${w} ${h}`;
   for (let i = steps; i >= 0; i--) {
@@ -708,6 +714,7 @@ export function generateStitchDashes(pathLength: number, dashLen: number = 8, ga
 export const presetParamsDefs: Record<PaperPreset, { key: keyof PresetParams; label: string; min: number; max: number; step: number; defaultVal: (w: number, h: number) => number }[]> = {
   stamp: [
     { key: 'perforationRadius', label: '齿孔大小', min: 2, max: 20, step: 0.5, defaultVal: (w, h) => Math.min(w, h) * 0.04 },
+    { key: 'stampArcDirection', label: '齿边方向(0朝内/1朝外)', min: 0, max: 1, step: 1, defaultVal: () => 1 },
   ],
   coupon: [
     // 上下边缘缺口
@@ -761,6 +768,7 @@ export const presetParamsDefs: Record<PaperPreset, { key: keyof PresetParams; la
   ],
   receipt: [
     { key: 'zigzagHeight', label: '锯齿高度', min: 2, max: 20, step: 1, defaultVal: () => 8 },
+    { key: 'zigzagSize', label: '锯齿尺寸', min: 6, max: 32, step: 1, defaultVal: () => 12 },
     { key: 'zigzagEdge', label: '锯齿方向(0下/1上/2左/3右)', min: 0, max: 3, step: 1, defaultVal: () => 0 },
   ],
   'basic-paper': [

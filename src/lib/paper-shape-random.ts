@@ -41,6 +41,7 @@ export function createRandomPresetParams(
     'cutoutRadius',
     'cutoutDepth',
     'cutoutOffset',
+    'cutoutAABleed',
     'stitchInset',
     'stitchCornerRadius',
     'stitchWidth',
@@ -145,6 +146,7 @@ export function createRandomPresetParams(
   params.cutoutRadius = prev.cutoutRadius;
   params.cutoutDepth = prev.cutoutDepth;
   params.cutoutOffset = prev.cutoutOffset;
+  params.cutoutAABleed = prev.cutoutAABleed;
   params.stitchInset = prev.stitchInset;
   params.stitchCornerRadius = prev.stitchCornerRadius;
   params.stitchWidth = prev.stitchWidth;

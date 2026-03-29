@@ -34,6 +34,10 @@ const stitchStyleOptions = [
   { value: 2, label: '实线' },
   { value: 3, label: '点划线' },
 ] as const;
+const stampArcDirectionOptions = [
+  { value: 0, label: '圆弧朝内' },
+  { value: 1, label: '圆弧朝外' },
+] as const;
 
 function isHexColor(value: string): boolean {
   return /^#([0-9a-fA-F]{6})$/.test(value);
@@ -184,6 +188,7 @@ export function PaperShapeEditorPanel({
       'stitchColor',
     ].includes(d.key as string)
       && !(preset === 'folded' && d.key === 'foldSize')
+      && !(preset === 'stamp' && d.key === 'stampArcDirection')
       && !(isPerforationPreset && d.key === 'perforationMode')
   );
   const foldCornerMask = Math.round(presetParams.foldCorners ?? 2) || 2;
@@ -193,6 +198,10 @@ export function PaperShapeEditorPanel({
   const cutoutRadius = presetParams.cutoutRadius ?? Math.min(width, height) * 0.07;
   const cutoutDepth = presetParams.cutoutDepth ?? Math.max(1.5, cutoutRadius * 0.85);
   const cutoutOffset = presetParams.cutoutOffset ?? 0;
+  const cutoutDefaultBleed = cutoutShape === 0
+    ? Math.max(0.8, strokeWidth * 0.85 + 0.35)
+    : Math.max(0.5, strokeWidth * 0.55 + 0.18);
+  const cutoutAABleed = Math.max(0, Math.min(4, presetParams.cutoutAABleed ?? cutoutDefaultBleed));
   const cornerDefault =
     preset === 'coupon' ? 14 :
     preset === 'ticket' ? 10 :
@@ -212,6 +221,7 @@ export function PaperShapeEditorPanel({
   const perforationRingColor = typeof presetParams.perforationRingColor === 'string'
     ? presetParams.perforationRingColor
     : strokeColor;
+  const stampArcDirection = Math.max(0, Math.min(1, Math.round(presetParams.stampArcDirection ?? 1)));
 
   const getParamValue = (key: keyof PresetParams) => {
     if (presetParams[key] !== undefined) return presetParams[key] as number;
@@ -332,6 +342,26 @@ export function PaperShapeEditorPanel({
                     onClick={() => setPresetParams((prev) => ({ ...prev, perforationMode: opt.value }))}
                     className={`px-2 py-1.5 rounded-lg text-xs font-craft transition ${
                       perforationMode === opt.value
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-background text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {preset === 'stamp' && (
+            <div>
+              <label className="text-xs font-craft font-medium text-muted-foreground mb-1 block">齿边方向</label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {stampArcDirectionOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setPresetParams((prev) => ({ ...prev, stampArcDirection: opt.value }))}
+                    className={`px-2 py-1.5 rounded-lg text-xs font-craft transition ${
+                      stampArcDirection === opt.value
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-background text-muted-foreground hover:text-foreground'
                     }`}
@@ -605,6 +635,21 @@ export function PaperShapeEditorPanel({
                 step={1}
                 value={cutoutOffset}
                 onChange={(e) => setPresetParams((prev) => ({ ...prev, cutoutOffset: Number(e.target.value) }))}
+                className="w-full accent-primary"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+                <span>裁剪抗锯齿余量</span>
+                <span className="text-foreground">{cutoutAABleed.toFixed(2)}</span>
+              </label>
+              <input
+                type="range"
+                min={0}
+                max={4}
+                step={0.05}
+                value={cutoutAABleed}
+                onChange={(e) => setPresetParams((prev) => ({ ...prev, cutoutAABleed: Number(e.target.value) }))}
                 className="w-full accent-primary"
               />
             </div>
