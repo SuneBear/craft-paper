@@ -36,6 +36,8 @@ export function createRandomPresetParams(
     'cornerRadiusTR',
     'cornerRadiusBR',
     'cornerRadiusBL',
+    'cornerShape',
+    'cornerSuperellipse',
     'cutoutEdges',
     'cutoutShape',
     'cutoutRadius',
@@ -141,6 +143,8 @@ export function createRandomPresetParams(
   params.cornerRadiusTR = prev.cornerRadiusTR;
   params.cornerRadiusBR = prev.cornerRadiusBR;
   params.cornerRadiusBL = prev.cornerRadiusBL;
+  params.cornerShape = prev.cornerShape;
+  params.cornerSuperellipse = prev.cornerSuperellipse;
   params.cutoutEdges = prev.cutoutEdges;
   params.cutoutShape = prev.cutoutShape;
   params.cutoutRadius = prev.cutoutRadius;

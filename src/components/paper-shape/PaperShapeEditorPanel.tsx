@@ -38,6 +38,14 @@ const stampArcDirectionOptions = [
   { value: 0, label: '圆弧朝内' },
   { value: 1, label: '圆弧朝外' },
 ] as const;
+const cornerShapeOptions = [
+  { value: 0, label: 'round 圆角' },
+  { value: 1, label: 'scoop 凹角' },
+  { value: 2, label: 'bevel 斜角' },
+  { value: 3, label: 'notch 缺口角' },
+  { value: 4, label: 'squircle 椭方角' },
+  { value: 5, label: 'superellipse()' },
+] as const;
 
 function isHexColor(value: string): boolean {
   return /^#([0-9a-fA-F]{6})$/.test(value);
@@ -214,6 +222,8 @@ export function PaperShapeEditorPanel({
   const cornerTR = presetParams.cornerRadiusTR ?? cornerBase;
   const cornerBR = presetParams.cornerRadiusBR ?? cornerBase;
   const cornerBL = presetParams.cornerRadiusBL ?? cornerBase;
+  const cornerShape = Math.max(0, Math.min(5, Math.round(presetParams.cornerShape ?? 0)));
+  const cornerSuperellipse = Math.max(-4, Math.min(4, presetParams.cornerSuperellipse ?? 1));
   const stitchColor = typeof presetParams.stitchColor === 'string' ? presetParams.stitchColor : strokeColor;
   const stitchStyle = Math.max(0, Math.min(3, Math.round(presetParams.stitchStyle ?? 0)));
   const perforationMode = Math.max(0, Math.min(1, Math.round(presetParams.perforationMode ?? 0)));
@@ -480,6 +490,8 @@ export function PaperShapeEditorPanel({
               cornerRadiusTR: undefined,
               cornerRadiusBR: undefined,
               cornerRadiusBL: undefined,
+              cornerShape: 0,
+              cornerSuperellipse: undefined,
             }))}
             className="text-[10px] font-craft text-muted-foreground hover:text-foreground"
           >
@@ -527,6 +539,41 @@ export function PaperShapeEditorPanel({
                 </div>
               ))}
             </div>
+            <div>
+              <label className="text-xs font-craft font-medium text-muted-foreground mb-1 block">角形状（CSS corner-shape）</label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {cornerShapeOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setPresetParams((prev) => ({ ...prev, cornerShape: opt.value }))}
+                    className={`px-2 py-1.5 rounded-lg text-xs font-craft transition ${
+                      cornerShape === opt.value
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-background text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {cornerShape === 5 && (
+              <div>
+                <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+                  <span>superellipse(k)</span>
+                  <span className="text-foreground">{cornerSuperellipse.toFixed(1)}</span>
+                </label>
+                <input
+                  type="range"
+                  min={-4}
+                  max={4}
+                  step={0.1}
+                  value={cornerSuperellipse}
+                  onChange={(e) => setPresetParams((prev) => ({ ...prev, cornerSuperellipse: Number(e.target.value) }))}
+                  className="w-full accent-primary"
+                />
+              </div>
+            )}
           </>
         )}
       </div>
