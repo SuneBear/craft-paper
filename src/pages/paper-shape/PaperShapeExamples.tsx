@@ -45,7 +45,7 @@ function generateExamples(): ExampleItem[] {
       // Add decorations to some examples for showcase
       if (preset === 'basic-paper' && v === 0) {
         decos.push(
-          { id: 'ex-staple-1', type: 'staple', variant: 'silver', transform: { x: 80, y: 4, rotation: 0, scale: 1 } },
+          { id: 'ex-staple-1', type: 'staple', variant: 'silver', transform: { x: 80, y: 1, rotation: 0, scale: 1 } },
           { id: 'ex-sticker-1', type: 'sticker', variant: 'star', transform: { x: 140, y: 100, rotation: 12, scale: 0.9 } },
         );
       }
@@ -91,7 +91,7 @@ function generateExamples(): ExampleItem[] {
       }
       if (preset === 'receipt' && v === 0) {
         decos.push(
-          { id: 'ex-staple-2', type: 'staple', variant: 'gold', transform: { x: 75, y: 5, rotation: 0, scale: 1.1 } },
+          { id: 'ex-staple-2', type: 'staple', variant: 'gold', transform: { x: 75, y: 2, rotation: 0, scale: 1.1 } },
         );
       }
       if (preset === 'receipt' && v === 1) {

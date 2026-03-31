@@ -13,31 +13,29 @@ interface RendererProps {
 export const StapleSVG: React.FC<RendererProps> = ({ variant, scale = 1 }) => {
   const v = stapleVariants.find(s => s.key === variant) || stapleVariants[0];
   const w = 28 * scale;
-  const sw = Math.max(1, 1.7 * scale);
-  const leftX = 4 * scale;
-  const rightX = w - 4 * scale;
-  const topY = 2 * scale;
-  const bottomY = 8.2 * scale;
-  const crownRadius = 1.6 * scale;
-  const inset = 0.55 * scale;
-  const shadowDx = 0.8 * scale;
-  const shadowDy = 0.8 * scale;
+  const sw = Math.max(1.1, 1.6 * scale);
+  const leftX = 4.3 * scale;
+  const rightX = w - 4.3 * scale;
+  const topY = 1.7 * scale;
+  const bottomY = 9.1 * scale;
+  const crownRadius = 1.7 * scale;
+  const shadowDx = 0.65 * scale;
+  const shadowDy = 0.7 * scale;
   const staplePath = [
     `M ${leftX} ${bottomY}`,
     `V ${topY + crownRadius}`,
-    `Q ${leftX} ${topY} ${leftX + crownRadius} ${topY}`,
+    `Q ${leftX} ${topY} ${leftX + crownRadius} ${topY - 0.15 * scale}`,
     `H ${rightX - crownRadius}`,
     `Q ${rightX} ${topY} ${rightX} ${topY + crownRadius}`,
     `V ${bottomY}`,
   ].join(' ');
-  const innerPath = [
-    `M ${leftX + inset} ${bottomY - inset}`,
-    `V ${topY + crownRadius + inset * 0.2}`,
-    `Q ${leftX + inset} ${topY + inset} ${leftX + crownRadius + inset} ${topY + inset}`,
-    `H ${rightX - crownRadius - inset}`,
-    `Q ${rightX - inset} ${topY + inset} ${rightX - inset} ${topY + crownRadius + inset * 0.2}`,
-    `V ${bottomY - inset}`,
+  const topHighlightPath = [
+    `M ${leftX + 0.9 * scale} ${topY + 0.55 * scale}`,
+    `Q ${leftX + crownRadius} ${topY + 0.05 * scale} ${leftX + crownRadius + 1.6 * scale} ${topY + 0.05 * scale}`,
+    `H ${rightX - crownRadius - 1.6 * scale}`,
+    `Q ${rightX - crownRadius} ${topY + 0.05 * scale} ${rightX - 0.9 * scale} ${topY + 0.55 * scale}`,
   ].join(' ');
+  const innerLegShade = Math.max(0.7, 0.9 * scale);
 
   return (
     <g>
@@ -60,13 +58,31 @@ export const StapleSVG: React.FC<RendererProps> = ({ variant, scale = 1 }) => {
         strokeLinejoin="round"
       />
       <path
-        d={innerPath}
+        d={topHighlightPath}
         fill="none"
         stroke={v.highlight}
-        strokeWidth={Math.max(0.6, sw * 0.46)}
+        strokeWidth={Math.max(0.45, sw * 0.42)}
         strokeLinecap="round"
         strokeLinejoin="round"
-        opacity={0.85}
+        opacity={0.82}
+      />
+      <line
+        x1={leftX + sw * 0.32}
+        y1={topY + crownRadius + 0.8 * scale}
+        x2={leftX + sw * 0.32}
+        y2={bottomY - 0.45 * scale}
+        stroke="hsl(0 0% 0% / 0.12)"
+        strokeWidth={innerLegShade}
+        strokeLinecap="round"
+      />
+      <line
+        x1={rightX - sw * 0.32}
+        y1={topY + crownRadius + 0.8 * scale}
+        x2={rightX - sw * 0.32}
+        y2={bottomY - 0.45 * scale}
+        stroke="hsl(0 0% 0% / 0.12)"
+        strokeWidth={innerLegShade}
+        strokeLinecap="round"
       />
     </g>
   );
