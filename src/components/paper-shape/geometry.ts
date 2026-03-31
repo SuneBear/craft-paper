@@ -65,8 +65,18 @@ export interface PresetParams {
   cornerRadiusTR?: number;      // 右上圆角
   cornerRadiusBR?: number;      // 右下圆角
   cornerRadiusBL?: number;      // 左下圆角
-  cornerShape?: number;         // 角形状: 0round 1scoop 2bevel 3notch 4squircle 5superellipse
-  cornerSuperellipse?: number;  // superellipse(k) 指数 (仅 cornerShape=5 生效)
+  cornerShape?: number;         // 全局角形状: 0round 1scoop 2bevel 3notch 4squircle 5superellipse
+  cornerShapeTL?: number;       // 左上角形状覆盖（未设置时跟随 cornerShape）
+  cornerShapeTR?: number;       // 右上角形状覆盖（未设置时跟随 cornerShape）
+  cornerShapeBR?: number;       // 右下角形状覆盖（未设置时跟随 cornerShape）
+  cornerShapeBL?: number;       // 左下角形状覆盖（未设置时跟随 cornerShape）
+  cornerSuperellipse?: number;  // superellipse(k) 指数（全局）
+  // shared shadow style
+  shadowEnabled?: boolean;      // 是否显示阴影
+  shadowOffsetX?: number;       // 阴影偏移X
+  shadowOffsetY?: number;       // 阴影偏移Y
+  shadowOpacity?: number;       // 阴影透明度
+  shadowColor?: string;         // 阴影颜色（为空时自动按纸色加深）
   // scalloped-edge
   scallopRadius?: number;       // 花边半径
   scallopEdge?: number;         // 花边方向: 0四边 1上 2右 3下 4左
@@ -157,8 +167,20 @@ function getCornerRadii(w: number, h: number, p: PresetParams, defaultRadius: nu
   return { tl, tr, br, bl };
 }
 
-function getCornerStyle(p: PresetParams): CornerStyle {
-  const code = Math.max(0, Math.min(5, Math.round(p.cornerShape ?? 0)));
+function getCornerShapeCode(p: PresetParams, slot?: CornerSlot): number {
+  const globalCode = Math.max(0, Math.min(5, Math.round(p.cornerShape ?? 0)));
+  if (!slot) return globalCode;
+  const localCodeRaw =
+    slot === 'tl' ? p.cornerShapeTL :
+    slot === 'tr' ? p.cornerShapeTR :
+    slot === 'br' ? p.cornerShapeBR :
+    p.cornerShapeBL;
+  if (typeof localCodeRaw !== 'number') return globalCode;
+  return Math.max(0, Math.min(5, Math.round(localCodeRaw)));
+}
+
+function getCornerStyle(p: PresetParams, slot?: CornerSlot): CornerStyle {
+  const code = getCornerShapeCode(p, slot);
   const kind: CornerShapeKind =
     code === 1 ? 'scoop' :
     code === 2 ? 'bevel' :
@@ -250,6 +272,16 @@ function buildCornerPathSegment(
     segment += ` L ${Number(pt.x.toFixed(3))} ${Number(pt.y.toFixed(3))}`;
   }
   return segment;
+}
+
+function buildCornerPathFromParams(
+  slot: CornerSlot,
+  radius: number,
+  p: PresetParams,
+  w: number,
+  h: number,
+): string {
+  return buildCornerPathSegment(slot, radius, getCornerStyle(p, slot), w, h);
 }
 
 function buildSideCenters(
@@ -386,7 +418,6 @@ function couponPath(w: number, h: number, rng: () => number, r: number, p: Prese
   const holeR = p.holeRadius ?? Math.min(w, h) * 0.1;
   const notchR = p.notchRadius ?? Math.min(w, h) * 0.06;
   const { tl, tr, br, bl } = getCornerRadii(w, h, p, 14);
-  const cornerStyle = getCornerStyle(p);
   const direction = Math.round(p.couponDirection ?? 0);
   const position = p.couponPosition ?? p.couponNotchOffsetX ?? p.perforationOffset ?? 0;
 
@@ -404,11 +435,11 @@ function couponPath(w: number, h: number, rng: () => number, r: number, p: Prese
       path += ` A ${holeR} ${holeR} 0 0 0 ${cx + holeR} 0`;
     }
     path += ` L ${w - tr} 0`;
-    path += buildCornerPathSegment('tr', tr, cornerStyle, w, h);
+    path += buildCornerPathFromParams('tr', tr, p, w, h);
     path += ` L ${w} ${notchCenterY - notchR}`;
     path += ` A ${notchR} ${notchR} 0 0 0 ${w} ${notchCenterY + notchR}`;
     path += ` L ${w} ${h - br}`;
-    path += buildCornerPathSegment('br', br, cornerStyle, w, h);
+    path += buildCornerPathFromParams('br', br, p, w, h);
 
     for (let i = edgeCenters.length - 1; i >= 0; i--) {
       const cx = edgeCenters[i];
@@ -416,11 +447,11 @@ function couponPath(w: number, h: number, rng: () => number, r: number, p: Prese
       path += ` A ${holeR} ${holeR} 0 0 0 ${cx - holeR} ${h}`;
     }
     path += ` L ${bl} ${h}`;
-    path += buildCornerPathSegment('bl', bl, cornerStyle, w, h);
+    path += buildCornerPathFromParams('bl', bl, p, w, h);
     path += ` L 0 ${notchCenterY + notchR}`;
     path += ` A ${notchR} ${notchR} 0 0 0 0 ${notchCenterY - notchR}`;
     path += ` L 0 ${tl}`;
-    path += buildCornerPathSegment('tl', tl, cornerStyle, w, h);
+    path += buildCornerPathFromParams('tl', tl, p, w, h);
     path += ' Z';
     return path;
   }
@@ -436,19 +467,19 @@ function couponPath(w: number, h: number, rng: () => number, r: number, p: Prese
   path += ` L ${notchCenterX - notchR} 0`;
   path += ` A ${notchR} ${notchR} 0 0 0 ${notchCenterX + notchR} 0`;
   path += ` L ${w - tr} 0`;
-  path += buildCornerPathSegment('tr', tr, cornerStyle, w, h);
+  path += buildCornerPathFromParams('tr', tr, p, w, h);
 
   for (const cy of sideCenters) {
     path += ` L ${w} ${cy - holeR}`;
     path += ` A ${holeR} ${holeR} 0 0 0 ${w} ${cy + holeR}`;
   }
   path += ` L ${w} ${h - br}`;
-  path += buildCornerPathSegment('br', br, cornerStyle, w, h);
+  path += buildCornerPathFromParams('br', br, p, w, h);
 
   path += ` L ${notchCenterX + notchR} ${h}`;
   path += ` A ${notchR} ${notchR} 0 0 0 ${notchCenterX - notchR} ${h}`;
   path += ` L ${bl} ${h}`;
-  path += buildCornerPathSegment('bl', bl, cornerStyle, w, h);
+  path += buildCornerPathFromParams('bl', bl, p, w, h);
 
   for (let i = sideCenters.length - 1; i >= 0; i--) {
     const cy = sideCenters[i];
@@ -456,7 +487,7 @@ function couponPath(w: number, h: number, rng: () => number, r: number, p: Prese
     path += ` A ${holeR} ${holeR} 0 0 0 0 ${cy - holeR}`;
   }
   path += ` L 0 ${tl}`;
-  path += buildCornerPathSegment('tl', tl, cornerStyle, w, h);
+  path += buildCornerPathFromParams('tl', tl, p, w, h);
   path += ' Z';
   return path;
 }
@@ -465,7 +496,6 @@ function ticketPath(w: number, h: number, rng: () => number, r: number, p: Prese
   // Ticket keeps side cutouts only (no top/bottom notch) and a horizontal tear-line semantic.
   const cutR = p.cutRadius ?? Math.min(w, h) * 0.11;
   const { tl, tr, br, bl } = getCornerRadii(w, h, p, 10);
-  const cornerStyle = getCornerStyle(p);
   const sideCenters = buildSideCenters(
     h,
     Math.max(tl, tr, br, bl),
@@ -477,7 +507,7 @@ function ticketPath(w: number, h: number, rng: () => number, r: number, p: Prese
 
   let path = `M ${tl} 0`;
   path += ` L ${w - tr} 0`;
-  path += buildCornerPathSegment('tr', tr, cornerStyle, w, h);
+  path += buildCornerPathFromParams('tr', tr, p, w, h);
 
   for (const cy of sideCenters) {
     path += ` L ${w} ${cy - cutR}`;
@@ -485,9 +515,9 @@ function ticketPath(w: number, h: number, rng: () => number, r: number, p: Prese
   }
 
   path += ` L ${w} ${h - br}`;
-  path += buildCornerPathSegment('br', br, cornerStyle, w, h);
+  path += buildCornerPathFromParams('br', br, p, w, h);
   path += ` L ${bl} ${h}`;
-  path += buildCornerPathSegment('bl', bl, cornerStyle, w, h);
+  path += buildCornerPathFromParams('bl', bl, p, w, h);
 
   for (let i = sideCenters.length - 1; i >= 0; i--) {
     const cy = sideCenters[i];
@@ -496,7 +526,7 @@ function ticketPath(w: number, h: number, rng: () => number, r: number, p: Prese
   }
 
   path += ` L 0 ${tl}`;
-  path += buildCornerPathSegment('tl', tl, cornerStyle, w, h);
+  path += buildCornerPathFromParams('tl', tl, p, w, h);
   path += ' Z';
   return path;
 }
@@ -505,15 +535,14 @@ function tagPath(w: number, h: number, rng: () => number, r: number, p: PresetPa
   // Classic gift-tag shape: pointed top, rounded bottom corners
   const pointH = p.cutSize ?? h * 0.2; // height of the pointed top triangle
   const { br, bl } = getCornerRadii(w, h, p, Math.min(w, h) * 0.08);
-  const cornerStyle = getCornerStyle(p);
   const midX = w / 2;
 
   let path = `M ${midX} 0`; // top point
   path += ` L ${w} ${pointH}`; // right slope
   path += ` L ${w} ${h - br}`; // right side down
-  path += buildCornerPathSegment('br', br, cornerStyle, w, h);
+  path += buildCornerPathFromParams('br', br, p, w, h);
   path += ` L ${bl} ${h}`; // bottom edge
-  path += buildCornerPathSegment('bl', bl, cornerStyle, w, h);
+  path += buildCornerPathFromParams('bl', bl, p, w, h);
   path += ` L 0 ${pointH}`; // left side up
   path += ` Z`; // back to top point
   return path;
@@ -537,7 +566,6 @@ function foldedPath(w: number, h: number, rng: () => number, r: number, p: Prese
   const br = (mask & 4) !== 0;
   const bl = (mask & 8) !== 0;
   const cr = getCornerRadii(w, h, p, 0);
-  const cornerStyle = getCornerStyle(p);
   const rtl = tl ? 0 : cr.tl;
   const rtr = tr ? 0 : cr.tr;
   const rbr = br ? 0 : cr.br;
@@ -548,28 +576,28 @@ function foldedPath(w: number, h: number, rng: () => number, r: number, p: Prese
   if (tr) {
     path += ` L ${w} ${fs}`;
   } else {
-    path += buildCornerPathSegment('tr', rtr, cornerStyle, w, h);
+    path += buildCornerPathFromParams('tr', rtr, p, w, h);
   }
 
   path += ` L ${br ? w : w} ${br ? h - fs : h - rbr}`;
   if (br) {
     path += ` L ${w - fs} ${h}`;
   } else {
-    path += buildCornerPathSegment('br', rbr, cornerStyle, w, h);
+    path += buildCornerPathFromParams('br', rbr, p, w, h);
   }
 
   path += ` L ${bl ? fs : rbl} ${h}`;
   if (bl) {
     path += ` L 0 ${h - fs}`;
   } else {
-    path += buildCornerPathSegment('bl', rbl, cornerStyle, w, h);
+    path += buildCornerPathFromParams('bl', rbl, p, w, h);
   }
 
   path += ` L 0 ${tl ? fs : rtl}`;
   if (tl) {
     path += ` L ${fs} 0`;
   } else {
-    path += buildCornerPathSegment('tl', rtl, cornerStyle, w, h);
+    path += buildCornerPathFromParams('tl', rtl, p, w, h);
   }
 
   path += ' Z';
@@ -597,13 +625,12 @@ export function getFoldTriangles(w: number, h: number, params?: PresetParams): s
 function tornPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
   const amp = p.tearAmplitude ?? 6;
   const cr = getCornerRadii(w, h, p, 0);
-  const cornerStyle = getCornerStyle(p);
   const rtl = cr.tl;
   const rtr = cr.tr;
   const points: string[] = [];
   points.push(`M ${rtl} 0`);
   points.push(`L ${w - rtr} 0`);
-  points.push(buildCornerPathSegment('tr', rtr, cornerStyle, w, h).trim());
+  points.push(buildCornerPathFromParams('tr', rtr, p, w, h).trim());
   points.push(`L ${w} ${h}`);
 
   // Roughness controls horizontal fragment density:
@@ -622,7 +649,7 @@ function tornPath(w: number, h: number, rng: () => number, r: number, p: PresetP
   }
   points.push(`L 0 ${h}`);
   points.push(`L 0 ${rtl}`);
-  points.push(buildCornerPathSegment('tl', rtl, cornerStyle, w, h).trim());
+  points.push(buildCornerPathFromParams('tl', rtl, p, w, h).trim());
 
   points.push('Z');
   return points.join(' ');
@@ -747,7 +774,6 @@ function receiptPath(w: number, h: number, rng: () => number, r: number, p: Pres
   const zigSize = clamp(p.zigzagSize ?? 12, 6, 40);
   const edge = Math.round(p.zigzagEdge ?? 0);
   const { tl, tr, br, bl } = getCornerRadii(w, h, p, 0);
-  const cornerStyle = getCornerStyle(p);
   let rtl = tl;
   let rtr = tr;
   let rbr = br;
@@ -790,13 +816,13 @@ function receiptPath(w: number, h: number, rng: () => number, r: number, p: Pres
       }
     }
     path += ` L ${w - rtr} 0`;
-    path += buildCornerPathSegment('tr', rtr, cornerStyle, w, h);
+    path += buildCornerPathFromParams('tr', rtr, p, w, h);
     path += ` L ${w} ${h - rbr}`;
-    path += buildCornerPathSegment('br', rbr, cornerStyle, w, h);
+    path += buildCornerPathFromParams('br', rbr, p, w, h);
     path += ` L ${rbl} ${h}`;
-    path += buildCornerPathSegment('bl', rbl, cornerStyle, w, h);
+    path += buildCornerPathFromParams('bl', rbl, p, w, h);
     path += ` L 0 ${rtl}`;
-    path += buildCornerPathSegment('tl', rtl, cornerStyle, w, h);
+    path += buildCornerPathFromParams('tl', rtl, p, w, h);
     path += ' Z';
     return path;
   }
@@ -805,11 +831,11 @@ function receiptPath(w: number, h: number, rng: () => number, r: number, p: Pres
   if (edge === 2) {
     let path = `M ${rtl} 0`;
     path += ` L ${w - rtr} 0`;
-    path += buildCornerPathSegment('tr', rtr, cornerStyle, w, h);
+    path += buildCornerPathFromParams('tr', rtr, p, w, h);
     path += ` L ${w} ${h - rbr}`;
-    path += buildCornerPathSegment('br', rbr, cornerStyle, w, h);
+    path += buildCornerPathFromParams('br', rbr, p, w, h);
     path += ` L ${rbl} ${h}`;
-    path += buildCornerPathSegment('bl', rbl, cornerStyle, w, h);
+    path += buildCornerPathFromParams('bl', rbl, p, w, h);
     if (leftSpan > 0.001) {
       const step = leftSpan / leftSteps;
       for (let i = 1; i < leftSteps; i++) {
@@ -819,7 +845,7 @@ function receiptPath(w: number, h: number, rng: () => number, r: number, p: Pres
       }
     }
     path += ` L 0 ${rtl}`;
-    path += buildCornerPathSegment('tl', rtl, cornerStyle, w, h);
+    path += buildCornerPathFromParams('tl', rtl, p, w, h);
     path += ' Z';
     return path;
   }
@@ -828,7 +854,7 @@ function receiptPath(w: number, h: number, rng: () => number, r: number, p: Pres
   if (edge === 3) {
     let path = `M ${rtl} 0`;
     path += ` L ${w - rtr} 0`;
-    path += buildCornerPathSegment('tr', rtr, cornerStyle, w, h);
+    path += buildCornerPathFromParams('tr', rtr, p, w, h);
     if (rightSpan > 0.001) {
       const step = rightSpan / rightSteps;
       for (let i = 1; i < rightSteps; i++) {
@@ -838,11 +864,11 @@ function receiptPath(w: number, h: number, rng: () => number, r: number, p: Pres
       }
     }
     path += ` L ${w} ${h - rbr}`;
-    path += buildCornerPathSegment('br', rbr, cornerStyle, w, h);
+    path += buildCornerPathFromParams('br', rbr, p, w, h);
     path += ` L ${rbl} ${h}`;
-    path += buildCornerPathSegment('bl', rbl, cornerStyle, w, h);
+    path += buildCornerPathFromParams('bl', rbl, p, w, h);
     path += ` L 0 ${rtl}`;
-    path += buildCornerPathSegment('tl', rtl, cornerStyle, w, h);
+    path += buildCornerPathFromParams('tl', rtl, p, w, h);
     path += ' Z';
     return path;
   }
@@ -850,9 +876,9 @@ function receiptPath(w: number, h: number, rng: () => number, r: number, p: Pres
   // default: zigzag on bottom edge
   let path = `M ${rtl} 0`;
   path += ` L ${w - rtr} 0`;
-  path += buildCornerPathSegment('tr', rtr, cornerStyle, w, h);
+  path += buildCornerPathFromParams('tr', rtr, p, w, h);
   path += ` L ${w} ${h - rbr}`;
-  path += buildCornerPathSegment('br', rbr, cornerStyle, w, h);
+  path += buildCornerPathFromParams('br', rbr, p, w, h);
   if (bottomSpan > 0.001) {
     const step = bottomSpan / bottomSteps;
     for (let i = 1; i < bottomSteps; i++) {
@@ -862,25 +888,24 @@ function receiptPath(w: number, h: number, rng: () => number, r: number, p: Pres
     }
   }
   path += ` L ${rbl} ${h}`;
-  path += buildCornerPathSegment('bl', rbl, cornerStyle, w, h);
+  path += buildCornerPathFromParams('bl', rbl, p, w, h);
   path += ` L 0 ${rtl}`;
-  path += buildCornerPathSegment('tl', rtl, cornerStyle, w, h);
+  path += buildCornerPathFromParams('tl', rtl, p, w, h);
   path += ' Z';
   return path;
 }
 
 function roundedRectPath(w: number, h: number, p: PresetParams, defaultCornerRadius: number): string {
   const { tl, tr, br, bl } = getCornerRadii(w, h, p, defaultCornerRadius);
-  const cornerStyle = getCornerStyle(p);
   let path = `M ${tl} 0`;
   path += ` L ${w - tr} 0`;
-  path += buildCornerPathSegment('tr', tr, cornerStyle, w, h);
+  path += buildCornerPathFromParams('tr', tr, p, w, h);
   path += ` L ${w} ${h - br}`;
-  path += buildCornerPathSegment('br', br, cornerStyle, w, h);
+  path += buildCornerPathFromParams('br', br, p, w, h);
   path += ` L ${bl} ${h}`;
-  path += buildCornerPathSegment('bl', bl, cornerStyle, w, h);
+  path += buildCornerPathFromParams('bl', bl, p, w, h);
   path += ` L 0 ${tl}`;
-  path += buildCornerPathSegment('tl', tl, cornerStyle, w, h);
+  path += buildCornerPathFromParams('tl', tl, p, w, h);
   path += ' Z';
   return path;
 }

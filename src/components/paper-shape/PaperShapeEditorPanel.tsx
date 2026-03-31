@@ -26,6 +26,7 @@ const paperColorHexMap: Record<string, string> = {
 };
 
 const strokeColorSwatches = ['#7a553f', '#3f4b68', '#5c6f4f', '#7a4c66', '#5a5a5a', '#202020'];
+const shadowColorSwatches = ['#6f5a46', '#5f6a7d', '#5d735d', '#6d5878', '#4f4f4f', '#252525'];
 const stitchColorSwatches = ['#7a553f', '#6a6a6a', '#5c6f4f', '#3f4b68', '#7a4c66', '#222222'];
 const foldColorSwatches = ['#7a553f', '#8a6a57', '#5f4f44', '#6e5a8a', '#4f6a7a', '#6a6a6a'];
 const stitchStyleOptions = [
@@ -39,12 +40,12 @@ const stampArcDirectionOptions = [
   { value: 1, label: '圆弧朝外' },
 ] as const;
 const cornerShapeOptions = [
-  { value: 0, label: 'round 圆角' },
-  { value: 1, label: 'scoop 凹角' },
-  { value: 2, label: 'bevel 斜角' },
-  { value: 3, label: 'notch 缺口角' },
-  { value: 4, label: 'squircle 椭方角' },
-  { value: 5, label: 'superellipse()' },
+  { value: 0, label: 'Round' },
+  { value: 1, label: 'Scoop' },
+  { value: 2, label: 'Bevel' },
+  { value: 3, label: 'Notch' },
+  { value: 4, label: 'Squircle' },
+  { value: 5, label: 'Superellipse' },
 ] as const;
 
 function isHexColor(value: string): boolean {
@@ -180,7 +181,9 @@ export function PaperShapeEditorPanel({
   const [copiedKey, setCopiedKey] = useState<'jsx' | 'recipe' | 'svg' | 'share' | null>(null);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [cornerSectionOpen, setCornerSectionOpen] = useState(false);
+  const [cornerShapeOverrideOpen, setCornerShapeOverrideOpen] = useState(false);
   const [cutoutSectionOpen, setCutoutSectionOpen] = useState(false);
+  const [shadowSectionOpen, setShadowSectionOpen] = useState(false);
   const visibleParamDefs = currentParamDefs.filter(
     (d) => ![
       'cutoutEdges',
@@ -223,7 +226,30 @@ export function PaperShapeEditorPanel({
   const cornerBR = presetParams.cornerRadiusBR ?? cornerBase;
   const cornerBL = presetParams.cornerRadiusBL ?? cornerBase;
   const cornerShape = Math.max(0, Math.min(5, Math.round(presetParams.cornerShape ?? 0)));
+  const cornerShapeTL = typeof presetParams.cornerShapeTL === 'number'
+    ? Math.max(0, Math.min(5, Math.round(presetParams.cornerShapeTL)))
+    : null;
+  const cornerShapeTR = typeof presetParams.cornerShapeTR === 'number'
+    ? Math.max(0, Math.min(5, Math.round(presetParams.cornerShapeTR)))
+    : null;
+  const cornerShapeBR = typeof presetParams.cornerShapeBR === 'number'
+    ? Math.max(0, Math.min(5, Math.round(presetParams.cornerShapeBR)))
+    : null;
+  const cornerShapeBL = typeof presetParams.cornerShapeBL === 'number'
+    ? Math.max(0, Math.min(5, Math.round(presetParams.cornerShapeBL)))
+    : null;
+  const hasCornerShapeOverrides =
+    cornerShapeTL !== null || cornerShapeTR !== null || cornerShapeBR !== null || cornerShapeBL !== null;
+  const cornerNeedsSuperellipse =
+    cornerShape === 5 || cornerShapeTL === 5 || cornerShapeTR === 5 || cornerShapeBR === 5 || cornerShapeBL === 5;
   const cornerSuperellipse = Math.max(-4, Math.min(4, presetParams.cornerSuperellipse ?? 1));
+  const shadowEnabled = presetParams.shadowEnabled !== false;
+  const shadowOffsetX = Math.max(-32, Math.min(32, presetParams.shadowOffsetX ?? 3));
+  const shadowOffsetY = Math.max(-32, Math.min(32, presetParams.shadowOffsetY ?? 4));
+  const shadowOpacity = Math.max(0, Math.min(1, presetParams.shadowOpacity ?? 0.65));
+  const shadowColor = typeof presetParams.shadowColor === 'string' ? presetParams.shadowColor : '';
+  const shadowColorPickerValue = isHexColor(shadowColor) ? shadowColor : '#6f5a46';
+  const shadowAutoColor = shadowColor.trim().length === 0;
   const stitchColor = typeof presetParams.stitchColor === 'string' ? presetParams.stitchColor : strokeColor;
   const stitchStyle = Math.max(0, Math.min(3, Math.round(presetParams.stitchStyle ?? 0)));
   const perforationMode = Math.max(0, Math.min(1, Math.round(presetParams.perforationMode ?? 0)));
@@ -491,6 +517,10 @@ export function PaperShapeEditorPanel({
               cornerRadiusBR: undefined,
               cornerRadiusBL: undefined,
               cornerShape: 0,
+              cornerShapeTL: undefined,
+              cornerShapeTR: undefined,
+              cornerShapeBR: undefined,
+              cornerShapeBL: undefined,
               cornerSuperellipse: undefined,
             }))}
             className="text-[10px] font-craft text-muted-foreground hover:text-foreground"
@@ -540,8 +570,8 @@ export function PaperShapeEditorPanel({
               ))}
             </div>
             <div>
-              <label className="text-xs font-craft font-medium text-muted-foreground mb-1 block">角形状（CSS corner-shape）</label>
-              <div className="grid grid-cols-2 gap-1.5">
+              <label className="text-xs font-craft font-medium text-muted-foreground mb-1 block">全局角形状（corner-shape）</label>
+              <div className="grid grid-cols-3 gap-1.5">
                 {cornerShapeOptions.map((opt) => (
                   <button
                     key={opt.value}
@@ -557,7 +587,63 @@ export function PaperShapeEditorPanel({
                 ))}
               </div>
             </div>
-            {cornerShape === 5 && (
+            <div className="space-y-2 rounded-lg border border-border/70 bg-background/45 p-2">
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setCornerShapeOverrideOpen((v) => !v)}
+                  className="text-[11px] font-craft font-medium text-muted-foreground hover:text-foreground"
+                >
+                  {cornerShapeOverrideOpen ? '▾' : '▸'} 单角覆盖（未设置=跟随全局）
+                </button>
+                {hasCornerShapeOverrides && (
+                  <button
+                    onClick={() => setPresetParams((prev) => ({
+                      ...prev,
+                      cornerShapeTL: undefined,
+                      cornerShapeTR: undefined,
+                      cornerShapeBR: undefined,
+                      cornerShapeBL: undefined,
+                    }))}
+                    className="text-[10px] font-craft text-muted-foreground hover:text-foreground"
+                  >
+                    清除覆盖
+                  </button>
+                )}
+              </div>
+              {cornerShapeOverrideOpen && (
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    ['cornerShapeTL', '左上', cornerShapeTL],
+                    ['cornerShapeTR', '右上', cornerShapeTR],
+                    ['cornerShapeBL', '左下', cornerShapeBL],
+                    ['cornerShapeBR', '右下', cornerShapeBR],
+                  ].map(([key, label, val]) => (
+                    <label key={key} className="space-y-1">
+                      <span className="text-[10px] font-craft text-muted-foreground block">{label}</span>
+                      <select
+                        value={val === null ? -1 : Number(val)}
+                        onChange={(e) => {
+                          const next = Number(e.target.value);
+                          setPresetParams((prev) => ({
+                            ...prev,
+                            [key]: next < 0 ? undefined : next,
+                          }));
+                        }}
+                        className="h-8 w-full rounded-md border border-border bg-background px-2 text-[11px] font-craft text-foreground"
+                      >
+                        <option value={-1}>跟随全局</option>
+                        {cornerShapeOptions.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+            {cornerNeedsSuperellipse && (
               <div>
                 <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
                   <span>superellipse(k)</span>
@@ -700,6 +786,165 @@ export function PaperShapeEditorPanel({
                 className="w-full accent-primary"
               />
             </div>
+          </>
+        )}
+      </div>
+
+      <div className={cn(
+        'rounded-xl bg-muted/50 border border-border',
+        shadowSectionOpen ? 'space-y-3 p-3' : 'p-2'
+      )}>
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => setShadowSectionOpen((v) => !v)}
+            className="flex-1 h-8 px-2 -mx-1 rounded-md text-left text-xs font-craft font-semibold text-foreground hover:bg-background/60 transition"
+          >
+            {shadowSectionOpen ? '▾' : '▸'} 🕶️ 阴影
+          </button>
+          <button
+            onClick={() => setPresetParams((prev) => ({
+              ...prev,
+              shadowEnabled: true,
+              shadowOffsetX: undefined,
+              shadowOffsetY: undefined,
+              shadowOpacity: undefined,
+              shadowColor: undefined,
+            }))}
+            className="text-[10px] font-craft text-muted-foreground hover:text-foreground"
+          >
+            重置
+          </button>
+        </div>
+        {shadowSectionOpen && (
+          <>
+            <div>
+              <label className="text-xs font-craft font-medium text-muted-foreground mb-1 block">显示阴影</label>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  onClick={() => setPresetParams((prev) => ({ ...prev, shadowEnabled: true }))}
+                  className={`px-2 py-1.5 rounded-lg text-xs font-craft transition ${
+                    shadowEnabled
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-background text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  显示
+                </button>
+                <button
+                  onClick={() => setPresetParams((prev) => ({ ...prev, shadowEnabled: false }))}
+                  className={`px-2 py-1.5 rounded-lg text-xs font-craft transition ${
+                    !shadowEnabled
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-background text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  隐藏
+                </button>
+              </div>
+            </div>
+
+            {shadowEnabled && (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+                      <span>偏移X</span>
+                      <span className="text-foreground">{shadowOffsetX.toFixed(0)}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min={-32}
+                      max={32}
+                      step={1}
+                      value={shadowOffsetX}
+                      onChange={(e) => setPresetParams((prev) => ({ ...prev, shadowOffsetX: Number(e.target.value) }))}
+                      className="w-full accent-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+                      <span>偏移Y</span>
+                      <span className="text-foreground">{shadowOffsetY.toFixed(0)}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min={-32}
+                      max={32}
+                      step={1}
+                      value={shadowOffsetY}
+                      onChange={(e) => setPresetParams((prev) => ({ ...prev, shadowOffsetY: Number(e.target.value) }))}
+                      className="w-full accent-primary"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+                    <span>透明度</span>
+                    <span className="text-foreground">{shadowOpacity.toFixed(2)}</span>
+                  </label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={shadowOpacity}
+                    onChange={(e) => setPresetParams((prev) => ({ ...prev, shadowOpacity: Number(e.target.value) }))}
+                    className="w-full accent-primary"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-craft font-medium text-muted-foreground block">阴影颜色</label>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      onClick={() => setPresetParams((prev) => ({ ...prev, shadowColor: undefined }))}
+                      className={`px-2 py-1.5 rounded-lg text-xs font-craft transition ${
+                        shadowAutoColor
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-background text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      自动跟随纸色
+                    </button>
+                    <button
+                      onClick={() => {
+                        const next = isHexColor(shadowColor) ? shadowColor : '#6f5a46';
+                        setPresetParams((prev) => ({ ...prev, shadowColor: next }));
+                      }}
+                      className={`px-2 py-1.5 rounded-lg text-xs font-craft transition ${
+                        !shadowAutoColor
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-background text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      手动颜色
+                    </button>
+                  </div>
+                  {!shadowAutoColor && (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={shadowColorPickerValue}
+                        onChange={(e) => setPresetParams((prev) => ({ ...prev, shadowColor: e.target.value }))}
+                        className="h-8 w-10 p-0 border border-border rounded bg-transparent cursor-pointer"
+                      />
+                      <div className="flex gap-1.5 flex-wrap">
+                        {shadowColorSwatches.map((c) => (
+                          <button
+                            key={c}
+                            onClick={() => setPresetParams((prev) => ({ ...prev, shadowColor: c }))}
+                            className="h-5 w-5 rounded-full border border-border"
+                            style={{ backgroundColor: c }}
+                            title={c}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </>
         )}
       </div>

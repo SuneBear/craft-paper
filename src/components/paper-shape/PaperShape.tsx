@@ -67,6 +67,78 @@ const ACCENT_COLORS = [
   'hsl(30, 65%, 68%)',
 ];
 
+function clampNum(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function parseHexColor(input: string): { r: number; g: number; b: number } | null {
+  const s = input.trim();
+  const short = s.match(/^#([0-9a-fA-F]{3})$/);
+  if (short) {
+    const [r, g, b] = short[1].split('').map((ch) => parseInt(ch + ch, 16));
+    return { r, g, b };
+  }
+  const full = s.match(/^#([0-9a-fA-F]{6})$/);
+  if (!full) return null;
+  const hex = full[1];
+  return {
+    r: parseInt(hex.slice(0, 2), 16),
+    g: parseInt(hex.slice(2, 4), 16),
+    b: parseInt(hex.slice(4, 6), 16),
+  };
+}
+
+function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const delta = max - min;
+
+  let h = 0;
+  if (delta > 0) {
+    if (max === rn) h = ((gn - bn) / delta) % 6;
+    else if (max === gn) h = (bn - rn) / delta + 2;
+    else h = (rn - gn) / delta + 4;
+    h *= 60;
+    if (h < 0) h += 360;
+  }
+
+  const l = (max + min) / 2;
+  const s = delta === 0 ? 0 : delta / (1 - Math.abs(2 * l - 1));
+  return { h, s: s * 100, l: l * 100 };
+}
+
+function parseHslColor(input: string): { h: number; s: number; l: number } | null {
+  const s = input.trim();
+  const match = s.match(/^hsla?\(\s*([+-]?\d*\.?\d+)(?:deg)?(?:\s*,\s*|\s+)([+-]?\d*\.?\d+)%(?:\s*,\s*|\s+)([+-]?\d*\.?\d+)%/i);
+  if (!match) return null;
+  return {
+    h: Number(match[1]),
+    s: clampNum(Number(match[2]), 0, 100),
+    l: clampNum(Number(match[3]), 0, 100),
+  };
+}
+
+function derivePaperShadowColor(fillColor: string, fallback: string): string {
+  const parsedHsl = parseHslColor(fillColor);
+  if (parsedHsl) {
+    const h = ((parsedHsl.h % 360) + 360) % 360;
+    const s = clampNum(parsedHsl.s * 0.9, 6, 100);
+    const l = clampNum(parsedHsl.l - 16, 0, 100);
+    return `hsl(${h.toFixed(1)} ${s.toFixed(1)}% ${l.toFixed(1)}%)`;
+  }
+  const parsedHex = parseHexColor(fillColor);
+  if (parsedHex) {
+    const hsl = rgbToHsl(parsedHex.r, parsedHex.g, parsedHex.b);
+    const s = clampNum(hsl.s * 0.9, 6, 100);
+    const l = clampNum(hsl.l - 16, 0, 100);
+    return `hsl(${hsl.h.toFixed(1)} ${s.toFixed(1)}% ${l.toFixed(1)}%)`;
+  }
+  return fallback;
+}
+
 function edgeBiasedSplit(length: number, offsetRaw: number, edgeRatioRaw: number = 0.2): number {
   const edgeRatio = Math.max(0.14, Math.min(0.32, edgeRatioRaw));
   const side = offsetRaw < 0 ? -1 : 1;
@@ -116,6 +188,12 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     : PAPER_COLORS.cream;
   
   const stroke = strokeColor || 'hsl(24, 36%, 35%)';
+  const shadowEnabled = presetParams?.shadowEnabled !== false;
+  const shadowOffsetX = clampNum(presetParams?.shadowOffsetX ?? 3, -32, 32);
+  const shadowOffsetY = clampNum(presetParams?.shadowOffsetY ?? 4, -32, 32);
+  const shadowOpacity = clampNum(presetParams?.shadowOpacity ?? 0.65, 0, 1);
+  const manualShadowColor = typeof presetParams?.shadowColor === 'string' ? presetParams.shadowColor.trim() : '';
+  const paperShadowColor = manualShadowColor || derivePaperShadowColor(fill, stroke);
   const foldTone = presetParams?.foldColor || stroke;
   const foldOpacity = Math.max(0, Math.min(1, presetParams?.foldOpacity ?? 0.34));
   const patternColor = patternParams?.patternColor || 'hsl(25, 12%, 62%)';
@@ -649,13 +727,15 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
         </defs>
 
         {/* Shadow layer */}
-        <path
-          d={path}
-          fill="hsl(25, 15%, 30%)"
-          opacity="0.06"
-          transform="translate(2, 3)"
-          mask={hasCutoutMask ? `url(#${maskId})` : undefined}
-        />
+        {shadowEnabled && shadowOpacity > 0 && (
+          <path
+            d={path}
+            fill={paperShadowColor}
+            opacity={shadowOpacity}
+            transform={`translate(${shadowOffsetX}, ${shadowOffsetY})`}
+            mask={hasCutoutMask ? `url(#${maskId})` : undefined}
+          />
+        )}
 
         {/* Fill layer */}
         <path

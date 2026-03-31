@@ -37,7 +37,16 @@ export function createRandomPresetParams(
     'cornerRadiusBR',
     'cornerRadiusBL',
     'cornerShape',
+    'cornerShapeTL',
+    'cornerShapeTR',
+    'cornerShapeBR',
+    'cornerShapeBL',
     'cornerSuperellipse',
+    'shadowEnabled',
+    'shadowOffsetX',
+    'shadowOffsetY',
+    'shadowOpacity',
+    'shadowColor',
     'cutoutEdges',
     'cutoutShape',
     'cutoutRadius',
@@ -144,7 +153,16 @@ export function createRandomPresetParams(
   params.cornerRadiusBR = prev.cornerRadiusBR;
   params.cornerRadiusBL = prev.cornerRadiusBL;
   params.cornerShape = prev.cornerShape;
+  params.cornerShapeTL = prev.cornerShapeTL;
+  params.cornerShapeTR = prev.cornerShapeTR;
+  params.cornerShapeBR = prev.cornerShapeBR;
+  params.cornerShapeBL = prev.cornerShapeBL;
   params.cornerSuperellipse = prev.cornerSuperellipse;
+  params.shadowEnabled = prev.shadowEnabled;
+  params.shadowOffsetX = prev.shadowOffsetX;
+  params.shadowOffsetY = prev.shadowOffsetY;
+  params.shadowOpacity = prev.shadowOpacity;
+  params.shadowColor = prev.shadowColor;
   params.cutoutEdges = prev.cutoutEdges;
   params.cutoutShape = prev.cutoutShape;
   params.cutoutRadius = prev.cutoutRadius;
