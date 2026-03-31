@@ -126,14 +126,14 @@ function derivePaperShadowColor(fillColor: string, fallback: string): string {
   if (parsedHsl) {
     const h = ((parsedHsl.h % 360) + 360) % 360;
     const s = clampNum(parsedHsl.s * 0.9, 6, 100);
-    const l = clampNum(parsedHsl.l - 16, 0, 100);
+    const l = clampNum(parsedHsl.l - 40, 0, 100);
     return `hsl(${h.toFixed(1)} ${s.toFixed(1)}% ${l.toFixed(1)}%)`;
   }
   const parsedHex = parseHexColor(fillColor);
   if (parsedHex) {
     const hsl = rgbToHsl(parsedHex.r, parsedHex.g, parsedHex.b);
     const s = clampNum(hsl.s * 0.9, 6, 100);
-    const l = clampNum(hsl.l - 16, 0, 100);
+    const l = clampNum(hsl.l - 40, 0, 100);
     return `hsl(${hsl.h.toFixed(1)} ${s.toFixed(1)}% ${l.toFixed(1)}%)`;
   }
   return fallback;
@@ -183,15 +183,15 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
 
   const path = useMemo(() => generatePath(config), [config]);
 
-  const fill = paperColor 
-    ? (PAPER_COLORS[paperColor] || paperColor) 
+  const fill = paperColor
+    ? (PAPER_COLORS[paperColor] || paperColor)
     : PAPER_COLORS.cream;
-  
+
   const stroke = strokeColor || 'hsl(24, 36%, 35%)';
   const shadowEnabled = presetParams?.shadowEnabled !== false;
   const shadowOffsetX = clampNum(presetParams?.shadowOffsetX ?? 3, -32, 32);
-  const shadowOffsetY = clampNum(presetParams?.shadowOffsetY ?? 4, -32, 32);
-  const shadowOpacity = clampNum(presetParams?.shadowOpacity ?? 0.65, 0, 1);
+  const shadowOffsetY = clampNum(presetParams?.shadowOffsetY ?? 3, -32, 32);
+  const shadowOpacity = clampNum(presetParams?.shadowOpacity ?? 0.2, 0, 1);
   const manualShadowColor = typeof presetParams?.shadowColor === 'string' ? presetParams.shadowColor.trim() : '';
   const paperShadowColor = manualShadowColor || derivePaperShadowColor(fill, stroke);
   const foldTone = presetParams?.foldColor || stroke;

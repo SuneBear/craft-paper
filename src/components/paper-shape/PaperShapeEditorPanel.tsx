@@ -246,7 +246,7 @@ export function PaperShapeEditorPanel({
   const shadowEnabled = presetParams.shadowEnabled !== false;
   const shadowOffsetX = Math.max(-32, Math.min(32, presetParams.shadowOffsetX ?? 3));
   const shadowOffsetY = Math.max(-32, Math.min(32, presetParams.shadowOffsetY ?? 4));
-  const shadowOpacity = Math.max(0, Math.min(1, presetParams.shadowOpacity ?? 0.65));
+  const shadowOpacity = Math.max(0, Math.min(1, presetParams.shadowOpacity ?? 0.6));
   const shadowColor = typeof presetParams.shadowColor === 'string' ? presetParams.shadowColor : '';
   const shadowColorPickerValue = isHexColor(shadowColor) ? shadowColor : '#6f5a46';
   const shadowAutoColor = shadowColor.trim().length === 0;
