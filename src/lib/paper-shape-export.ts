@@ -11,6 +11,7 @@ export interface PaperShapeExportState {
   paperColor: string;
   strokeColor?: string;
   strokeWidth: number;
+  contentPadding?: number;
   patternType: PaperPatternType;
   patternParams?: PatternParams;
   presetParams?: PresetParams;
@@ -45,6 +46,7 @@ export function toPaperShapeJSX(state: PaperShapeExportState): string {
   roughness={${state.roughness.toFixed(2)}}
   paperColor="${state.paperColor}"${strokeColorStr}
   strokeWidth={${state.strokeWidth}}
+  contentPadding={${state.contentPadding ?? 12}}
   patternType="${state.patternType}"
   showPattern={${state.patternType !== 'none'}}${patternParamsStr}${paramsStr}${decoStr}
 />`;

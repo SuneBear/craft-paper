@@ -41,6 +41,7 @@ export interface PaperShapeProps {
   style?: React.CSSProperties;
   onClick?: () => void;
   presetParams?: PresetParams;
+  contentPadding?: number;
   decorations?: DecorationItem[];
   onDecorationChange?: (id: string, transform: DecorationTransform) => void;
   onDecorationRemove?: (id: string) => void;
@@ -224,6 +225,7 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
   style,
   onClick,
   presetParams,
+  contentPadding = 12,
   decorations = [],
   onDecorationChange,
   onDecorationRemove,
@@ -653,6 +655,22 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
       const edgeSafe = Math.max(8, cutR + 4);
       insets.left = Math.max(insets.left, edgeSafe);
       insets.right = Math.max(insets.right, edgeSafe);
+    }
+
+    if (preset === 'stamp') {
+      const perfR = clampNum(
+        presetParams?.perforationRadius ?? Math.min(width, height) * 0.04,
+        2,
+        Math.min(width, height) * 0.2
+      );
+      const inward = Math.round(presetParams?.stampArcDirection ?? 1) === 0;
+      const edgeSafe = inward
+        ? Math.max(9, perfR * 1.45 + 2.5)
+        : Math.max(6.5, perfR * 0.95 + 2);
+      insets.top = Math.max(insets.top, edgeSafe);
+      insets.right = Math.max(insets.right, edgeSafe);
+      insets.bottom = Math.max(insets.bottom, edgeSafe);
+      insets.left = Math.max(insets.left, edgeSafe);
     }
 
     if (perforationGuide) {
@@ -1106,10 +1124,10 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
         <div
           className="absolute inset-0 flex items-center justify-center"
           style={{
-            paddingTop: `${padding + 12 + contentSafeInsets.top}px`,
-            paddingRight: `${padding + 12 + contentSafeInsets.right}px`,
-            paddingBottom: `${padding + 12 + contentSafeInsets.bottom}px`,
-            paddingLeft: `${padding + 12 + contentSafeInsets.left}px`,
+            paddingTop: `${padding + contentPadding + contentSafeInsets.top}px`,
+            paddingRight: `${padding + contentPadding + contentSafeInsets.right}px`,
+            paddingBottom: `${padding + contentPadding + contentSafeInsets.bottom}px`,
+            paddingLeft: `${padding + contentPadding + contentSafeInsets.left}px`,
             pointerEvents: contentInteractive ? 'auto' : (interactiveDecorations ? 'none' : 'auto'),
           }}
         >

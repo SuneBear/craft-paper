@@ -7,6 +7,8 @@ import { encodeShareState } from '@/lib/paper-shape-share';
 const firstBatch: PaperPreset[] = ['stamp', 'coupon', 'ticket', 'tag'];
 const secondBatch: PaperPreset[] = ['folded', 'torn', 'stitched', 'scalloped-edge'];
 const extraBatch: PaperPreset[] = ['receipt', 'basic-paper'];
+const EDITOR_PRESET_WIDTH = 280;
+const EDITOR_PRESET_HEIGHT = 200;
 
 const COLORS = ['cream', 'pink', 'mint', 'sky', 'lavender', 'apricot', 'peach', 'cloud', 'cream', 'cloud'];
 
@@ -55,8 +57,8 @@ export default function PaperShapeOverview() {
             const patternType = i % 3 === 0 ? 'dots' : 'none';
             const encodedState = encodeShareState({
               preset,
-              width,
-              height,
+              width: EDITOR_PRESET_WIDTH,
+              height: EDITOR_PRESET_HEIGHT,
               seed,
               roughness: 0.3,
               paperColor,

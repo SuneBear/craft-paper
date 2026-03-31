@@ -11,6 +11,7 @@ export interface PaperShapeShareState {
   paperColor: string;
   strokeColor?: string;
   strokeWidth: number;
+  contentPadding?: number;
   patternType: PaperPatternType;
   patternParams?: PatternParams;
   presetParams?: PresetParams;

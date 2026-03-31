@@ -43,13 +43,14 @@ export default function PaperShapePresetDetail() {
     [routePreset]
   );
 
-  const [width, setWidth] = useState(300);
-  const [height, setHeight] = useState(210);
+  const [width, setWidth] = useState(280);
+  const [height, setHeight] = useState(200);
   const [seed, setSeed] = useState(42);
   const [roughness, setRoughness] = useState(0.3);
   const [paperColor, setPaperColor] = useState('cream');
   const [strokeColor, setStrokeColor] = useState('#7a553f');
   const [strokeWidth, setStrokeWidth] = useState(1.8);
+  const [contentPadding, setContentPadding] = useState(12);
   const [patternType, setPatternType] = useState<PaperPatternType>('none');
   const [patternParams, setPatternParams] = useState<PatternParams>({});
   const [presetParams, setPresetParams] = useState<PresetParams>({});
@@ -81,6 +82,7 @@ export default function PaperShapePresetDetail() {
     if (typeof shared.paperColor === 'string') setPaperColor(shared.paperColor);
     if (typeof shared.strokeColor === 'string') setStrokeColor(shared.strokeColor);
     if (typeof shared.strokeWidth === 'number') setStrokeWidth(shared.strokeWidth);
+    if (typeof shared.contentPadding === 'number') setContentPadding(shared.contentPadding);
     if (shared.patternType) setPatternType(shared.patternType);
     if (shared.patternParams) setPatternParams(shared.patternParams);
     if (shared.presetParams) setPresetParams(shared.presetParams);
@@ -107,6 +109,7 @@ export default function PaperShapePresetDetail() {
     paperColor,
     strokeColor,
     strokeWidth,
+    contentPadding,
     patternType,
     patternParams,
     presetParams,
@@ -120,6 +123,7 @@ export default function PaperShapePresetDetail() {
     paperColor,
     strokeColor,
     strokeWidth,
+    contentPadding,
     patternType,
     patternParams,
     presetParams,
@@ -228,6 +232,7 @@ export default function PaperShapePresetDetail() {
             paperColor={paperColor}
             strokeColor={strokeColor}
             strokeWidth={strokeWidth}
+            contentPadding={contentPadding}
             showPattern={patternType !== 'none'}
             patternType={patternType}
             patternParams={patternParams}
@@ -264,6 +269,7 @@ export default function PaperShapePresetDetail() {
             paperColor={paperColor}
             strokeColor={strokeColor}
             strokeWidth={strokeWidth}
+            contentPadding={contentPadding}
             patternType={patternType}
             patternParams={patternParams}
             presetParams={presetParams}
@@ -274,6 +280,7 @@ export default function PaperShapePresetDetail() {
             setPaperColor={setPaperColor}
             setStrokeColor={setStrokeColor}
             setStrokeWidth={setStrokeWidth}
+            setContentPadding={setContentPadding}
             setPatternType={setPatternType}
             setPatternParams={setPatternParams}
             setPresetParams={setPresetParams}

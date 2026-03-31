@@ -133,6 +133,7 @@ interface PaperShapeEditorPanelProps {
   paperColor: string;
   strokeColor: string;
   strokeWidth: number;
+  contentPadding: number;
   patternType: PaperPatternType;
   patternParams: PatternParams;
   presetParams: PresetParams;
@@ -143,6 +144,7 @@ interface PaperShapeEditorPanelProps {
   setPaperColor: (v: string) => void;
   setStrokeColor: (v: string) => void;
   setStrokeWidth: (v: number) => void;
+  setContentPadding: (v: number) => void;
   setPatternType: (v: PaperPatternType) => void;
   setPatternParams: (fn: (prev: PatternParams) => PatternParams) => void;
   setPresetParams: (fn: (prev: PresetParams) => PresetParams) => void;
@@ -184,6 +186,7 @@ export function PaperShapeEditorPanel({
   paperColor,
   strokeColor,
   strokeWidth,
+  contentPadding,
   patternType,
   patternParams,
   presetParams,
@@ -194,6 +197,7 @@ export function PaperShapeEditorPanel({
   setPaperColor,
   setStrokeColor,
   setStrokeWidth,
+  setContentPadding,
   setPatternType,
   setPatternParams,
   setPresetParams,
@@ -1288,6 +1292,19 @@ export function PaperShapeEditorPanel({
       <div>
         <label className="text-xs font-craft font-medium text-muted-foreground mb-1 block">描边粗细 {strokeWidth.toFixed(1)}</label>
         <input type="range" min={0} max={40} value={strokeWidth * 10} onChange={(e) => setStrokeWidth(Number(e.target.value) / 10)} className="w-full accent-primary" />
+      </div>
+
+      <div>
+        <label className="text-xs font-craft font-medium text-muted-foreground mb-1 block">内容内边距 {contentPadding.toFixed(0)}</label>
+        <input
+          type="range"
+          min={0}
+          max={48}
+          step={1}
+          value={contentPadding}
+          onChange={(e) => setContentPadding(Number(e.target.value))}
+          className="w-full accent-primary"
+        />
       </div>
 
       <div>

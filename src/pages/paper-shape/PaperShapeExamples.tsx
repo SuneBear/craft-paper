@@ -12,6 +12,8 @@ const allPresets: PaperPreset[] = [
   'folded', 'torn', 'stitched', 'scalloped-edge',
   'receipt', 'basic-paper',
 ];
+const EDITOR_PRESET_WIDTH = 280;
+const EDITOR_PRESET_HEIGHT = 200;
 
 const paperColors = ['cream', 'cloud', 'pink', 'apricot', 'peach', 'mint', 'sky', 'lavender'];
 const patternTypes: Array<'none' | 'lines' | 'grid' | 'dots'> = ['none', 'lines', 'grid', 'dots'];
@@ -209,8 +211,8 @@ export default function PaperShapeExamples() {
           const info = presetInfo[ex.preset];
           const encodedState = encodeShareState({
             preset: ex.preset,
-            width: 180,
-            height: 140,
+            width: EDITOR_PRESET_WIDTH,
+            height: EDITOR_PRESET_HEIGHT,
             seed: ex.seed,
             roughness: 0.3,
             paperColor: ex.color,
