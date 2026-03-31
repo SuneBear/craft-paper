@@ -89,9 +89,25 @@ export interface PresetParams {
   // cutout (for smooth-edge papers)
   cutoutEdges?: number;         // 裁剪边位掩码: 1上 2右 4下 8左
   cutoutRadius?: number;        // 裁剪半径（宽度）
+  cutoutRadiusTop?: number;     // 上边裁剪宽度覆盖（未设置时跟随 cutoutRadius）
+  cutoutRadiusRight?: number;   // 右边裁剪宽度覆盖（未设置时跟随 cutoutRadius）
+  cutoutRadiusBottom?: number;  // 下边裁剪宽度覆盖（未设置时跟随 cutoutRadius）
+  cutoutRadiusLeft?: number;    // 左边裁剪宽度覆盖（未设置时跟随 cutoutRadius）
   cutoutDepth?: number;         // 裁剪深度
+  cutoutDepthTop?: number;      // 上边裁剪深度覆盖（未设置时跟随 cutoutDepth）
+  cutoutDepthRight?: number;    // 右边裁剪深度覆盖（未设置时跟随 cutoutDepth）
+  cutoutDepthBottom?: number;   // 下边裁剪深度覆盖（未设置时跟随 cutoutDepth）
+  cutoutDepthLeft?: number;     // 左边裁剪深度覆盖（未设置时跟随 cutoutDepth）
   cutoutOffset?: number;        // 裁剪偏移（沿边中心偏移）
+  cutoutOffsetTop?: number;     // 上边裁剪偏移覆盖（未设置时跟随 cutoutOffset）
+  cutoutOffsetRight?: number;   // 右边裁剪偏移覆盖（未设置时跟随 cutoutOffset）
+  cutoutOffsetBottom?: number;  // 下边裁剪偏移覆盖（未设置时跟随 cutoutOffset）
+  cutoutOffsetLeft?: number;    // 左边裁剪偏移覆盖（未设置时跟随 cutoutOffset）
   cutoutShape?: number;         // 裁剪形状: 0三角 1圆弧 2圆角矩形
+  cutoutShapeTop?: number;      // 上边裁剪形状覆盖（未设置时跟随 cutoutShape）
+  cutoutShapeRight?: number;    // 右边裁剪形状覆盖（未设置时跟随 cutoutShape）
+  cutoutShapeBottom?: number;   // 下边裁剪形状覆盖（未设置时跟随 cutoutShape）
+  cutoutShapeLeft?: number;     // 左边裁剪形状覆盖（未设置时跟随 cutoutShape）
   cutoutAABleed?: number;       // 裁剪抗锯齿余量（mask 外扩）
 }
 

@@ -13,26 +13,61 @@ interface RendererProps {
 export const StapleSVG: React.FC<RendererProps> = ({ variant, scale = 1 }) => {
   const v = stapleVariants.find(s => s.key === variant) || stapleVariants[0];
   const w = 28 * scale;
-  const h = 10 * scale;
-  const legH = 6 * scale;
-  const sw = 1.5 * scale;
+  const sw = Math.max(1, 1.7 * scale);
+  const leftX = 4 * scale;
+  const rightX = w - 4 * scale;
+  const topY = 2 * scale;
+  const bottomY = 8.2 * scale;
+  const crownRadius = 1.6 * scale;
+  const inset = 0.55 * scale;
+  const shadowDx = 0.8 * scale;
+  const shadowDy = 0.8 * scale;
+  const staplePath = [
+    `M ${leftX} ${bottomY}`,
+    `V ${topY + crownRadius}`,
+    `Q ${leftX} ${topY} ${leftX + crownRadius} ${topY}`,
+    `H ${rightX - crownRadius}`,
+    `Q ${rightX} ${topY} ${rightX} ${topY + crownRadius}`,
+    `V ${bottomY}`,
+  ].join(' ');
+  const innerPath = [
+    `M ${leftX + inset} ${bottomY - inset}`,
+    `V ${topY + crownRadius + inset * 0.2}`,
+    `Q ${leftX + inset} ${topY + inset} ${leftX + crownRadius + inset} ${topY + inset}`,
+    `H ${rightX - crownRadius - inset}`,
+    `Q ${rightX - inset} ${topY + inset} ${rightX - inset} ${topY + crownRadius + inset * 0.2}`,
+    `V ${bottomY - inset}`,
+  ].join(' ');
 
   return (
     <g>
-      {/* Shadow */}
-      <rect x={1} y={legH + 1} width={w} height={h - legH} rx={1.5 * scale} fill="hsl(0,0%,0%)" opacity={0.08} />
-      {/* Bridge (top part) */}
-      <rect x={0} y={legH} width={w} height={h - legH} rx={1.5 * scale}
-        fill={v.color} stroke={v.highlight} strokeWidth={sw * 0.4} />
-      {/* Highlight */}
-      <rect x={2 * scale} y={legH + 1 * scale} width={w - 4 * scale} height={1.5 * scale} rx={0.75 * scale}
-        fill={v.highlight} opacity={0.6} />
-      {/* Left leg */}
-      <rect x={1.5 * scale} y={0} width={2 * scale} height={legH + 2 * scale} rx={0.5 * scale}
-        fill={v.color} />
-      {/* Right leg */}
-      <rect x={w - 3.5 * scale} y={0} width={2 * scale} height={legH + 2 * scale} rx={0.5 * scale}
-        fill={v.color} />
+      <path
+        d={staplePath}
+        transform={`translate(${shadowDx}, ${shadowDy})`}
+        fill="none"
+        stroke="hsl(0 0% 0%)"
+        strokeWidth={sw + 0.3 * scale}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        opacity={0.14}
+      />
+      <path
+        d={staplePath}
+        fill="none"
+        stroke={v.color}
+        strokeWidth={sw}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d={innerPath}
+        fill="none"
+        stroke={v.highlight}
+        strokeWidth={Math.max(0.6, sw * 0.46)}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        opacity={0.85}
+      />
     </g>
   );
 };
@@ -104,6 +139,8 @@ export const WashiTapeSVG: React.FC<RendererProps & { uid: string }> = ({ varian
 export const StickerSVG: React.FC<RendererProps> = ({ variant, scale = 1 }) => {
   const v = stickerVariants.find(s => s.key === variant) || stickerVariants[0];
   const size = 24 * scale;
+  const outline = Math.max(2, 0.5 * scale);
+  const softShadow = Math.max(0.8, 0.5 * scale);
 
   return (
     <g>
@@ -115,14 +152,11 @@ export const StickerSVG: React.FC<RendererProps> = ({ variant, scale = 1 }) => {
         fontSize={size * 0.82}
         style={{
           filter: `
-            drop-shadow(1px 0 0 hsl(0 0% 100%))
-            drop-shadow(-1px 0 0 hsl(0 0% 100%))
-            drop-shadow(0 1px 0 hsl(0 0% 100%))
-            drop-shadow(0 -1px 0 hsl(0 0% 100%))
-            drop-shadow(1px 1px 0 hsl(0 0% 100%))
-            drop-shadow(-1px 1px 0 hsl(0 0% 100%))
-            drop-shadow(1px -1px 0 hsl(0 0% 100%))
-            drop-shadow(-1px -1px 0 hsl(0 0% 100%))
+            drop-shadow(${outline}px 0 0 hsl(0 0% 100%))
+            drop-shadow(${-outline}px 0 0 hsl(0 0% 100%))
+            drop-shadow(0 ${outline}px 0 hsl(0 0% 100%))
+            drop-shadow(0 ${-outline}px 0 hsl(0 0% 100%))
+            drop-shadow(${softShadow}px ${softShadow}px 0 hsl(0 0% 0% / 0.08))
           `,
         }}
       >

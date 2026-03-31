@@ -76,10 +76,42 @@ const ticketStubSideOptions = [
 ] as const;
 
 const cutoutEdgeOptions = [
-  { bit: 1, label: '上边' },
-  { bit: 2, label: '右边' },
-  { bit: 4, label: '下边' },
-  { bit: 8, label: '左边' },
+  {
+    bit: 1,
+    edge: 'top',
+    label: '上边',
+    shapeKey: 'cutoutShapeTop',
+    radiusKey: 'cutoutRadiusTop',
+    depthKey: 'cutoutDepthTop',
+    offsetKey: 'cutoutOffsetTop',
+  },
+  {
+    bit: 2,
+    edge: 'right',
+    label: '右边',
+    shapeKey: 'cutoutShapeRight',
+    radiusKey: 'cutoutRadiusRight',
+    depthKey: 'cutoutDepthRight',
+    offsetKey: 'cutoutOffsetRight',
+  },
+  {
+    bit: 4,
+    edge: 'bottom',
+    label: '下边',
+    shapeKey: 'cutoutShapeBottom',
+    radiusKey: 'cutoutRadiusBottom',
+    depthKey: 'cutoutDepthBottom',
+    offsetKey: 'cutoutOffsetBottom',
+  },
+  {
+    bit: 8,
+    edge: 'left',
+    label: '左边',
+    shapeKey: 'cutoutShapeLeft',
+    radiusKey: 'cutoutRadiusLeft',
+    depthKey: 'cutoutDepthLeft',
+    offsetKey: 'cutoutOffsetLeft',
+  },
 ] as const;
 
 const cutoutShapeOptions = [
@@ -115,6 +147,7 @@ interface PaperShapeEditorPanelProps {
   setPatternParams: (fn: (prev: PatternParams) => PatternParams) => void;
   setPresetParams: (fn: (prev: PresetParams) => PresetParams) => void;
   onCopyJSX: () => void;
+  onCopyFullCode?: () => void;
   onCopyRecipe: () => void;
   onCopySvg: () => void;
   onDownloadSvg: () => void;
@@ -165,6 +198,7 @@ export function PaperShapeEditorPanel({
   setPatternParams,
   setPresetParams,
   onCopyJSX,
+  onCopyFullCode,
   onCopyRecipe,
   onCopySvg,
   onDownloadSvg,
@@ -178,11 +212,12 @@ export function PaperShapeEditorPanel({
 }: PaperShapeEditorPanelProps) {
   const currentParamDefs = presetParamsDefs[preset];
   const isPerforationPreset = preset === 'coupon' || preset === 'ticket';
-  const [copiedKey, setCopiedKey] = useState<'jsx' | 'recipe' | 'svg' | 'share' | null>(null);
+  const [copiedKey, setCopiedKey] = useState<'jsx' | 'full' | 'recipe' | 'svg' | 'share' | null>(null);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [cornerSectionOpen, setCornerSectionOpen] = useState(false);
   const [cornerShapeOverrideOpen, setCornerShapeOverrideOpen] = useState(false);
   const [cutoutSectionOpen, setCutoutSectionOpen] = useState(false);
+  const [cutoutOverrideOpen, setCutoutOverrideOpen] = useState(false);
   const [shadowSectionOpen, setShadowSectionOpen] = useState(false);
   const visibleParamDefs = currentParamDefs.filter(
     (d) => ![
@@ -209,6 +244,23 @@ export function PaperShapeEditorPanel({
   const cutoutRadius = presetParams.cutoutRadius ?? Math.min(width, height) * 0.07;
   const cutoutDepth = presetParams.cutoutDepth ?? Math.max(1.5, cutoutRadius * 0.85);
   const cutoutOffset = presetParams.cutoutOffset ?? 0;
+  const cutoutOffsetRange = Math.max(width, height) / 2;
+  const readOverrideNumber = (key: keyof PresetParams, fallback: number, min: number, max: number) => {
+    const raw = presetParams[key];
+    const n = typeof raw === 'number' ? raw : fallback;
+    return Math.max(min, Math.min(max, n));
+  };
+  const readOverrideShape = (key: keyof PresetParams, fallback: number) => {
+    const raw = presetParams[key];
+    const n = typeof raw === 'number' ? raw : fallback;
+    return Math.max(0, Math.min(2, Math.round(n)));
+  };
+  const hasCutoutOverrides = cutoutEdgeOptions.some((edge) =>
+    typeof presetParams[edge.shapeKey] === 'number'
+    || typeof presetParams[edge.radiusKey] === 'number'
+    || typeof presetParams[edge.depthKey] === 'number'
+    || typeof presetParams[edge.offsetKey] === 'number'
+  );
   const cutoutDefaultBleed = cutoutShape === 0
     ? Math.max(0.8, strokeWidth * 0.85 + 0.35)
     : Math.max(0.5, strokeWidth * 0.55 + 0.18);
@@ -273,7 +325,10 @@ export function PaperShapeEditorPanel({
   };
   const paperColorPickerValue = isHexColor(paperColor) ? paperColor : (paperColorHexMap[paperColor] || '#f7e8bf');
 
-  const runCopyAction = async (key: 'jsx' | 'recipe' | 'svg' | 'share', action: () => void | Promise<void>) => {
+  const runCopyAction = async (
+    key: 'jsx' | 'full' | 'recipe' | 'svg' | 'share',
+    action: () => void | Promise<void>
+  ) => {
     await action();
     setCopiedKey(key);
     if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
@@ -676,7 +731,26 @@ export function PaperShapeEditorPanel({
             {cutoutSectionOpen ? '▾' : '▸'} ✂️ 裁剪
           </button>
           <button
-            onClick={() => setPresetParams((prev) => ({ ...prev, cutoutEdges: 0 }))}
+            onClick={() => setPresetParams((prev) => ({
+              ...prev,
+              cutoutEdges: 0,
+              cutoutShapeTop: undefined,
+              cutoutShapeRight: undefined,
+              cutoutShapeBottom: undefined,
+              cutoutShapeLeft: undefined,
+              cutoutRadiusTop: undefined,
+              cutoutRadiusRight: undefined,
+              cutoutRadiusBottom: undefined,
+              cutoutRadiusLeft: undefined,
+              cutoutDepthTop: undefined,
+              cutoutDepthRight: undefined,
+              cutoutDepthBottom: undefined,
+              cutoutDepthLeft: undefined,
+              cutoutOffsetTop: undefined,
+              cutoutOffsetRight: undefined,
+              cutoutOffsetBottom: undefined,
+              cutoutOffsetLeft: undefined,
+            }))}
             className="text-[10px] font-craft text-muted-foreground hover:text-foreground"
           >
             清空
@@ -758,18 +832,154 @@ export function PaperShapeEditorPanel({
             </div>
             <div>
               <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
-                <span>裁剪偏移</span>
+                <span>全局裁剪偏移</span>
                 <span className="text-foreground">{cutoutOffset.toFixed(0)}</span>
               </label>
               <input
                 type="range"
-                min={-Math.max(width, height) / 2}
-                max={Math.max(width, height) / 2}
+                min={-cutoutOffsetRange}
+                max={cutoutOffsetRange}
                 step={1}
                 value={cutoutOffset}
                 onChange={(e) => setPresetParams((prev) => ({ ...prev, cutoutOffset: Number(e.target.value) }))}
                 className="w-full accent-primary"
               />
+            </div>
+            <div className="space-y-2 rounded-lg border border-border/70 bg-background/45 p-2">
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setCutoutOverrideOpen((v) => !v)}
+                  className="text-[11px] font-craft font-medium text-muted-foreground hover:text-foreground"
+                >
+                  {cutoutOverrideOpen ? '▾' : '▸'} 单边覆盖（未设置=跟随全局）
+                </button>
+                {hasCutoutOverrides && (
+                  <button
+                    onClick={() => setPresetParams((prev) => ({
+                      ...prev,
+                      cutoutShapeTop: undefined,
+                      cutoutShapeRight: undefined,
+                      cutoutShapeBottom: undefined,
+                      cutoutShapeLeft: undefined,
+                      cutoutRadiusTop: undefined,
+                      cutoutRadiusRight: undefined,
+                      cutoutRadiusBottom: undefined,
+                      cutoutRadiusLeft: undefined,
+                      cutoutDepthTop: undefined,
+                      cutoutDepthRight: undefined,
+                      cutoutDepthBottom: undefined,
+                      cutoutDepthLeft: undefined,
+                      cutoutOffsetTop: undefined,
+                      cutoutOffsetRight: undefined,
+                      cutoutOffsetBottom: undefined,
+                      cutoutOffsetLeft: undefined,
+                    }))}
+                    className="text-[10px] font-craft text-muted-foreground hover:text-foreground"
+                  >
+                    清除覆盖
+                  </button>
+                )}
+              </div>
+              {cutoutOverrideOpen && (
+                <div className="space-y-2">
+                  {cutoutEdgeOptions.map((edge) => {
+                    const edgeActive = (cutoutEdgeMask & edge.bit) !== 0;
+                    const edgeShape = readOverrideShape(edge.shapeKey, cutoutShape);
+                    const edgeRadius = readOverrideNumber(edge.radiusKey, cutoutRadius, 3, Math.max(16, Math.min(width, height) * 0.3));
+                    const edgeDepth = readOverrideNumber(edge.depthKey, cutoutDepth, 1.5, Math.max(12, Math.min(width, height) * 0.25));
+                    const edgeOffset = readOverrideNumber(edge.offsetKey, cutoutOffset, -cutoutOffsetRange, cutoutOffsetRange);
+                    const hasLocal =
+                      typeof presetParams[edge.shapeKey] === 'number'
+                      || typeof presetParams[edge.radiusKey] === 'number'
+                      || typeof presetParams[edge.depthKey] === 'number'
+                      || typeof presetParams[edge.offsetKey] === 'number';
+                    return (
+                      <div key={edge.edge} className="space-y-2 rounded-lg border border-border/70 bg-background/50 p-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-craft font-medium text-foreground">
+                            {edge.label}{edgeActive ? '' : '（未启用）'}
+                          </span>
+                          <button
+                            onClick={() => setPresetParams((prev) => ({
+                              ...prev,
+                              [edge.shapeKey]: undefined,
+                              [edge.radiusKey]: undefined,
+                              [edge.depthKey]: undefined,
+                              [edge.offsetKey]: undefined,
+                            }))}
+                            className="text-[10px] font-craft text-muted-foreground hover:text-foreground"
+                          >
+                            {hasLocal ? '跟随全局' : '已跟随全局'}
+                          </button>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-craft font-medium text-muted-foreground mb-1 block">形状覆盖</label>
+                          <div className="grid grid-cols-3 gap-1">
+                            {cutoutShapeOptions.map((opt) => (
+                              <button
+                                key={`${edge.edge}-${opt.value}`}
+                                onClick={() => setPresetParams((prev) => ({ ...prev, [edge.shapeKey]: opt.value }))}
+                                className={`px-2 py-1 rounded-md text-[10px] font-craft transition ${
+                                  edgeShape === opt.value
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'bg-background text-muted-foreground hover:text-foreground'
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+                            <span>宽度</span>
+                            <span className="text-foreground">{edgeRadius.toFixed(1)}</span>
+                          </label>
+                          <input
+                            type="range"
+                            min={3}
+                            max={Math.max(16, Math.min(width, height) * 0.3)}
+                            step={0.5}
+                            value={edgeRadius}
+                            onChange={(e) => setPresetParams((prev) => ({ ...prev, [edge.radiusKey]: Number(e.target.value) }))}
+                            className="w-full accent-primary"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+                            <span>深度</span>
+                            <span className="text-foreground">{edgeDepth.toFixed(1)}</span>
+                          </label>
+                          <input
+                            type="range"
+                            min={1.5}
+                            max={Math.max(12, Math.min(width, height) * 0.25)}
+                            step={0.5}
+                            value={edgeDepth}
+                            onChange={(e) => setPresetParams((prev) => ({ ...prev, [edge.depthKey]: Number(e.target.value) }))}
+                            className="w-full accent-primary"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+                            <span>偏移</span>
+                            <span className="text-foreground">{edgeOffset.toFixed(0)}</span>
+                          </label>
+                          <input
+                            type="range"
+                            min={-cutoutOffsetRange}
+                            max={cutoutOffsetRange}
+                            step={1}
+                            value={edgeOffset}
+                            onChange={(e) => setPresetParams((prev) => ({ ...prev, [edge.offsetKey]: Number(e.target.value) }))}
+                            className="w-full accent-primary"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
             <div>
               <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
@@ -1277,7 +1487,7 @@ export function PaperShapeEditorPanel({
             onClick={() => { void runCopyAction('jsx', onCopyJSX); }}
             className="px-3 py-2 rounded-lg bg-primary text-primary-foreground font-craft text-xs font-medium hover:opacity-90 transition"
           >
-            {copiedKey === 'jsx' ? '✅ 已复制 JSX' : '📋 复制 JSX'}
+            {copiedKey === 'jsx' ? '✅ 已复制调用 JSX' : '📋 复制调用 JSX'}
           </button>
           <button
             onClick={() => { void runCopyAction('recipe', onCopyRecipe); }}

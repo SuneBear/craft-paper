@@ -50,6 +50,62 @@ export function toPaperShapeJSX(state: PaperShapeExportState): string {
 />`;
 }
 
+interface StandaloneComponentOptions {
+  componentName?: string;
+}
+
+function escapeTemplateLiteral(input: string): string {
+  return input
+    .replace(/\\/g, '\\\\')
+    .replace(/`/g, '\\`')
+    .replace(/\$\{/g, '\\${');
+}
+
+function toSafeComponentName(raw: string): string {
+  const words = raw
+    .replace(/[^a-zA-Z0-9_$]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const pascal = words.map((w) => `${w[0].toUpperCase()}${w.slice(1)}`).join('');
+  const base = pascal || 'PaperShapeAsset';
+  return /^[A-Za-z_$]/.test(base) ? base : `PaperShape${base}`;
+}
+
+/**
+ * Export a self-contained React component from rendered SVG text.
+ * The output is paste-ready and does not depend on PaperShape internals.
+ */
+export function toPaperShapeStandaloneReactCode(
+  svgText: string,
+  options?: StandaloneComponentOptions
+): string {
+  const cleanSvg = svgText.replace(/^\s*<\?xml[^>]*\?>\s*/i, '').trim();
+  const escapedSvg = escapeTemplateLiteral(cleanSvg);
+  const componentName = toSafeComponentName(options?.componentName || 'PaperShapeAsset');
+  const idPrefix = componentName.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase() || 'paper-shape';
+
+  return `import { useId, useMemo } from 'react';
+
+const rawSvgMarkup = String.raw\`${escapedSvg}\`;
+
+function prefixSvgIds(markup: string, prefix: string): string {
+  return markup
+    .replace(/\\sid="([^"]+)"/g, (_m, id) => \` id="\${prefix}-\${id}"\`)
+    .replace(/url\\(#([^)]+)\\)/g, (_m, id) => \`url(#\${prefix}-\${id})\`)
+    .replace(/href="#([^"]+)"/g, (_m, id) => \`href="#\${prefix}-\${id}"\`)
+    .replace(/xlink:href="#([^"]+)"/g, (_m, id) => \`xlink:href="#\${prefix}-\${id}"\`);
+}
+
+export default function ${componentName}({ className }: { className?: string }) {
+  const uid = useId().replace(/:/g, '');
+  const markup = useMemo(() => prefixSvgIds(rawSvgMarkup, '${idPrefix}-' + uid), [uid]);
+
+  return <span className={className} dangerouslySetInnerHTML={{ __html: markup }} />;
+}
+`;
+}
+
 export function serializeSvg(svgEl: SVGSVGElement): string {
   const cloned = svgEl.cloneNode(true) as SVGSVGElement;
   const w = Number(cloned.getAttribute('width')) || 0;

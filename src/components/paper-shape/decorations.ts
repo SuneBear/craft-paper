@@ -4,6 +4,7 @@
  */
 
 export type DecorationType = 'staple' | 'washi-tape' | 'sticker';
+export type WashiTapePlacement = 'left-corner' | 'top-center' | 'right-corner';
 
 export interface DecorationTransform {
   x: number;
@@ -17,6 +18,39 @@ export interface DecorationItem {
   type: DecorationType;
   variant: string;
   transform: DecorationTransform;
+}
+
+export function getWashiTapePlacementTransform(
+  width: number,
+  _height: number,
+  placement: WashiTapePlacement
+): DecorationTransform {
+  const tapeW = 80;
+  const tapeH = 22;
+  const insetX = Math.max(8, width * 0.08);
+  const centerOnTopBorderY = -tapeH / 2;
+  if (placement === 'left-corner') {
+    return {
+      x: insetX,
+      y: centerOnTopBorderY,
+      rotation: -12,
+      scale: 1,
+    };
+  }
+  if (placement === 'right-corner') {
+    return {
+      x: Math.max(4, width - tapeW - insetX),
+      y: centerOnTopBorderY,
+      rotation: 12,
+      scale: 1,
+    };
+  }
+  return {
+    x: Math.max(4, width / 2 - tapeW / 2),
+    y: centerOnTopBorderY,
+    rotation: -3,
+    scale: 1,
+  };
 }
 
 // ─── Staple variants ───
@@ -47,17 +81,23 @@ export const stickerVariants = [
   { key: 'ribbon', label: '蝴蝶结', emoji: '🎀' },
 ] as const;
 
-export function createDecoration(type: DecorationType, variant: string, x: number, y: number): DecorationItem {
+export function createDecoration(
+  type: DecorationType,
+  variant: string,
+  x: number,
+  y: number,
+  transformOverrides?: Partial<DecorationTransform>
+): DecorationItem {
   return {
     id: `${type}-${variant}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     type,
     variant,
-    transform: { x, y, rotation: 0, scale: 1 },
+    transform: { x, y, rotation: 0, scale: 1, ...transformOverrides },
   };
 }
 
 export const decorationCatalog: { type: DecorationType; label: string; emoji: string; variants: readonly { key: string; label: string }[] }[] = [
-  { type: 'staple', label: '订书钉', emoji: '📎', variants: stapleVariants },
   { type: 'washi-tape', label: '胶带', emoji: '🎀', variants: washiTapeVariants },
+  { type: 'staple', label: '订书钉', emoji: '📎', variants: stapleVariants },
   { type: 'sticker', label: '贴纸', emoji: '⭐', variants: stickerVariants },
 ];

@@ -80,7 +80,7 @@ function generateExamples(): ExampleItem[] {
       }
       if (preset === 'torn' && v === 1) {
         decos.push(
-          { id: 'ex-tape-2', type: 'washi-tape', variant: 'dots-mint', transform: { x: 20, y: 10, rotation: 2, scale: 0.65 } },
+          { id: 'ex-tape-2', type: 'washi-tape', variant: 'dots-mint', transform: { x: 64, y: -9, rotation: -3, scale: 0.65 } },
           { id: 'ex-sticker-2', type: 'sticker', variant: 'cat', transform: { x: 130, y: 90, rotation: -8, scale: 1.1 } },
         );
       }

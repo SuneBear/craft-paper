@@ -49,9 +49,25 @@ export function createRandomPresetParams(
     'shadowColor',
     'cutoutEdges',
     'cutoutShape',
+    'cutoutShapeTop',
+    'cutoutShapeRight',
+    'cutoutShapeBottom',
+    'cutoutShapeLeft',
     'cutoutRadius',
+    'cutoutRadiusTop',
+    'cutoutRadiusRight',
+    'cutoutRadiusBottom',
+    'cutoutRadiusLeft',
     'cutoutDepth',
+    'cutoutDepthTop',
+    'cutoutDepthRight',
+    'cutoutDepthBottom',
+    'cutoutDepthLeft',
     'cutoutOffset',
+    'cutoutOffsetTop',
+    'cutoutOffsetRight',
+    'cutoutOffsetBottom',
+    'cutoutOffsetLeft',
     'cutoutAABleed',
     'stitchInset',
     'stitchCornerRadius',
@@ -165,9 +181,25 @@ export function createRandomPresetParams(
   params.shadowColor = prev.shadowColor;
   params.cutoutEdges = prev.cutoutEdges;
   params.cutoutShape = prev.cutoutShape;
+  params.cutoutShapeTop = prev.cutoutShapeTop;
+  params.cutoutShapeRight = prev.cutoutShapeRight;
+  params.cutoutShapeBottom = prev.cutoutShapeBottom;
+  params.cutoutShapeLeft = prev.cutoutShapeLeft;
   params.cutoutRadius = prev.cutoutRadius;
+  params.cutoutRadiusTop = prev.cutoutRadiusTop;
+  params.cutoutRadiusRight = prev.cutoutRadiusRight;
+  params.cutoutRadiusBottom = prev.cutoutRadiusBottom;
+  params.cutoutRadiusLeft = prev.cutoutRadiusLeft;
   params.cutoutDepth = prev.cutoutDepth;
+  params.cutoutDepthTop = prev.cutoutDepthTop;
+  params.cutoutDepthRight = prev.cutoutDepthRight;
+  params.cutoutDepthBottom = prev.cutoutDepthBottom;
+  params.cutoutDepthLeft = prev.cutoutDepthLeft;
   params.cutoutOffset = prev.cutoutOffset;
+  params.cutoutOffsetTop = prev.cutoutOffsetTop;
+  params.cutoutOffsetRight = prev.cutoutOffsetRight;
+  params.cutoutOffsetBottom = prev.cutoutOffsetBottom;
+  params.cutoutOffsetLeft = prev.cutoutOffsetLeft;
   params.cutoutAABleed = prev.cutoutAABleed;
   params.stitchInset = prev.stitchInset;
   params.stitchCornerRadius = prev.stitchCornerRadius;

@@ -4,8 +4,21 @@ import { PaperShape, type PaperPatternType, type PatternParams } from '@/compone
 import { PaperShapeEditorPanel } from '@/components/paper-shape/PaperShapeEditorPanel';
 import { DecorationEditorSection } from '@/components/paper-shape/DecorationEditorSection';
 import { presetInfo, type PaperPreset, type PresetParams } from '@/components/paper-shape/geometry';
-import { createDecoration, type DecorationItem, type DecorationTransform, type DecorationType } from '@/components/paper-shape/decorations';
-import { downloadText, serializeSvg, toPaperShapeJSX, toPaperShapeRecipe } from '@/lib/paper-shape-export';
+import {
+  createDecoration,
+  getWashiTapePlacementTransform,
+  type DecorationItem,
+  type DecorationTransform,
+  type DecorationType,
+  type WashiTapePlacement,
+} from '@/components/paper-shape/decorations';
+import {
+  downloadText,
+  serializeSvg,
+  toPaperShapeJSX,
+  toPaperShapeRecipe,
+  toPaperShapeStandaloneReactCode,
+} from '@/lib/paper-shape-export';
 import { decodeShareState, encodeShareState } from '@/lib/paper-shape-share';
 import { createRandomPresetParams } from '@/lib/paper-shape-random';
 
@@ -21,7 +34,7 @@ const randomPatternTypes: PaperPatternType[] = ['none', 'lines', 'grid', 'dots',
 export default function PaperShapePlayground() {
   const [searchParams] = useSearchParams();
   const previewRef = useRef<HTMLDivElement>(null);
-  const [preset, setPreset] = useState<PaperPreset>('stamp');
+  const [preset, setPreset] = useState<PaperPreset>('basic-paper');
   const [width, setWidth] = useState(280);
   const [height, setHeight] = useState(200);
   const [seed, setSeed] = useState(42);
@@ -33,14 +46,12 @@ export default function PaperShapePlayground() {
   const [patternParams, setPatternParams] = useState<PatternParams>({});
   const [presetParams, setPresetParams] = useState<PresetParams>({});
   const [decorations, setDecorations] = useState<DecorationItem[]>([]);
-  const [activeDecoTab, setActiveDecoTab] = useState<DecorationType>('staple');
+  const [activeDecoTab, setActiveDecoTab] = useState<DecorationType>('washi-tape');
 
   useEffect(() => {
     const shared = decodeShareState(searchParams.get('s'));
     if (!shared) return;
     if (shared.preset && allPresets.includes(shared.preset)) setPreset(shared.preset);
-    if (typeof shared.width === 'number') setWidth(shared.width);
-    if (typeof shared.height === 'number') setHeight(shared.height);
     if (typeof shared.seed === 'number') setSeed(shared.seed);
     if (typeof shared.roughness === 'number') setRoughness(shared.roughness);
     if (typeof shared.paperColor === 'string') setPaperColor(shared.paperColor);
@@ -67,10 +78,22 @@ export default function PaperShapePlayground() {
     setPatternParams({});
   }, [preset, width, height, presetParams]);
 
-  const addDecoration = useCallback((type: DecorationType, variant: string) => {
-    const x = width * 0.3 + Math.random() * width * 0.4;
-    const y = height * 0.3 + Math.random() * height * 0.4;
-    const deco = createDecoration(type, variant, x, y);
+  const addDecoration = useCallback((
+    type: DecorationType,
+    variant: string,
+    options?: { washiPlacement?: WashiTapePlacement }
+  ) => {
+    let deco: DecorationItem;
+    if (type === 'washi-tape') {
+      const placement = options?.washiPlacement ?? 'top-center';
+      const t = getWashiTapePlacementTransform(width, height, placement);
+      const randomRotation = (Math.random() - 0.5) * 8;
+      deco = createDecoration(type, variant, t.x, t.y, { rotation: t.rotation + randomRotation, scale: t.scale });
+    } else {
+      const x = width * 0.3 + Math.random() * width * 0.4;
+      const y = height * 0.3 + Math.random() * height * 0.4;
+      deco = createDecoration(type, variant, x, y);
+    }
     setDecorations(prev => [...prev, deco]);
   }, [width, height]);
 
@@ -113,14 +136,20 @@ export default function PaperShapePlayground() {
     void copyText(toPaperShapeJSX(getExportState()));
   }, [copyText, getExportState]);
 
-  const handleCopyRecipe = useCallback(() => {
-    void copyText(JSON.stringify(toPaperShapeRecipe(getExportState()), null, 2));
-  }, [copyText, getExportState]);
-
   const getSvgText = useCallback(() => {
     const svg = previewRef.current?.querySelector('svg');
     return svg ? serializeSvg(svg) : null;
   }, []);
+
+  const handleCopyFullCode = useCallback(() => {
+    const svgText = getSvgText();
+    if (!svgText) return;
+    void copyText(toPaperShapeStandaloneReactCode(svgText, { componentName: `${preset} paper shape asset` }));
+  }, [copyText, getSvgText, preset]);
+
+  const handleCopyRecipe = useCallback(() => {
+    void copyText(JSON.stringify(toPaperShapeRecipe(getExportState()), null, 2));
+  }, [copyText, getExportState]);
 
   const handleCopySvg = useCallback(() => {
     const svgText = getSvgText();
@@ -184,11 +213,13 @@ export default function PaperShapePlayground() {
           </div>
         </PaperShape>
 
-        {decorations.length > 0 && (
-          <p className="text-[10px] text-muted-foreground font-craft mt-3">
-            💡 点击装饰可旋转/缩放/删除，拖拽可移动位置
-          </p>
-        )}
+        <p
+          className={`pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 text-[10px] text-muted-foreground font-craft transition-opacity duration-150 ${
+            decorations.length > 0 ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
+          💡 点击装饰可旋转/缩放/删除，拖拽可移动位置
+        </p>
       </div>
 
       <div className="self-stretch lg:min-h-0 lg:h-full flex flex-col gap-5">
@@ -216,6 +247,7 @@ export default function PaperShapePlayground() {
             setPatternParams={setPatternParams}
             setPresetParams={setPresetParams}
             onCopyJSX={handleCopyJSX}
+            onCopyFullCode={handleCopyFullCode}
             onCopyRecipe={handleCopyRecipe}
             onCopySvg={handleCopySvg}
             onDownloadSvg={handleDownloadSvg}

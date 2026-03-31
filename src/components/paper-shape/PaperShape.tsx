@@ -1,5 +1,5 @@
 import React, { useMemo, useId, useRef, useCallback, useEffect, useState } from 'react';
-import { DndContext, type DragEndEvent, type DragMoveEvent, type DragStartEvent } from '@dnd-kit/core';
+import Moveable from 'react-moveable';
 import { generatePath, getTagHole, getFoldTriangles, getStitchPath, generateStitchDashes } from './geometry';
 import type { PaperPreset, ShapeConfig, PresetParams } from './geometry';
 import type { DecorationItem, DecorationTransform } from './decorations';
@@ -146,6 +146,65 @@ function edgeBiasedSplit(length: number, offsetRaw: number, edgeRatioRaw: number
   const clampedOffset = Math.max(-length * 0.25, Math.min(length * 0.25, offsetRaw));
   const drift = clampedOffset * 0.35;
   return anchor + drift;
+}
+
+type CutoutEdge = 'top' | 'right' | 'bottom' | 'left';
+
+const CUTOUT_EDGE_PARAM_KEYS: Record<
+  CutoutEdge,
+  {
+    radius: keyof PresetParams;
+    depth: keyof PresetParams;
+    offset: keyof PresetParams;
+    shape: keyof PresetParams;
+  }
+> = {
+  top: {
+    radius: 'cutoutRadiusTop',
+    depth: 'cutoutDepthTop',
+    offset: 'cutoutOffsetTop',
+    shape: 'cutoutShapeTop',
+  },
+  right: {
+    radius: 'cutoutRadiusRight',
+    depth: 'cutoutDepthRight',
+    offset: 'cutoutOffsetRight',
+    shape: 'cutoutShapeRight',
+  },
+  bottom: {
+    radius: 'cutoutRadiusBottom',
+    depth: 'cutoutDepthBottom',
+    offset: 'cutoutOffsetBottom',
+    shape: 'cutoutShapeBottom',
+  },
+  left: {
+    radius: 'cutoutRadiusLeft',
+    depth: 'cutoutDepthLeft',
+    offset: 'cutoutOffsetLeft',
+    shape: 'cutoutShapeLeft',
+  },
+};
+
+function readCutoutEdgeNumber(
+  params: PresetParams | undefined,
+  edge: CutoutEdge,
+  kind: 'radius' | 'depth' | 'offset',
+  fallback: number
+): number {
+  const key = CUTOUT_EDGE_PARAM_KEYS[edge][kind];
+  const localRaw = params?.[key];
+  return typeof localRaw === 'number' && Number.isFinite(localRaw) ? localRaw : fallback;
+}
+
+function readCutoutEdgeShape(
+  params: PresetParams | undefined,
+  edge: CutoutEdge,
+  fallback: number
+): number {
+  const key = CUTOUT_EDGE_PARAM_KEYS[edge].shape;
+  const localRaw = params?.[key];
+  const raw = typeof localRaw === 'number' && Number.isFinite(localRaw) ? localRaw : fallback;
+  return Math.max(0, Math.min(2, Math.round(raw)));
 }
 
 export const PaperShape: React.FC<PaperShapeProps> = ({
@@ -318,24 +377,20 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     >;
 
     const clampN = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
-    const cutR = Math.max(3, Math.min(Math.min(width, height) * 0.24, presetParams?.cutoutRadius ?? Math.min(width, height) * 0.07));
-    const cutDepth = Math.max(1.5, Math.min(Math.min(width, height) * 0.3, presetParams?.cutoutDepth ?? cutR * 0.85));
-    const cutShape = Math.max(0, Math.min(2, Math.round(presetParams?.cutoutShape ?? 0)));
-    const defaultBleed = cutShape === 0
-      ? Math.max(0.8, strokeWidth * 0.85 + 0.35)
-      : Math.max(0.5, strokeWidth * 0.55 + 0.18);
-    const bleed = Math.max(0, Math.min(4, presetParams?.cutoutAABleed ?? defaultBleed));
-    const maskR = cutR + bleed;
-    const maskDepth = cutDepth + bleed;
-    const cutOffset = presetParams?.cutoutOffset ?? 0;
-    const cutSkew = clampN(maskR * 0.42, 1, maskR * 0.78);
-    const rr = clampN(Math.min(maskR * 0.45, maskDepth * 0.55), 0.8, Math.min(maskR - 0.4, maskDepth - 0.4));
-    const outer = bleed + 0.4;
-
-    const topCx = clampN(width / 2 + cutOffset, maskR + 2, width - maskR - 2);
-    const rightCy = clampN(height / 2 + cutOffset, maskR + 2, height - maskR - 2);
-    const bottomCx = clampN(width / 2 + cutOffset, maskR + 2, width - maskR - 2);
-    const leftCy = clampN(height / 2 + cutOffset, maskR + 2, height - maskR - 2);
+    const maxCutR = Math.min(width, height) * 0.24;
+    const globalCutR = Math.max(3, Math.min(maxCutR, presetParams?.cutoutRadius ?? Math.min(width, height) * 0.07));
+    const maxCutDepth = Math.min(width, height) * 0.3;
+    const globalCutDepth = Math.max(1.5, Math.min(maxCutDepth, presetParams?.cutoutDepth ?? globalCutR * 0.85));
+    const globalCutOffset = presetParams?.cutoutOffset ?? 0;
+    const globalCutShape = Math.max(0, Math.min(2, Math.round(presetParams?.cutoutShape ?? 0)));
+    const explicitBleed = typeof presetParams?.cutoutAABleed === 'number'
+      ? Math.max(0, Math.min(4, presetParams.cutoutAABleed))
+      : undefined;
+    const defaultBleedForShape = (shape: number) => (
+      shape === 0
+        ? Math.max(0.8, strokeWidth * 0.85 + 0.35)
+        : Math.max(0.5, strokeWidth * 0.55 + 0.18)
+    );
 
     const shapes: Array<
       | { kind: 'polygon'; points: string }
@@ -344,6 +399,17 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     > = [];
 
     const addTop = () => {
+      const cutShape = readCutoutEdgeShape(presetParams, 'top', globalCutShape);
+      const cutR = Math.max(3, Math.min(maxCutR, readCutoutEdgeNumber(presetParams, 'top', 'radius', globalCutR)));
+      const cutDepth = Math.max(1.5, Math.min(maxCutDepth, readCutoutEdgeNumber(presetParams, 'top', 'depth', globalCutDepth)));
+      const cutOffset = readCutoutEdgeNumber(presetParams, 'top', 'offset', globalCutOffset);
+      const bleed = explicitBleed ?? defaultBleedForShape(cutShape);
+      const maskR = cutR + bleed;
+      const maskDepth = cutDepth + bleed;
+      const cutSkew = clampN(maskR * 0.42, 1, maskR * 0.78);
+      const rr = clampN(Math.min(maskR * 0.45, maskDepth * 0.55), 0.8, Math.min(maskR - 0.4, maskDepth - 0.4));
+      const outer = bleed + 0.4;
+      const topCx = clampN(width / 2 + cutOffset, maskR + 2, width - maskR - 2);
       if (cutShape === 1) {
         shapes.push({ kind: 'ellipse', cx: topCx, cy: 0, rx: maskR, ry: maskDepth });
       } else if (cutShape === 2) {
@@ -354,6 +420,17 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
       }
     };
     const addRight = () => {
+      const cutShape = readCutoutEdgeShape(presetParams, 'right', globalCutShape);
+      const cutR = Math.max(3, Math.min(maxCutR, readCutoutEdgeNumber(presetParams, 'right', 'radius', globalCutR)));
+      const cutDepth = Math.max(1.5, Math.min(maxCutDepth, readCutoutEdgeNumber(presetParams, 'right', 'depth', globalCutDepth)));
+      const cutOffset = readCutoutEdgeNumber(presetParams, 'right', 'offset', globalCutOffset);
+      const bleed = explicitBleed ?? defaultBleedForShape(cutShape);
+      const maskR = cutR + bleed;
+      const maskDepth = cutDepth + bleed;
+      const cutSkew = clampN(maskR * 0.42, 1, maskR * 0.78);
+      const rr = clampN(Math.min(maskR * 0.45, maskDepth * 0.55), 0.8, Math.min(maskR - 0.4, maskDepth - 0.4));
+      const outer = bleed + 0.4;
+      const rightCy = clampN(height / 2 + cutOffset, maskR + 2, height - maskR - 2);
       if (cutShape === 1) {
         shapes.push({ kind: 'ellipse', cx: width, cy: rightCy, rx: maskDepth, ry: maskR });
       } else if (cutShape === 2) {
@@ -364,6 +441,17 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
       }
     };
     const addBottom = () => {
+      const cutShape = readCutoutEdgeShape(presetParams, 'bottom', globalCutShape);
+      const cutR = Math.max(3, Math.min(maxCutR, readCutoutEdgeNumber(presetParams, 'bottom', 'radius', globalCutR)));
+      const cutDepth = Math.max(1.5, Math.min(maxCutDepth, readCutoutEdgeNumber(presetParams, 'bottom', 'depth', globalCutDepth)));
+      const cutOffset = readCutoutEdgeNumber(presetParams, 'bottom', 'offset', globalCutOffset);
+      const bleed = explicitBleed ?? defaultBleedForShape(cutShape);
+      const maskR = cutR + bleed;
+      const maskDepth = cutDepth + bleed;
+      const cutSkew = clampN(maskR * 0.42, 1, maskR * 0.78);
+      const rr = clampN(Math.min(maskR * 0.45, maskDepth * 0.55), 0.8, Math.min(maskR - 0.4, maskDepth - 0.4));
+      const outer = bleed + 0.4;
+      const bottomCx = clampN(width / 2 + cutOffset, maskR + 2, width - maskR - 2);
       if (cutShape === 1) {
         shapes.push({ kind: 'ellipse', cx: bottomCx, cy: height, rx: maskR, ry: maskDepth });
       } else if (cutShape === 2) {
@@ -374,6 +462,17 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
       }
     };
     const addLeft = () => {
+      const cutShape = readCutoutEdgeShape(presetParams, 'left', globalCutShape);
+      const cutR = Math.max(3, Math.min(maxCutR, readCutoutEdgeNumber(presetParams, 'left', 'radius', globalCutR)));
+      const cutDepth = Math.max(1.5, Math.min(maxCutDepth, readCutoutEdgeNumber(presetParams, 'left', 'depth', globalCutDepth)));
+      const cutOffset = readCutoutEdgeNumber(presetParams, 'left', 'offset', globalCutOffset);
+      const bleed = explicitBleed ?? defaultBleedForShape(cutShape);
+      const maskR = cutR + bleed;
+      const maskDepth = cutDepth + bleed;
+      const cutSkew = clampN(maskR * 0.42, 1, maskR * 0.78);
+      const rr = clampN(Math.min(maskR * 0.45, maskDepth * 0.55), 0.8, Math.min(maskR - 0.4, maskDepth - 0.4));
+      const outer = bleed + 0.4;
+      const leftCy = clampN(height / 2 + cutOffset, maskR + 2, height - maskR - 2);
       if (cutShape === 1) {
         shapes.push({ kind: 'ellipse', cx: 0, cy: leftCy, rx: maskDepth, ry: maskR });
       } else if (cutShape === 2) {
@@ -389,36 +488,28 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     if (edgeMask & 4) addBottom();
     if (edgeMask & 8) addLeft();
     return shapes;
-  }, [
-    presetParams?.cutoutEdges,
-    presetParams?.cutoutRadius,
-    presetParams?.cutoutDepth,
-    presetParams?.cutoutOffset,
-    presetParams?.cutoutShape,
-    presetParams?.cutoutAABleed,
-    strokeWidth,
-    width,
-    height,
-  ]);
+  }, [presetParams, strokeWidth, width, height]);
   const cutoutStrokePaths = useMemo(() => {
     const edgeMask = Math.max(0, Math.round(presetParams?.cutoutEdges ?? 0));
     if (edgeMask === 0) return [] as string[];
 
     const clampN = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
-    const cutR = Math.max(3, Math.min(Math.min(width, height) * 0.24, presetParams?.cutoutRadius ?? Math.min(width, height) * 0.07));
-    const cutDepth = Math.max(1.5, Math.min(Math.min(width, height) * 0.3, presetParams?.cutoutDepth ?? cutR * 0.85));
-    const cutOffset = presetParams?.cutoutOffset ?? 0;
-    const cutShape = Math.max(0, Math.min(2, Math.round(presetParams?.cutoutShape ?? 0)));
-    const cutSkew = clampN(cutR * 0.42, 1, cutR * 0.78);
-    const rr = clampN(Math.min(cutR * 0.45, cutDepth * 0.55), 0.8, Math.min(cutR - 0.4, cutDepth - 0.4));
-
-    const topCx = clampN(width / 2 + cutOffset, cutR + 2, width - cutR - 2);
-    const rightCy = clampN(height / 2 + cutOffset, cutR + 2, height - cutR - 2);
-    const bottomCx = clampN(width / 2 + cutOffset, cutR + 2, width - cutR - 2);
-    const leftCy = clampN(height / 2 + cutOffset, cutR + 2, height - cutR - 2);
+    const maxCutR = Math.min(width, height) * 0.24;
+    const globalCutR = Math.max(3, Math.min(maxCutR, presetParams?.cutoutRadius ?? Math.min(width, height) * 0.07));
+    const maxCutDepth = Math.min(width, height) * 0.3;
+    const globalCutDepth = Math.max(1.5, Math.min(maxCutDepth, presetParams?.cutoutDepth ?? globalCutR * 0.85));
+    const globalCutOffset = presetParams?.cutoutOffset ?? 0;
+    const globalCutShape = Math.max(0, Math.min(2, Math.round(presetParams?.cutoutShape ?? 0)));
     const paths: string[] = [];
 
     if (edgeMask & 1) {
+      const cutShape = readCutoutEdgeShape(presetParams, 'top', globalCutShape);
+      const cutR = Math.max(3, Math.min(maxCutR, readCutoutEdgeNumber(presetParams, 'top', 'radius', globalCutR)));
+      const cutDepth = Math.max(1.5, Math.min(maxCutDepth, readCutoutEdgeNumber(presetParams, 'top', 'depth', globalCutDepth)));
+      const cutOffset = readCutoutEdgeNumber(presetParams, 'top', 'offset', globalCutOffset);
+      const cutSkew = clampN(cutR * 0.42, 1, cutR * 0.78);
+      const rr = clampN(Math.min(cutR * 0.45, cutDepth * 0.55), 0.8, Math.min(cutR - 0.4, cutDepth - 0.4));
+      const topCx = clampN(width / 2 + cutOffset, cutR + 2, width - cutR - 2);
       if (cutShape === 1) {
         paths.push(`M ${topCx - cutR} 0 A ${cutR} ${cutDepth} 0 0 0 ${topCx + cutR} 0`);
       } else if (cutShape === 2) {
@@ -436,6 +527,13 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     }
 
     if (edgeMask & 2) {
+      const cutShape = readCutoutEdgeShape(presetParams, 'right', globalCutShape);
+      const cutR = Math.max(3, Math.min(maxCutR, readCutoutEdgeNumber(presetParams, 'right', 'radius', globalCutR)));
+      const cutDepth = Math.max(1.5, Math.min(maxCutDepth, readCutoutEdgeNumber(presetParams, 'right', 'depth', globalCutDepth)));
+      const cutOffset = readCutoutEdgeNumber(presetParams, 'right', 'offset', globalCutOffset);
+      const cutSkew = clampN(cutR * 0.42, 1, cutR * 0.78);
+      const rr = clampN(Math.min(cutR * 0.45, cutDepth * 0.55), 0.8, Math.min(cutR - 0.4, cutDepth - 0.4));
+      const rightCy = clampN(height / 2 + cutOffset, cutR + 2, height - cutR - 2);
       if (cutShape === 1) {
         paths.push(`M ${width} ${rightCy - cutR} A ${cutDepth} ${cutR} 0 0 0 ${width} ${rightCy + cutR}`);
       } else if (cutShape === 2) {
@@ -453,6 +551,13 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     }
 
     if (edgeMask & 4) {
+      const cutShape = readCutoutEdgeShape(presetParams, 'bottom', globalCutShape);
+      const cutR = Math.max(3, Math.min(maxCutR, readCutoutEdgeNumber(presetParams, 'bottom', 'radius', globalCutR)));
+      const cutDepth = Math.max(1.5, Math.min(maxCutDepth, readCutoutEdgeNumber(presetParams, 'bottom', 'depth', globalCutDepth)));
+      const cutOffset = readCutoutEdgeNumber(presetParams, 'bottom', 'offset', globalCutOffset);
+      const cutSkew = clampN(cutR * 0.42, 1, cutR * 0.78);
+      const rr = clampN(Math.min(cutR * 0.45, cutDepth * 0.55), 0.8, Math.min(cutR - 0.4, cutDepth - 0.4));
+      const bottomCx = clampN(width / 2 + cutOffset, cutR + 2, width - cutR - 2);
       if (cutShape === 1) {
         paths.push(`M ${bottomCx + cutR} ${height} A ${cutR} ${cutDepth} 0 0 0 ${bottomCx - cutR} ${height}`);
       } else if (cutShape === 2) {
@@ -470,6 +575,13 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     }
 
     if (edgeMask & 8) {
+      const cutShape = readCutoutEdgeShape(presetParams, 'left', globalCutShape);
+      const cutR = Math.max(3, Math.min(maxCutR, readCutoutEdgeNumber(presetParams, 'left', 'radius', globalCutR)));
+      const cutDepth = Math.max(1.5, Math.min(maxCutDepth, readCutoutEdgeNumber(presetParams, 'left', 'depth', globalCutDepth)));
+      const cutOffset = readCutoutEdgeNumber(presetParams, 'left', 'offset', globalCutOffset);
+      const cutSkew = clampN(cutR * 0.42, 1, cutR * 0.78);
+      const rr = clampN(Math.min(cutR * 0.45, cutDepth * 0.55), 0.8, Math.min(cutR - 0.4, cutDepth - 0.4));
+      const leftCy = clampN(height / 2 + cutOffset, cutR + 2, height - cutR - 2);
       if (cutShape === 1) {
         paths.push(`M 0 ${leftCy + cutR} A ${cutDepth} ${cutR} 0 0 0 0 ${leftCy - cutR}`);
       } else if (cutShape === 2) {
@@ -487,15 +599,7 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     }
 
     return paths;
-  }, [
-    presetParams?.cutoutEdges,
-    presetParams?.cutoutRadius,
-    presetParams?.cutoutDepth,
-    presetParams?.cutoutOffset,
-    presetParams?.cutoutShape,
-    width,
-    height,
-  ]);
+  }, [presetParams, width, height]);
   const hasCutoutMask = !!tagHole || perforationMaskDots.length > 0 || cutoutMaskShapes.length > 0;
   const contentSafeInsets = useMemo(() => {
     const insets = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -590,11 +694,42 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     return insets;
   }, [preset, presetParams, perforationGuide, width, height]);
 
-  const padding = 16;
+  const padding = useMemo(() => {
+    const basePadding = 16;
+    const bleed = 8;
+    let needed = basePadding;
+    for (const deco of decorations) {
+      const baseW = deco.type === 'washi-tape' ? 80 : deco.type === 'staple' ? 28 : 24;
+      const baseH = deco.type === 'washi-tape' ? 22 : deco.type === 'staple' ? 10 : 24;
+      const w = baseW * deco.transform.scale;
+      const h = baseH * deco.transform.scale;
+      const cx = deco.transform.x + w / 2;
+      const cy = deco.transform.y + h / 2;
+      const rad = (deco.transform.rotation * Math.PI) / 180;
+      const cos = Math.abs(Math.cos(rad));
+      const sin = Math.abs(Math.sin(rad));
+      const boxW = cos * w + sin * h;
+      const boxH = sin * w + cos * h;
+      const minX = cx - boxW / 2;
+      const maxX = cx + boxW / 2;
+      const minY = cy - boxH / 2;
+      const maxY = cy + boxH / 2;
+      needed = Math.max(
+        needed,
+        bleed - minX,
+        maxX - width + bleed,
+        bleed - minY,
+        maxY - height + bleed
+      );
+    }
+    return Math.ceil(needed);
+  }, [decorations, width, height]);
   const svgW = width + padding * 2;
   const svgH = height + padding * 2;
-  const dragOriginRef = useRef<Record<string, DecorationTransform>>({});
+  const decorationTargetRefs = useRef<Record<string, SVGGElement | null>>({});
+  const moveableOriginRef = useRef<DecorationTransform | null>(null);
   const [selectedDecorationId, setSelectedDecorationId] = useState<string | null>(null);
+  const [selectedDecorationTarget, setSelectedDecorationTarget] = useState<SVGGElement | null>(null);
 
   const handleDecoChange = useCallback((id: string, t: DecorationTransform) => {
     onDecorationChange?.(id, t);
@@ -604,29 +739,12 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     onDecorationRemove?.(id);
   }, [onDecorationRemove]);
 
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    const id = String(event.active.id);
-    const current = decorations.find((d) => d.id === id)?.transform;
-    if (!current) return;
-    dragOriginRef.current[id] = current;
-  }, [decorations]);
-
-  const handleDragMove = useCallback((event: DragMoveEvent) => {
-    const id = String(event.active.id);
-    const origin = dragOriginRef.current[id];
-    if (!origin) return;
-    onDecorationChange?.(id, {
-      ...origin,
-      x: origin.x + event.delta.x,
-      y: origin.y + event.delta.y,
-    });
-  }, [onDecorationChange]);
-
-  const clearDragState = useCallback((event: DragEndEvent | DragMoveEvent | DragStartEvent) => {
-    const id = String(event.active.id);
-    delete dragOriginRef.current[id];
-  }, []);
-  const shouldEnableDecorationDnd = interactiveDecorations && decorations.length > 0;
+  const registerDecorationTarget = useCallback((id: string, node: SVGGElement | null) => {
+    decorationTargetRefs.current[id] = node;
+    if (id === selectedDecorationId) {
+      setSelectedDecorationTarget(node);
+    }
+  }, [selectedDecorationId]);
 
   useEffect(() => {
     if (!selectedDecorationId) return;
@@ -635,10 +753,56 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     }
   }, [decorations, selectedDecorationId]);
 
+  useEffect(() => {
+    if (!selectedDecorationId) {
+      setSelectedDecorationTarget(null);
+      return;
+    }
+    setSelectedDecorationTarget(decorationTargetRefs.current[selectedDecorationId] ?? null);
+  }, [selectedDecorationId, decorations]);
+
+  useEffect(() => {
+    const activeIds = new Set(decorations.map((d) => d.id));
+    Object.keys(decorationTargetRefs.current).forEach((id) => {
+      if (!activeIds.has(id)) delete decorationTargetRefs.current[id];
+    });
+  }, [decorations]);
+
+  useEffect(() => {
+    if (!interactiveDecorations || !selectedDecorationId) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLElement
+        && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+      ) {
+        return;
+      }
+      if (event.key === 'Backspace' || event.key === 'Delete') {
+        event.preventDefault();
+        handleDecoRemove(selectedDecorationId);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handleDecoRemove, interactiveDecorations, selectedDecorationId]);
+
+  const selectedDecoration = selectedDecorationId
+    ? decorations.find((d) => d.id === selectedDecorationId) ?? null
+    : null;
+
   const handleCanvasPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (!interactiveDecorations) return;
     const target = event.target;
-    if (target instanceof Element && target.closest('[data-decoration-id]')) return;
+    if (
+      target instanceof Element
+      && (
+        target.closest('[data-decoration-id]')
+        || target.closest('.moveable-control-box')
+      )
+    ) {
+      return;
+    }
     setSelectedDecorationId(null);
   }, [interactiveDecorations]);
 
@@ -864,38 +1028,78 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
         )}
 
         {/* Decorations layer */}
-        {shouldEnableDecorationDnd ? (
-          <DndContext
-            onDragStart={handleDragStart}
-            onDragMove={handleDragMove}
-            onDragEnd={clearDragState}
-            onDragCancel={clearDragState}
-          >
-            {decorations.map((deco) => (
-              <DraggableDecoration
-                key={deco.id}
-                item={deco}
-                onChange={handleDecoChange}
-                onRemove={handleDecoRemove}
-                selected={selectedDecorationId === deco.id}
-                onSelect={setSelectedDecorationId}
-                interactive={true}
-              />
-            ))}
-          </DndContext>
-        ) : (
-          decorations.map((deco) => (
-            <DraggableDecoration
-              key={deco.id}
-              item={deco}
-              onChange={handleDecoChange}
-              onRemove={handleDecoRemove}
-              selected={false}
-              interactive={false}
-            />
-          ))
-        )}
+        {decorations.map((deco) => (
+          <DraggableDecoration
+            key={deco.id}
+            item={deco}
+            selected={selectedDecorationId === deco.id}
+            onSelect={setSelectedDecorationId}
+            interactive={interactiveDecorations}
+            registerTarget={registerDecorationTarget}
+          />
+        ))}
       </svg>
+
+      {interactiveDecorations && selectedDecoration && selectedDecorationTarget && (
+        <Moveable
+          target={selectedDecorationTarget}
+          container={svgRef.current?.parentElement ?? undefined}
+          rootContainer={svgRef.current?.parentElement ?? undefined}
+          origin={false}
+          edge={false}
+          draggable={true}
+          rotatable={true}
+          scalable={true}
+          keepRatio={true}
+          renderDirections={['nw', 'ne', 'sw', 'se']}
+          rotationPosition="top"
+          throttleDrag={0}
+          throttleRotate={0}
+          throttleScale={0}
+          onDragStart={() => {
+            moveableOriginRef.current = selectedDecoration.transform;
+          }}
+          onDrag={({ beforeTranslate }) => {
+            const origin = moveableOriginRef.current ?? selectedDecoration.transform;
+            handleDecoChange(selectedDecoration.id, {
+              ...origin,
+              x: origin.x + beforeTranslate[0],
+              y: origin.y + beforeTranslate[1],
+            });
+          }}
+          onDragEnd={() => {
+            moveableOriginRef.current = null;
+          }}
+          onRotateStart={() => {
+            moveableOriginRef.current = selectedDecoration.transform;
+          }}
+          onRotate={({ beforeRotate }) => {
+            const origin = moveableOriginRef.current ?? selectedDecoration.transform;
+            handleDecoChange(selectedDecoration.id, {
+              ...origin,
+              rotation: origin.rotation + beforeRotate,
+            });
+          }}
+          onRotateEnd={() => {
+            moveableOriginRef.current = null;
+          }}
+          onScaleStart={({ set }) => {
+            moveableOriginRef.current = selectedDecoration.transform;
+            set([selectedDecoration.transform.scale, selectedDecoration.transform.scale]);
+          }}
+          onScale={({ scale }) => {
+            const origin = moveableOriginRef.current ?? selectedDecoration.transform;
+            const nextScale = Math.max(0.3, Math.min(3, scale[0]));
+            handleDecoChange(selectedDecoration.id, {
+              ...origin,
+              scale: nextScale,
+            });
+          }}
+          onScaleEnd={() => {
+            moveableOriginRef.current = null;
+          }}
+        />
+      )}
 
       {/* Content overlay */}
       {children && (

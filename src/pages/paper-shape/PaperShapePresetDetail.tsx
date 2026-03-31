@@ -6,8 +6,21 @@ import { PaperShapeEditorPanel } from '@/components/paper-shape/PaperShapeEditor
 import { PaperShapeSampleContent } from '@/components/paper-shape/PaperShapeSampleContent';
 import { DecorationEditorSection } from '@/components/paper-shape/DecorationEditorSection';
 import { presetInfo, type PaperPreset, type PresetParams } from '@/components/paper-shape/geometry';
-import { createDecoration, type DecorationItem, type DecorationTransform, type DecorationType } from '@/components/paper-shape/decorations';
-import { downloadText, serializeSvg, toPaperShapeJSX, toPaperShapeRecipe } from '@/lib/paper-shape-export';
+import {
+  createDecoration,
+  getWashiTapePlacementTransform,
+  type DecorationItem,
+  type DecorationTransform,
+  type DecorationType,
+  type WashiTapePlacement,
+} from '@/components/paper-shape/decorations';
+import {
+  downloadText,
+  serializeSvg,
+  toPaperShapeJSX,
+  toPaperShapeRecipe,
+  toPaperShapeStandaloneReactCode,
+} from '@/lib/paper-shape-export';
 import { decodeShareState, encodeShareState } from '@/lib/paper-shape-share';
 import { createRandomPresetParams } from '@/lib/paper-shape-random';
 
@@ -41,7 +54,7 @@ export default function PaperShapePresetDetail() {
   const [patternParams, setPatternParams] = useState<PatternParams>({});
   const [presetParams, setPresetParams] = useState<PresetParams>({});
   const [decorations, setDecorations] = useState<DecorationItem[]>([]);
-  const [activeDecoTab, setActiveDecoTab] = useState<DecorationType>('staple');
+  const [activeDecoTab, setActiveDecoTab] = useState<DecorationType>('washi-tape');
   const [contentMode, setContentMode] = useState<number | null>(null);
   const [contentTitle, setContentTitle] = useState('');
 
@@ -118,6 +131,12 @@ export default function PaperShapePresetDetail() {
     return svg ? serializeSvg(svg) : null;
   }, []);
 
+  const handleCopyFullCode = useCallback(() => {
+    const svgText = getSvgText();
+    if (!svgText) return;
+    void copyText(toPaperShapeStandaloneReactCode(svgText, { componentName: `${resolvedPreset} paper shape asset` }));
+  }, [copyText, getSvgText, resolvedPreset]);
+
   const randomize = useCallback(() => {
     setSeed(Math.floor(Math.random() * 10000));
     setRoughness(Math.random() * 0.6 + 0.1);
@@ -134,10 +153,22 @@ export default function PaperShapePresetDetail() {
     void copyText(url.toString());
   }, [copyText, exportState]);
 
-  const addDecoration = useCallback((type: DecorationType, variant: string) => {
-    const x = width * 0.3 + Math.random() * width * 0.4;
-    const y = height * 0.3 + Math.random() * height * 0.4;
-    const deco = createDecoration(type, variant, x, y);
+  const addDecoration = useCallback((
+    type: DecorationType,
+    variant: string,
+    options?: { washiPlacement?: WashiTapePlacement }
+  ) => {
+    let deco: DecorationItem;
+    if (type === 'washi-tape') {
+      const placement = options?.washiPlacement ?? 'top-center';
+      const t = getWashiTapePlacementTransform(width, height, placement);
+      const randomRotation = (Math.random() - 0.5) * 8;
+      deco = createDecoration(type, variant, t.x, t.y, { rotation: t.rotation + randomRotation, scale: t.scale });
+    } else {
+      const x = width * 0.3 + Math.random() * width * 0.4;
+      const y = height * 0.3 + Math.random() * height * 0.4;
+      deco = createDecoration(type, variant, x, y);
+    }
     setDecorations((prev) => [...prev, deco]);
   }, [width, height]);
 
@@ -247,6 +278,7 @@ export default function PaperShapePresetDetail() {
             setPatternParams={setPatternParams}
             setPresetParams={setPresetParams}
             onCopyJSX={() => { void copyText(toPaperShapeJSX(exportState)); }}
+            onCopyFullCode={handleCopyFullCode}
             onCopyRecipe={() => { void copyText(JSON.stringify(toPaperShapeRecipe(exportState), null, 2)); }}
             onCopySvg={() => {
               const svg = getSvgText();
