@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { PaperShape } from '@/components/paper-shape/PaperShape';
 import { presetInfo, type PaperPreset } from '@/components/paper-shape/geometry';
 import { motion } from 'framer-motion';
+import { encodeShareState } from '@/lib/paper-shape-share';
 
 const firstBatch: PaperPreset[] = ['stamp', 'coupon', 'ticket', 'tag'];
 const secondBatch: PaperPreset[] = ['folded', 'torn', 'stitched', 'scalloped-edge'];
@@ -47,6 +48,23 @@ export default function PaperShapeOverview() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
           {allPresets.map((preset, i) => {
             const info = presetInfo[preset];
+            const width = 160;
+            const height = 120;
+            const seed = i * 7 + 13;
+            const paperColor = COLORS[i % COLORS.length];
+            const patternType = i % 3 === 0 ? 'dots' : 'none';
+            const encodedState = encodeShareState({
+              preset,
+              width,
+              height,
+              seed,
+              roughness: 0.3,
+              paperColor,
+              strokeWidth: 1.8,
+              patternType,
+              patternParams: {},
+            });
+            const detailLink = `/ui/paper-shape/preset/${preset}?s=${encodeURIComponent(encodedState)}`;
             return (
               <motion.div
                 key={preset}
@@ -55,15 +73,15 @@ export default function PaperShapeOverview() {
                 transition={{ delay: i * 0.06, duration: 0.4 }}
                 className="flex flex-col items-center gap-2"
               >
-                <Link to={`/ui/paper-shape/preset/${preset}`} className="flex flex-col items-center gap-2">
+                <Link to={detailLink} className="flex flex-col items-center gap-2">
                   <PaperShape
                     preset={preset}
-                    width={160}
-                    height={120}
-                    seed={i * 7 + 13}
-                    paperColor={COLORS[i % COLORS.length]}
-                    showPattern={i % 3 === 0}
-                    patternType={i % 3 === 0 ? 'dots' : 'none'}
+                    width={width}
+                    height={height}
+                    seed={seed}
+                    paperColor={paperColor}
+                    showPattern={patternType !== 'none'}
+                    patternType={patternType}
                   >
                     <span className="text-3xl">{info.emoji}</span>
                   </PaperShape>
