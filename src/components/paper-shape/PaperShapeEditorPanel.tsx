@@ -119,6 +119,12 @@ const cutoutShapeOptions = [
   { value: 1, label: '圆弧' },
   { value: 2, label: '圆角矩形' },
 ] as const;
+const edgeWobbleOptions = [
+  { edge: 'top', label: '上边', key: 'edgeWobbleTop' },
+  { edge: 'right', label: '右边', key: 'edgeWobbleRight' },
+  { edge: 'bottom', label: '下边', key: 'edgeWobbleBottom' },
+  { edge: 'left', label: '左边', key: 'edgeWobbleLeft' },
+] as const;
 const perforationModeOptions = [
   { value: 0, label: '虚线' },
   { value: 1, label: '圆孔' },
@@ -220,6 +226,8 @@ export function PaperShapeEditorPanel({
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [cornerSectionOpen, setCornerSectionOpen] = useState(false);
   const [cornerShapeOverrideOpen, setCornerShapeOverrideOpen] = useState(false);
+  const [edgeWobbleSectionOpen, setEdgeWobbleSectionOpen] = useState(false);
+  const [edgeWobbleOverrideOpen, setEdgeWobbleOverrideOpen] = useState(false);
   const [cutoutSectionOpen, setCutoutSectionOpen] = useState(false);
   const [cutoutOverrideOpen, setCutoutOverrideOpen] = useState(false);
   const [shadowSectionOpen, setShadowSectionOpen] = useState(false);
@@ -323,6 +331,16 @@ export function PaperShapeEditorPanel({
   const foldSize = getParamValue('foldSize');
   const foldColor = typeof presetParams.foldColor === 'string' ? presetParams.foldColor : strokeColor;
   const foldOpacity = Math.max(0, Math.min(1, presetParams.foldOpacity ?? 0.34));
+  const foldCurve = Math.max(0, Math.min(1, presetParams.foldCurve ?? 0));
+  const supportsEdgeWobble = preset === 'basic-paper' || preset === 'stitched' || preset === 'receipt' || preset === 'folded';
+  const edgeWobbleMax = Math.max(4, Math.min(42, Math.min(width, height) * 0.22));
+  const edgeWobble = Math.max(0, Math.min(edgeWobbleMax, presetParams.edgeWobble ?? 0));
+  const readEdgeWobbleValue = (key: keyof PresetParams, fallback: number) => {
+    const raw = presetParams[key];
+    const n = typeof raw === 'number' ? raw : fallback;
+    return Math.max(0, Math.min(edgeWobbleMax, n));
+  };
+  const hasEdgeWobbleOverrides = edgeWobbleOptions.some((edge) => typeof presetParams[edge.key] === 'number');
 
   const setParamValue = (key: keyof PresetParams, val: number) => {
     setPresetParams((prev) => ({ ...prev, [key]: val }));
@@ -722,6 +740,112 @@ export function PaperShapeEditorPanel({
           </>
         )}
       </div>
+
+      {supportsEdgeWobble && (
+        <div className={cn(
+          'rounded-xl bg-muted/50 border border-border',
+          edgeWobbleSectionOpen ? 'space-y-2 p-3' : 'p-2'
+        )}>
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setEdgeWobbleSectionOpen((v) => !v)}
+              className="flex-1 h-8 px-2 -mx-1 rounded-md text-left text-xs font-craft font-semibold text-foreground hover:bg-background/60 transition"
+            >
+              {edgeWobbleSectionOpen ? '▾' : '▸'} ✏️ 直边手绘扭曲
+            </button>
+            <button
+              onClick={() => setPresetParams((prev) => ({
+                ...prev,
+                edgeWobble: 0,
+                edgeWobbleTop: undefined,
+                edgeWobbleRight: undefined,
+                edgeWobbleBottom: undefined,
+                edgeWobbleLeft: undefined,
+              }))}
+              className="text-[10px] font-craft text-muted-foreground hover:text-foreground"
+            >
+              重置
+            </button>
+          </div>
+          {edgeWobbleSectionOpen && (
+            <>
+              <div>
+                <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+                  <span>全局扭曲强度</span>
+                  <span className="text-foreground">{edgeWobble.toFixed(1)}</span>
+                </label>
+                <input
+                  type="range"
+                  min={0}
+                  max={edgeWobbleMax}
+                  step={0.1}
+                  value={edgeWobble}
+                  onChange={(e) => setPresetParams((prev) => ({ ...prev, edgeWobble: Number(e.target.value) }))}
+                  className="w-full accent-primary"
+                />
+              </div>
+              <div className="space-y-2 rounded-lg border border-border/70 bg-background/45 p-2">
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => setEdgeWobbleOverrideOpen((v) => !v)}
+                    className="text-[11px] font-craft font-medium text-muted-foreground hover:text-foreground"
+                  >
+                    {edgeWobbleOverrideOpen ? '▾' : '▸'} 单边覆盖（未设置=跟随全局）
+                  </button>
+                  {hasEdgeWobbleOverrides && (
+                    <button
+                      onClick={() => setPresetParams((prev) => ({
+                        ...prev,
+                        edgeWobbleTop: undefined,
+                        edgeWobbleRight: undefined,
+                        edgeWobbleBottom: undefined,
+                        edgeWobbleLeft: undefined,
+                      }))}
+                      className="text-[10px] font-craft text-muted-foreground hover:text-foreground"
+                    >
+                      清除覆盖
+                    </button>
+                  )}
+                </div>
+                {edgeWobbleOverrideOpen && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {edgeWobbleOptions.map((edge) => {
+                      const edgeValue = readEdgeWobbleValue(edge.key, edgeWobble);
+                      const hasLocal = typeof presetParams[edge.key] === 'number';
+                      return (
+                        <div key={edge.edge} className="space-y-1.5 rounded-md border border-border/70 bg-background/60 p-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-craft text-muted-foreground">{edge.label}</span>
+                            <button
+                              onClick={() => setPresetParams((prev) => ({ ...prev, [edge.key]: undefined }))}
+                              className="text-[10px] font-craft text-muted-foreground hover:text-foreground"
+                            >
+                              {hasLocal ? '跟随全局' : '已跟随'}
+                            </button>
+                          </div>
+                          <label className="text-[10px] font-craft font-medium text-muted-foreground flex justify-between">
+                            <span>强度</span>
+                            <span className="text-foreground">{edgeValue.toFixed(1)}</span>
+                          </label>
+                          <input
+                            type="range"
+                            min={0}
+                            max={edgeWobbleMax}
+                            step={0.1}
+                            value={edgeValue}
+                            onChange={(e) => setPresetParams((prev) => ({ ...prev, [edge.key]: Number(e.target.value) }))}
+                            className="w-full accent-primary"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       <div className={cn(
         'rounded-xl bg-muted/50 border border-border',
@@ -1178,6 +1302,22 @@ export function PaperShapeEditorPanel({
               step={1}
               value={Number(foldSize)}
               onChange={(e) => setPresetParams((prev) => ({ ...prev, foldSize: Number(e.target.value) }))}
+              className="w-full accent-primary"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+              <span>折角曲线强度</span>
+              <span className="text-foreground">{foldCurve.toFixed(2)}</span>
+            </label>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={foldCurve}
+              onChange={(e) => setPresetParams((prev) => ({ ...prev, foldCurve: Number(e.target.value) }))}
               className="w-full accent-primary"
             />
           </div>

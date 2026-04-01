@@ -50,7 +50,7 @@ function generateExamples(): ExampleItem[] {
       // Add decorations to some examples for showcase
       if (preset === 'basic-paper' && v === 0) {
         decos.push(
-          { id: 'ex-staple-1', type: 'staple', variant: 'silver', transform: { x: 80, y: 1, rotation: 0, scale: 1 } },
+          { id: 'ex-staple-1', type: 'staple', variant: 'silver', transform: { x: 80, y: -9, rotation: 0, scale: 1 } },
           { id: 'ex-sticker-1', type: 'sticker', variant: 'star', transform: { x: 140, y: 100, rotation: 12, scale: 0.9 } },
         );
       }
@@ -59,6 +59,8 @@ function generateExamples(): ExampleItem[] {
           presetParams = {
             foldSize: 26,
             foldCorners: 2, // 右上
+            edgeWobble: 1.1,
+            edgeWobbleBottom: 1.5,
           };
           decos.push(
             { id: 'ex-tape-1', type: 'washi-tape', variant: 'stripe-pink', transform: { x: 30, y: -8, rotation: -5, scale: 0.7 } },
@@ -96,13 +98,16 @@ function generateExamples(): ExampleItem[] {
       }
       if (preset === 'receipt' && v === 0) {
         decos.push(
-          { id: 'ex-staple-2', type: 'staple', variant: 'gold', transform: { x: 75, y: 2, rotation: 0, scale: 1.1 } },
+          { id: 'ex-staple-2', type: 'staple', variant: 'gold', transform: { x: 75, y: -10, rotation: 0, scale: 1.1 } },
         );
       }
       if (preset === 'receipt' && v === 1) {
         presetParams = {
           zigzagHeight: 9,
           zigzagEdge: 2, // 左侧锯齿，展示多方向能力
+          edgeWobble: 1.4,
+          edgeWobbleTop: 1.1,
+          edgeWobbleRight: 1.8,
         };
       }
       if (preset === 'scalloped-edge' && v === 1) {
@@ -180,24 +185,62 @@ function generateExamples(): ExampleItem[] {
       const contentMode = isBasicPaper ? 5 : (i + v) % 6;
       const pattern = isBasicPaper ? patternTypes[(v + 1) % patternTypes.length] : patternTypes[(i + v) % patternTypes.length];
 
+      if (isBasicPaper) {
+        const baseWobbleByVariant: Partial<PresetParams>[] = [
+          { edgeWobble: 1.1, edgeWobbleTop: 0.8, edgeWobbleBottom: 1.3 },
+          { edgeWobble: 1.25, edgeWobbleLeft: 0.9, edgeWobbleRight: 1.4 },
+          { edgeWobble: 1.15, edgeWobbleTop: 1.0, edgeWobbleRight: 1.35 },
+          { edgeWobble: 1.55, edgeWobbleTop: 1.15, edgeWobbleRight: 1.9 },
+          { edgeWobble: 1.45, edgeWobbleBottom: 2.0, edgeWobbleLeft: 1.0 },
+          { edgeWobble: 1.7, edgeWobbleTop: 1.2, edgeWobbleBottom: 1.55 },
+          { edgeWobble: 1.3, edgeWobbleLeft: 0.95, edgeWobbleBottom: 1.45 },
+          { edgeWobble: 1.35, edgeWobbleTop: 1.0, edgeWobbleRight: 1.55 },
+        ];
+        const baseWobble = baseWobbleByVariant[v];
+        if (baseWobble) {
+          presetParams = {
+            ...(presetParams ?? {}),
+            ...baseWobble,
+          };
+        }
+      }
+
       if (isBasicPaper && v === 3) {
+        presetParams = {
+          ...(presetParams ?? {}),
+          edgeWobble: 1.55,
+          edgeWobbleTop: 1.15,
+          edgeWobbleRight: 1.9,
+        };
         decos.push(
           { id: 'ex-sticker-4', type: 'sticker', variant: 'heart', transform: { x: 145, y: 104, rotation: -9, scale: 0.86 } },
         );
       }
       if (isBasicPaper && v === 4) {
+        presetParams = {
+          ...(presetParams ?? {}),
+          edgeWobble: 1.45,
+          edgeWobbleBottom: 2.0,
+          edgeWobbleLeft: 1.0,
+        };
         decos.push(
           { id: 'ex-tape-3', type: 'washi-tape', variant: 'stripe-mint', transform: { x: 28, y: -8, rotation: -6, scale: 0.68 } },
         );
       }
       if (isBasicPaper && v === 5) {
+        presetParams = {
+          ...(presetParams ?? {}),
+          edgeWobble: 1.7,
+          edgeWobbleTop: 1.2,
+          edgeWobbleBottom: 1.55,
+        };
         decos.push(
           { id: 'ex-tape-4', type: 'washi-tape', variant: 'dots-mint', transform: { x: 142, y: -8, rotation: 5, scale: 0.66 } },
         );
       }
       if (isBasicPaper && v === 6) {
         decos.push(
-          { id: 'ex-staple-3', type: 'staple', variant: 'gold', transform: { x: 80, y: 2, rotation: -1, scale: 1 } },
+          { id: 'ex-staple-3', type: 'staple', variant: 'gold', transform: { x: 80, y: -9, rotation: -1, scale: 1 } },
           { id: 'ex-sticker-5', type: 'sticker', variant: 'cat', transform: { x: 144, y: 96, rotation: -6, scale: 0.95 } },
         );
       }

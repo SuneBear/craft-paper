@@ -47,6 +47,13 @@ export function createRandomPresetParams(
     'shadowOffsetY',
     'shadowOpacity',
     'shadowColor',
+    'edgeWobble',
+    'edgeWobbleTop',
+    'edgeWobbleRight',
+    'edgeWobbleBottom',
+    'edgeWobbleLeft',
+    'edgeWobbleDensity',
+    'foldCurve',
     'cutoutEdges',
     'cutoutShape',
     'cutoutShapeTop',
@@ -179,6 +186,13 @@ export function createRandomPresetParams(
   params.shadowOffsetY = prev.shadowOffsetY;
   params.shadowOpacity = prev.shadowOpacity;
   params.shadowColor = prev.shadowColor;
+  params.edgeWobble = prev.edgeWobble;
+  params.edgeWobbleTop = prev.edgeWobbleTop;
+  params.edgeWobbleRight = prev.edgeWobbleRight;
+  params.edgeWobbleBottom = prev.edgeWobbleBottom;
+  params.edgeWobbleLeft = prev.edgeWobbleLeft;
+  params.edgeWobbleDensity = prev.edgeWobbleDensity;
+  params.foldCurve = prev.foldCurve;
   params.cutoutEdges = prev.cutoutEdges;
   params.cutoutShape = prev.cutoutShape;
   params.cutoutShapeTop = prev.cutoutShapeTop;

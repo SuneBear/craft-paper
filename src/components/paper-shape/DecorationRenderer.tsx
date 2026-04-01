@@ -12,78 +12,36 @@ interface RendererProps {
 // ─── Staple ───
 export const StapleSVG: React.FC<RendererProps> = ({ variant, scale = 1 }) => {
   const v = stapleVariants.find(s => s.key === variant) || stapleVariants[0];
-  const w = 28 * scale;
-  const sw = Math.max(1.1, 1.6 * scale);
-  const leftX = 4.3 * scale;
-  const rightX = w - 4.3 * scale;
-  const topY = 1.7 * scale;
-  const bottomY = 9.1 * scale;
-  const crownRadius = 1.7 * scale;
-  const shadowDx = 0.65 * scale;
-  const shadowDy = 0.7 * scale;
-  const staplePath = [
-    `M ${leftX} ${bottomY}`,
-    `V ${topY + crownRadius}`,
-    `Q ${leftX} ${topY} ${leftX + crownRadius} ${topY - 0.15 * scale}`,
-    `H ${rightX - crownRadius}`,
-    `Q ${rightX} ${topY} ${rightX} ${topY + crownRadius}`,
-    `V ${bottomY}`,
-  ].join(' ');
-  const topHighlightPath = [
-    `M ${leftX + 0.9 * scale} ${topY + 0.55 * scale}`,
-    `Q ${leftX + crownRadius} ${topY + 0.05 * scale} ${leftX + crownRadius + 1.6 * scale} ${topY + 0.05 * scale}`,
-    `H ${rightX - crownRadius - 1.6 * scale}`,
-    `Q ${rightX - crownRadius} ${topY + 0.05 * scale} ${rightX - 0.9 * scale} ${topY + 0.55 * scale}`,
-  ].join(' ');
-  const innerLegShade = Math.max(0.7, 0.9 * scale);
+  const w = 22 * scale;
+  const h = 20 * scale;
+  const cx = w / 2;
+  const cy = h / 2;
+  const fontSize = 18 * scale;
+  const outline = Math.max(0.6, 0.3 * scale);
+  const softShadow = Math.max(0.9, 0.55 * scale);
 
   return (
     <g>
-      <path
-        d={staplePath}
-        transform={`translate(${shadowDx}, ${shadowDy})`}
-        fill="none"
-        stroke="hsl(0 0% 0%)"
-        strokeWidth={sw + 0.3 * scale}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        opacity={0.14}
-      />
-      <path
-        d={staplePath}
-        fill="none"
-        stroke={v.color}
-        strokeWidth={sw}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d={topHighlightPath}
-        fill="none"
-        stroke={v.highlight}
-        strokeWidth={Math.max(0.45, sw * 0.42)}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        opacity={0.82}
-      />
-      <line
-        x1={leftX + sw * 0.32}
-        y1={topY + crownRadius + 0.8 * scale}
-        x2={leftX + sw * 0.32}
-        y2={bottomY - 0.45 * scale}
-        stroke="hsl(0 0% 0% / 0.12)"
-        strokeWidth={innerLegShade}
-        strokeLinecap="round"
-      />
-      <line
-        x1={rightX - sw * 0.32}
-        y1={topY + crownRadius + 0.8 * scale}
-        x2={rightX - sw * 0.32}
-        y2={bottomY - 0.45 * scale}
-        stroke="hsl(0 0% 0% / 0.12)"
-        strokeWidth={innerLegShade}
-        strokeLinecap="round"
-      />
+      <ellipse cx={cx} cy={cy + 1.2 * scale} rx={8.6 * scale} ry={6.7 * scale} fill={v.highlight} opacity={0.32} />
+      <text
+        x={cx}
+        y={cy + 0.4 * scale}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={fontSize}
+        style={{
+          filter: `
+            drop-shadow(${outline}px 0 0 hsl(0 0% 100% / 0.75))
+            drop-shadow(${-outline}px 0 0 hsl(0 0% 100% / 0.75))
+            drop-shadow(0 ${outline}px 0 hsl(0 0% 100% / 0.75))
+            drop-shadow(0 ${-outline}px 0 hsl(0 0% 100% / 0.75))
+            drop-shadow(${softShadow}px ${softShadow}px 0 hsl(0 0% 0% / 0.12))
+            drop-shadow(0 0 ${1.2 * scale}px ${v.color})
+          `,
+        }}
+      >
+        📎
+      </text>
     </g>
   );
 };

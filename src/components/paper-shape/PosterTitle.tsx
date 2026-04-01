@@ -20,7 +20,16 @@ export interface PosterTitleLine {
   gapBeforeEm?: number;
 }
 
-export type PosterTitleSymbolKind = 'quote-open' | 'quote-close' | 'arrow' | 'heart' | 'star' | 'spark';
+export type PosterTitleSymbolKind =
+  | 'quote-open'
+  | 'quote-close'
+  | 'arrow'
+  | 'heart'
+  | 'star'
+  | 'spark'
+  | 'curve'
+  | 'swirl'
+  | 'dash';
 
 export interface PosterTitleSymbol {
   kind: PosterTitleSymbolKind;
@@ -79,27 +88,120 @@ const symbolTextMap: Record<PosterTitleSymbolKind, string> = {
   heart: '♥',
   star: '★',
   spark: '✦',
+  curve: '',
+  swirl: '',
+  dash: '',
 };
 
 function renderSymbol(symbol: PosterTitleSymbol, i: number) {
+  const commonStyle: React.CSSProperties = {
+    left: `${symbol.x}%`,
+    top: `${symbol.y}%`,
+    transform: `translate(-50%, -50%) rotate(${symbol.rotate ?? 0}deg)`,
+    color: symbol.color ?? 'hsl(24 36% 35% / 0.78)',
+    opacity: symbol.opacity ?? 1,
+  };
+
+  if (symbol.kind === 'curve' || symbol.kind === 'swirl' || symbol.kind === 'dash') {
+    const size = symbol.size ?? 24;
+    if (symbol.kind === 'curve') {
+      return (
+        <svg
+          key={`${symbol.kind}-${i}`}
+          className="absolute pointer-events-none"
+          viewBox="0 0 100 44"
+          width={size}
+          height={size * 0.44}
+          style={commonStyle}
+          aria-hidden
+        >
+          <path
+            d="M6 30 C24 6, 42 6, 58 30 S 84 42, 96 20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      );
+    }
+    if (symbol.kind === 'swirl') {
+      return (
+        <svg
+          key={`${symbol.kind}-${i}`}
+          className="absolute pointer-events-none"
+          viewBox="0 0 100 100"
+          width={size}
+          height={size}
+          style={commonStyle}
+          aria-hidden
+        >
+          <path
+            d="M8 10
+               C26 14 41 25 50 41
+               C59 57 56 71 44 77
+               C31 83 18 74 18 60
+               C18 45 35 42 50 49
+               C65 56 77 72 88 96"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="6.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M24 58
+               C33 49 44 49 51 55"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="5.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity="0.92"
+          />
+        </svg>
+      );
+    }
+    return (
+      <svg
+        key={`${symbol.kind}-${i}`}
+        className="absolute pointer-events-none"
+        viewBox="0 0 100 20"
+        width={size}
+        height={size * 0.2}
+        style={commonStyle}
+        aria-hidden
+      >
+        <path
+          d="M8 12 H92"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="8"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+
   const glyph = symbolTextMap[symbol.kind];
   return (
     <span
       key={`${symbol.kind}-${i}`}
       className="absolute pointer-events-none select-none leading-none"
       style={{
-        left: `${symbol.x}%`,
-        top: `${symbol.y}%`,
-        transform: `translate(-50%, -50%) rotate(${symbol.rotate ?? 0}deg)`,
-        color: symbol.color ?? 'hsl(24 36% 35% / 0.78)',
+        ...commonStyle,
         fontSize: `${symbol.size ?? 24}px`,
-        opacity: symbol.opacity ?? 1,
       }}
       aria-hidden
     >
       {glyph}
     </span>
   );
+}
+
+function clampPercent(v: number, min = 4, max = 96): number {
+  return Math.max(min, Math.min(max, v));
 }
 
 export function PosterTitle({
@@ -119,8 +221,18 @@ export function PosterTitle({
     : null;
   const rootRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const lineGroupRef = useRef<HTMLDivElement>(null);
   const [contentScale, setContentScale] = useState(1);
   const [rootSize, setRootSize] = useState({ width: 0, height: 0 });
+  const [layoutMetrics, setLayoutMetrics] = useState<{
+    contentW: number;
+    contentH: number;
+    textRect: { x: number; y: number; w: number; h: number } | null;
+  }>({
+    contentW: 0,
+    contentH: 0,
+    textRect: null,
+  });
 
   const adaptiveMetrics = useMemo(() => {
     const width = rootSize.width || 200;
@@ -151,6 +263,74 @@ export function PosterTitle({
       blockAlign: resolvedBlockAlign,
     };
   }, [adaptive, align, rootSize.height, rootSize.width]);
+
+  const resolvedSymbols = useMemo(() => {
+    const next = symbols.map((s) => ({ ...s }));
+    const { contentW, contentH, textRect } = layoutMetrics;
+    if (next.length === 0 || contentW <= 0 || contentH <= 0) return next;
+
+    const getSymbolSizePercent = (symbol: PosterTitleSymbol) => {
+      const sizePx = symbol.size ?? 24;
+      const ratio = symbol.kind === 'curve' ? 0.44 : symbol.kind === 'swirl' ? 1 : symbol.kind === 'dash' ? 0.2 : 1;
+      const w = (sizePx / contentW) * 100 + 1.5;
+      const h = ((sizePx * ratio) / contentH) * 100 + 1.5;
+      return { w, h };
+    };
+
+    const overlaps = (
+      a: { x: number; y: number; w: number; h: number },
+      b: { x: number; y: number; w: number; h: number }
+    ) => (
+      Math.abs(a.x - b.x) < (a.w + b.w) / 2
+      && Math.abs(a.y - b.y) < (a.h + b.h) / 2
+    );
+
+    const nonQuote = (kind: PosterTitleSymbolKind) => kind !== 'quote-open' && kind !== 'quote-close';
+
+    // First pass: keep doodles away from text area.
+    for (let i = 0; i < next.length; i += 1) {
+      const s = next[i];
+      if (!nonQuote(s.kind)) continue;
+      const sSize = getSymbolSizePercent(s);
+      let box = { x: s.x, y: s.y, w: sSize.w, h: sSize.h };
+
+      if (textRect) {
+        const textBox = {
+          x: textRect.x + textRect.w / 2,
+          y: textRect.y + textRect.h / 2,
+          w: textRect.w + 4,
+          h: textRect.h + 4,
+        };
+        for (let attempt = 0; attempt < 5 && overlaps(box, textBox); attempt += 1) {
+          const moveX = box.x < textBox.x ? -7 : 7;
+          const moveY = box.y < textBox.y ? -6 : 6;
+          s.x = clampPercent(s.x + moveX);
+          s.y = clampPercent(s.y + moveY);
+          box = { ...box, x: s.x, y: s.y };
+        }
+      }
+    }
+
+    // Second pass: avoid doodle-doodle overlap.
+    for (let i = 0; i < next.length; i += 1) {
+      if (!nonQuote(next[i].kind)) continue;
+      for (let j = 0; j < i; j += 1) {
+        if (!nonQuote(next[j].kind)) continue;
+        const aSize = getSymbolSizePercent(next[i]);
+        const bSize = getSymbolSizePercent(next[j]);
+        const a = { x: next[i].x, y: next[i].y, w: aSize.w + 1, h: aSize.h + 1 };
+        const b = { x: next[j].x, y: next[j].y, w: bSize.w + 1, h: bSize.h + 1 };
+        if (!overlaps(a, b)) continue;
+
+        const dx = a.x >= b.x ? 6 : -6;
+        const dy = a.y >= b.y ? 4 : -4;
+        next[i].x = clampPercent(next[i].x + dx);
+        next[i].y = clampPercent(next[i].y + dy);
+      }
+    }
+
+    return next;
+  }, [layoutMetrics, symbols]);
 
   const fitContent = useCallback(() => {
     const root = rootRef.current;
@@ -193,6 +373,46 @@ export function PosterTitle({
     observer.observe(root);
     return () => observer.disconnect();
   }, []);
+
+  useLayoutEffect(() => {
+    const content = contentRef.current;
+    const linesNode = lineGroupRef.current;
+    if (!content || !linesNode) return;
+
+    const update = () => {
+      const cRect = content.getBoundingClientRect();
+      const lRect = linesNode.getBoundingClientRect();
+      if (cRect.width <= 0 || cRect.height <= 0) return;
+
+      const x = ((lRect.left - cRect.left) / cRect.width) * 100;
+      const y = ((lRect.top - cRect.top) / cRect.height) * 100;
+      const w = (lRect.width / cRect.width) * 100;
+      const h = (lRect.height / cRect.height) * 100;
+
+      setLayoutMetrics((prev) => {
+        const next = {
+          contentW: cRect.width,
+          contentH: cRect.height,
+          textRect: { x, y, w, h },
+        };
+        const same =
+          Math.abs(prev.contentW - next.contentW) < 0.8
+          && Math.abs(prev.contentH - next.contentH) < 0.8
+          && prev.textRect
+          && Math.abs(prev.textRect.x - next.textRect.x) < 0.8
+          && Math.abs(prev.textRect.y - next.textRect.y) < 0.8
+          && Math.abs(prev.textRect.w - next.textRect.w) < 0.8
+          && Math.abs(prev.textRect.h - next.textRect.h) < 0.8;
+        return same ? prev : next;
+      });
+    };
+
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(content);
+    observer.observe(linesNode);
+    return () => observer.disconnect();
+  }, [lines, contentScale, adaptiveMetrics.fontScale, adaptiveMetrics.lineHeight]);
 
   return (
     <div
@@ -252,7 +472,7 @@ export function PosterTitle({
           </>
         )}
 
-        <div className="relative z-[1]" style={{ display: 'grid', rowGap: `${adaptiveMetrics.lineGapEm}em` }}>
+        <div ref={lineGroupRef} className="relative z-[1]" style={{ display: 'grid', rowGap: `${adaptiveMetrics.lineGapEm}em` }}>
           {lines.map((line, lineIndex) => {
             const lineSizeEm = sizeEmMap[line.size ?? 'md'] * adaptiveMetrics.fontScale;
             return (
@@ -311,7 +531,7 @@ export function PosterTitle({
           })}
         </div>
 
-        {symbols.map((symbol, i) => renderSymbol(symbol, i))}
+        {resolvedSymbols.map((symbol, i) => renderSymbol(symbol, i))}
 
         {emojis.map((emoji, i) => (
           <span

@@ -122,14 +122,12 @@ export function PaperShapeSampleContent({ mode, title, emoji, preset }: PaperSha
               tokens: [{ text: '今晚拼贴就开工', rotate: 1 }],
             },
           ],
-          quote: { size: 38, opacity: 0.5 },
+          quote: { size: 34, opacity: 0.16 },
           symbols: [
-            { kind: 'arrow' as const, x: 76, y: 56, size: 20, rotate: 8, opacity: 0.8 },
-            { kind: 'spark' as const, x: 24, y: 26, size: 18, rotate: -12, opacity: 0.8 },
+            { kind: 'curve' as const, x: 84, y: 18, size: 22, rotate: 8, opacity: 0.34 },
           ],
           emojis: [
-            { value: '💥', x: 18, y: 70, size: 20, rotate: -10 },
-            { value: '🛒', x: 85, y: 30, size: 20, rotate: 8 },
+            { value: '🛒', x: 86, y: 26, size: 16, rotate: 8 },
           ],
         },
         {
@@ -151,14 +149,12 @@ export function PaperShapeSampleContent({ mode, title, emoji, preset }: PaperSha
               tokens: [{ text: '预算也要可爱', highlight: true, highlightColor: 'hsl(200 95% 82% / 0.95)' }],
             },
           ],
-          quote: { size: 34, opacity: 0.45 },
+          quote: { size: 30, opacity: 0.14 },
           symbols: [
-            { kind: 'arrow' as const, x: 73, y: 54, size: 19, rotate: 9, opacity: 0.8 },
-            { kind: 'heart' as const, x: 23, y: 24, size: 15, rotate: -10, opacity: 0.7 },
+            { kind: 'swirl' as const, x: 14, y: 84, size: 20, rotate: -8, opacity: 0.3 },
           ],
           emojis: [
-            { value: '🧾', x: 13, y: 62, size: 18, rotate: -8 },
-            { value: '✨', x: 85, y: 24, size: 18, rotate: 10 },
+            { value: '🧾', x: 86, y: 74, size: 15, rotate: 6 },
           ],
         },
       ];
@@ -192,14 +188,12 @@ export function PaperShapeSampleContent({ mode, title, emoji, preset }: PaperSha
           },
           { size: 'lg' as const, tokens: [{ text: '奶油黄+雾霾蓝' }] },
         ],
-        quote: false,
+        quote: { size: 32, opacity: 0.14, openX: 6, openY: 10, closeSymbol: '' },
         symbols: [
-          { kind: 'arrow' as const, x: 87, y: 18, size: 18, rotate: 7, opacity: 0.7 },
-          { kind: 'spark' as const, x: 16, y: 18, size: 12, rotate: -8, opacity: 0.65 },
+          { kind: 'curve' as const, x: 88, y: 18, size: 24, rotate: 8, opacity: 0.34 },
+          { kind: 'swirl' as const, x: 14, y: 86, size: 22, rotate: -8, opacity: 0.3 },
         ],
-        emojis: [
-          { value: '🍑', x: 86, y: 82, size: 14, rotate: 8 },
-        ],
+        emojis: [],
       },
       {
         align: 'left' as const,
@@ -212,13 +206,12 @@ export function PaperShapeSampleContent({ mode, title, emoji, preset }: PaperSha
           },
           { size: 'xl' as const, tokens: [{ text: '故事感拉满！' }] },
         ],
-        quote: false,
+        quote: { size: 38, opacity: 0.24, openX: 7, openY: 11, closeSymbol: '' },
         symbols: [
-          { kind: 'spark' as const, x: 86, y: 84, size: 12, rotate: -8, opacity: 0.5 },
+          { kind: 'curve' as const, x: 86, y: 20, size: 22, rotate: 12, opacity: 0.32 },
+          { kind: 'swirl' as const, x: 14, y: 86, size: 20, rotate: -10, opacity: 0.28 },
         ],
-        emojis: [
-          { value: '😹', x: 78, y: 68, size: 17, rotate: 0 },
-        ],
+        emojis: [],
       },
       {
         align: 'left' as const,
@@ -235,9 +228,10 @@ export function PaperShapeSampleContent({ mode, title, emoji, preset }: PaperSha
           },
           { size: 'sm' as const, gapBeforeEm: 0.42, tokens: [{ text: topic, textColor: 'hsl(24 30% 36% / 0.7)' }] },
         ],
-        quote: false,
+        quote: { size: 30, opacity: 0.12, openX: 7, openY: 11, closeSymbol: '' },
         symbols: [
-          { kind: 'spark' as const, x: 12, y: 86, size: 11, rotate: -9, opacity: 0.45 },
+          { kind: 'curve' as const, x: 86, y: 18, size: 22, rotate: 9, opacity: 0.3 },
+          { kind: 'swirl' as const, x: 14, y: 86, size: 21, rotate: -10, opacity: 0.28 },
         ],
         emojis: [],
       },

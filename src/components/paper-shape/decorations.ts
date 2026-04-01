@@ -22,7 +22,7 @@ export interface DecorationItem {
 
 export function getDecorationBaseSize(type: DecorationType): { w: number; h: number } {
   if (type === 'washi-tape') return { w: 80, h: 22 };
-  if (type === 'staple') return { w: 28, h: 10 };
+  if (type === 'staple') return { w: 22, h: 20 };
   return { w: 24, h: 24 };
 }
 

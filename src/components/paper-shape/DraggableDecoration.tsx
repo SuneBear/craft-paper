@@ -26,7 +26,7 @@ export const DraggableDecoration: React.FC<DraggableDecorationProps> = ({
 
   const bounds = useMemo(() => {
     if (type === 'washi-tape') return { w: 80 * transform.scale, h: 22 * transform.scale };
-    if (type === 'staple') return { w: 28 * transform.scale, h: 10 * transform.scale };
+    if (type === 'staple') return { w: 22 * transform.scale, h: 20 * transform.scale };
     return { w: 24 * transform.scale, h: 24 * transform.scale };
   }, [type, transform.scale]);
 

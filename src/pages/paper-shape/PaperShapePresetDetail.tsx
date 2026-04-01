@@ -182,6 +182,13 @@ export default function PaperShapePresetDetail() {
       const t = getWashiTapePlacementTransform(width, height, placement);
       const randomRotation = (Math.random() - 0.5) * 8;
       deco = createDecoration(type, variant, t.x, t.y, { rotation: t.rotation + randomRotation, scale: t.scale });
+    } else if (type === 'staple') {
+      const stapleW = 22;
+      const stapleH = 20;
+      const x = Math.max(6, Math.min(width - stapleW - 6, width / 2 - stapleW / 2 + (Math.random() - 0.5) * Math.min(32, width * 0.18)));
+      const y = -stapleH * 0.48;
+      const rotation = (Math.random() - 0.5) * 8;
+      deco = createDecoration(type, variant, x, y, { rotation, scale: 1 });
     } else {
       const x = width * 0.3 + Math.random() * width * 0.4;
       const y = height * 0.3 + Math.random() * height * 0.4;

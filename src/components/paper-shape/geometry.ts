@@ -52,6 +52,7 @@ export interface PresetParams {
   foldCorners?: number;         // 折角角点位掩码: 1左上 2右上 4右下 8左下
   foldColor?: string;           // 折角颜色
   foldOpacity?: number;         // 折角透明度倍率 (0-1)
+  foldCurve?: number;           // 折角切边曲线强度 (0-1)
   // torn
   tearAmplitude?: number;       // 撕裂幅度
   // stitched
@@ -77,6 +78,13 @@ export interface PresetParams {
   shadowOffsetY?: number;       // 阴影偏移Y
   shadowOpacity?: number;       // 阴影透明度
   shadowColor?: string;         // 阴影颜色（为空时自动按纸色加深）
+  // shared edge wobble for straight segments
+  edgeWobble?: number;          // 直边手绘扭曲强度（全局）
+  edgeWobbleTop?: number;       // 上边扭曲覆盖
+  edgeWobbleRight?: number;     // 右边扭曲覆盖
+  edgeWobbleBottom?: number;    // 下边扭曲覆盖
+  edgeWobbleLeft?: number;      // 左边扭曲覆盖
+  edgeWobbleDensity?: number;   // 扭曲频率系数（越高越碎）
   // scalloped-edge
   scallopRadius?: number;       // 花边半径
   scallopEdge?: number;         // 花边方向: 0四边 1上 2右 3下 4左
@@ -121,6 +129,7 @@ export interface ShapeConfig {
 }
 
 type CornerSlot = 'tl' | 'tr' | 'br' | 'bl';
+type EdgeSlot = 'top' | 'right' | 'bottom' | 'left';
 type CornerShapeKind =
   | 'round'
   | 'scoop'
@@ -149,6 +158,152 @@ function wobble(val: number, amount: number, rng: () => number): number {
 
 function clamp(val: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, val));
+}
+
+function formatCoord(value: number): number {
+  return Number(value.toFixed(3));
+}
+
+const EDGE_WOBBLE_KEY_MAP: Record<EdgeSlot, keyof PresetParams> = {
+  top: 'edgeWobbleTop',
+  right: 'edgeWobbleRight',
+  bottom: 'edgeWobbleBottom',
+  left: 'edgeWobbleLeft',
+};
+
+function getEdgeWobbleAmount(p: PresetParams, edge: EdgeSlot): number {
+  const base = clamp(p.edgeWobble ?? 0, 0, 40);
+  const localRaw = p[EDGE_WOBBLE_KEY_MAP[edge]];
+  if (typeof localRaw !== 'number' || !Number.isFinite(localRaw)) return base;
+  return clamp(localRaw, 0, 40);
+}
+
+function buildWobblyEdgeSegment(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  edge: EdgeSlot,
+  p: PresetParams,
+  rng: () => number,
+  roughness: number
+): string {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const isHorizontal = Math.abs(dy) <= 0.001 && Math.abs(dx) > 0.001;
+  const isVertical = Math.abs(dx) <= 0.001 && Math.abs(dy) > 0.001;
+  if (!isHorizontal && !isVertical) {
+    return ` L ${formatCoord(x2)} ${formatCoord(y2)}`;
+  }
+
+  const length = Math.max(Math.abs(dx), Math.abs(dy));
+  const wobbleAmount = getEdgeWobbleAmount(p, edge);
+  if (wobbleAmount <= 0.001 || length <= 1) {
+    return ` L ${formatCoord(x2)} ${formatCoord(y2)}`;
+  }
+
+  const density = clamp(p.edgeWobbleDensity ?? 1, 0.35, 2.6);
+  const segments = Math.max(1, Math.min(14, Math.round((length / 56) * density)));
+  const rough = clamp(roughness, 0, 1);
+  const amplitude = wobbleAmount * (0.7 + rough * 0.6);
+  const tangentJitter = Math.max(0.15, (length / segments) * 0.16);
+
+  let segment = '';
+  for (let i = 1; i <= segments; i++) {
+    const t0 = (i - 1) / segments;
+    const t1 = i / segments;
+    const sx = x1 + dx * t0;
+    const sy = y1 + dy * t0;
+    const ex = i === segments ? x2 : x1 + dx * t1;
+    const ey = i === segments ? y2 : y1 + dy * t1;
+    const mx = (sx + ex) * 0.5;
+    const my = (sy + ey) * 0.5;
+
+    if (isHorizontal) {
+      const cx = mx + wobble(0, tangentJitter, rng);
+      const cy = y1 + wobble(0, amplitude, rng);
+      segment += ` Q ${formatCoord(cx)} ${formatCoord(cy)} ${formatCoord(ex)} ${formatCoord(ey)}`;
+    } else {
+      const cx = x1 + wobble(0, amplitude, rng);
+      const cy = my + wobble(0, tangentJitter, rng);
+      segment += ` Q ${formatCoord(cx)} ${formatCoord(cy)} ${formatCoord(ex)} ${formatCoord(ey)}`;
+    }
+  }
+
+  return segment;
+}
+
+interface FoldCutGeometry {
+  start: { x: number; y: number };
+  end: { x: number; y: number };
+  flap: { x: number; y: number };
+  normal: { x: number; y: number };
+}
+
+function getFoldCutGeometry(slot: CornerSlot, w: number, h: number, fs: number): FoldCutGeometry {
+  if (slot === 'tr') {
+    return {
+      start: { x: w - fs, y: 0 },
+      end: { x: w, y: fs },
+      flap: { x: w - fs, y: fs },
+      normal: { x: -1, y: 1 },
+    };
+  }
+  if (slot === 'br') {
+    return {
+      start: { x: w, y: h - fs },
+      end: { x: w - fs, y: h },
+      flap: { x: w - fs, y: h - fs },
+      normal: { x: -1, y: -1 },
+    };
+  }
+  if (slot === 'bl') {
+    return {
+      start: { x: fs, y: h },
+      end: { x: 0, y: h - fs },
+      flap: { x: fs, y: h - fs },
+      normal: { x: 1, y: -1 },
+    };
+  }
+  return {
+    start: { x: 0, y: fs },
+    end: { x: fs, y: 0 },
+    flap: { x: fs, y: fs },
+    normal: { x: 1, y: 1 },
+  };
+}
+
+function getFoldCurveInset(fs: number, p?: PresetParams): number {
+  const curve = clamp(p?.foldCurve ?? 0, 0, 1);
+  return curve * fs * 0.85;
+}
+
+function buildFoldCutSegment(slot: CornerSlot, w: number, h: number, fs: number, p?: PresetParams): string {
+  const geom = getFoldCutGeometry(slot, w, h, fs);
+  const inset = getFoldCurveInset(fs, p);
+  if (inset <= 0.001) {
+    return ` L ${formatCoord(geom.end.x)} ${formatCoord(geom.end.y)}`;
+  }
+  const push = inset * 0.70710678118;
+  const midX = (geom.start.x + geom.end.x) * 0.5;
+  const midY = (geom.start.y + geom.end.y) * 0.5;
+  const cx = midX + geom.normal.x * push;
+  const cy = midY + geom.normal.y * push;
+  return ` Q ${formatCoord(cx)} ${formatCoord(cy)} ${formatCoord(geom.end.x)} ${formatCoord(geom.end.y)}`;
+}
+
+function buildFoldFlapPath(slot: CornerSlot, w: number, h: number, fs: number, p?: PresetParams): string {
+  const geom = getFoldCutGeometry(slot, w, h, fs);
+  const inset = getFoldCurveInset(fs, p);
+  if (inset <= 0.001) {
+    return `M ${formatCoord(geom.start.x)} ${formatCoord(geom.start.y)} L ${formatCoord(geom.end.x)} ${formatCoord(geom.end.y)} L ${formatCoord(geom.flap.x)} ${formatCoord(geom.flap.y)} Z`;
+  }
+  const push = inset * 0.70710678118;
+  const midX = (geom.start.x + geom.end.x) * 0.5;
+  const midY = (geom.start.y + geom.end.y) * 0.5;
+  const cx = midX + geom.normal.x * push;
+  const cy = midY + geom.normal.y * push;
+  return `M ${formatCoord(geom.start.x)} ${formatCoord(geom.start.y)} Q ${formatCoord(cx)} ${formatCoord(cy)} ${formatCoord(geom.end.x)} ${formatCoord(geom.end.y)} L ${formatCoord(geom.flap.x)} ${formatCoord(geom.flap.y)} Z`;
 }
 
 function edgeBiasedSplit(length: number, offsetRaw: number, edgeRatioRaw: number = 0.2): number {
@@ -588,30 +743,66 @@ function foldedPath(w: number, h: number, rng: () => number, r: number, p: Prese
   const rbl = bl ? 0 : cr.bl;
 
   let path = `M ${tl ? fs : rtl} 0`;
-  path += ` L ${tr ? w - fs : w - rtr} 0`;
+  path += buildWobblyEdgeSegment(
+    tl ? fs : rtl,
+    0,
+    tr ? w - fs : w - rtr,
+    0,
+    'top',
+    p,
+    rng,
+    r
+  );
   if (tr) {
-    path += ` L ${w} ${fs}`;
+    path += buildFoldCutSegment('tr', w, h, fs, p);
   } else {
     path += buildCornerPathFromParams('tr', rtr, p, w, h);
   }
 
-  path += ` L ${br ? w : w} ${br ? h - fs : h - rbr}`;
+  path += buildWobblyEdgeSegment(
+    w,
+    tr ? fs : rtr,
+    w,
+    br ? h - fs : h - rbr,
+    'right',
+    p,
+    rng,
+    r
+  );
   if (br) {
-    path += ` L ${w - fs} ${h}`;
+    path += buildFoldCutSegment('br', w, h, fs, p);
   } else {
     path += buildCornerPathFromParams('br', rbr, p, w, h);
   }
 
-  path += ` L ${bl ? fs : rbl} ${h}`;
+  path += buildWobblyEdgeSegment(
+    br ? w - fs : w - rbr,
+    h,
+    bl ? fs : rbl,
+    h,
+    'bottom',
+    p,
+    rng,
+    r
+  );
   if (bl) {
-    path += ` L 0 ${h - fs}`;
+    path += buildFoldCutSegment('bl', w, h, fs, p);
   } else {
     path += buildCornerPathFromParams('bl', rbl, p, w, h);
   }
 
-  path += ` L 0 ${tl ? fs : rtl}`;
+  path += buildWobblyEdgeSegment(
+    0,
+    bl ? h - fs : h - rbl,
+    0,
+    tl ? fs : rtl,
+    'left',
+    p,
+    rng,
+    r
+  );
   if (tl) {
-    path += ` L ${fs} 0`;
+    path += buildFoldCutSegment('tl', w, h, fs, p);
   } else {
     path += buildCornerPathFromParams('tl', rtl, p, w, h);
   }
@@ -630,10 +821,10 @@ export function getFoldTriangles(w: number, h: number, params?: PresetParams): s
   const mask = Math.round(params?.foldCorners ?? 2) || 2;
   const triangles: string[] = [];
 
-  if (mask & 1) triangles.push(`M ${fs} 0 L 0 ${fs} L ${fs} ${fs} Z`);
-  if (mask & 2) triangles.push(`M ${w - fs} 0 L ${w} ${fs} L ${w - fs} ${fs} Z`);
-  if (mask & 4) triangles.push(`M ${w} ${h - fs} L ${w - fs} ${h} L ${w - fs} ${h - fs} Z`);
-  if (mask & 8) triangles.push(`M ${fs} ${h} L 0 ${h - fs} L ${fs} ${h - fs} Z`);
+  if (mask & 1) triangles.push(buildFoldFlapPath('tl', w, h, fs, params));
+  if (mask & 2) triangles.push(buildFoldFlapPath('tr', w, h, fs, params));
+  if (mask & 4) triangles.push(buildFoldFlapPath('br', w, h, fs, params));
+  if (mask & 8) triangles.push(buildFoldFlapPath('bl', w, h, fs, params));
 
   return triangles;
 }
@@ -672,7 +863,7 @@ function tornPath(w: number, h: number, rng: () => number, r: number, p: PresetP
 }
 
 function stitchedPath(w: number, h: number, _rng: () => number, _r: number, p: PresetParams): string {
-  return roundedRectPath(w, h, p, 12);
+  return roundedRectPath(w, h, p, 12, _rng, _r);
 }
 
 export function getStitchPath(w: number, h: number, params?: PresetParams): string {
@@ -833,11 +1024,11 @@ function receiptPath(w: number, h: number, rng: () => number, r: number, p: Pres
     }
     path += ` L ${w - rtr} 0`;
     path += buildCornerPathFromParams('tr', rtr, p, w, h);
-    path += ` L ${w} ${h - rbr}`;
+    path += buildWobblyEdgeSegment(w, rtr, w, h - rbr, 'right', p, rng, r);
     path += buildCornerPathFromParams('br', rbr, p, w, h);
-    path += ` L ${rbl} ${h}`;
+    path += buildWobblyEdgeSegment(w - rbr, h, rbl, h, 'bottom', p, rng, r);
     path += buildCornerPathFromParams('bl', rbl, p, w, h);
-    path += ` L 0 ${rtl}`;
+    path += buildWobblyEdgeSegment(0, h - rbl, 0, rtl, 'left', p, rng, r);
     path += buildCornerPathFromParams('tl', rtl, p, w, h);
     path += ' Z';
     return path;
@@ -846,11 +1037,11 @@ function receiptPath(w: number, h: number, rng: () => number, r: number, p: Pres
   // zigzag on left edge
   if (edge === 2) {
     let path = `M ${rtl} 0`;
-    path += ` L ${w - rtr} 0`;
+    path += buildWobblyEdgeSegment(rtl, 0, w - rtr, 0, 'top', p, rng, r);
     path += buildCornerPathFromParams('tr', rtr, p, w, h);
-    path += ` L ${w} ${h - rbr}`;
+    path += buildWobblyEdgeSegment(w, rtr, w, h - rbr, 'right', p, rng, r);
     path += buildCornerPathFromParams('br', rbr, p, w, h);
-    path += ` L ${rbl} ${h}`;
+    path += buildWobblyEdgeSegment(w - rbr, h, rbl, h, 'bottom', p, rng, r);
     path += buildCornerPathFromParams('bl', rbl, p, w, h);
     if (leftSpan > 0.001) {
       const step = leftSpan / leftSteps;
@@ -869,7 +1060,7 @@ function receiptPath(w: number, h: number, rng: () => number, r: number, p: Pres
   // zigzag on right edge
   if (edge === 3) {
     let path = `M ${rtl} 0`;
-    path += ` L ${w - rtr} 0`;
+    path += buildWobblyEdgeSegment(rtl, 0, w - rtr, 0, 'top', p, rng, r);
     path += buildCornerPathFromParams('tr', rtr, p, w, h);
     if (rightSpan > 0.001) {
       const step = rightSpan / rightSteps;
@@ -881,9 +1072,9 @@ function receiptPath(w: number, h: number, rng: () => number, r: number, p: Pres
     }
     path += ` L ${w} ${h - rbr}`;
     path += buildCornerPathFromParams('br', rbr, p, w, h);
-    path += ` L ${rbl} ${h}`;
+    path += buildWobblyEdgeSegment(w - rbr, h, rbl, h, 'bottom', p, rng, r);
     path += buildCornerPathFromParams('bl', rbl, p, w, h);
-    path += ` L 0 ${rtl}`;
+    path += buildWobblyEdgeSegment(0, h - rbl, 0, rtl, 'left', p, rng, r);
     path += buildCornerPathFromParams('tl', rtl, p, w, h);
     path += ' Z';
     return path;
@@ -891,9 +1082,9 @@ function receiptPath(w: number, h: number, rng: () => number, r: number, p: Pres
 
   // default: zigzag on bottom edge
   let path = `M ${rtl} 0`;
-  path += ` L ${w - rtr} 0`;
+  path += buildWobblyEdgeSegment(rtl, 0, w - rtr, 0, 'top', p, rng, r);
   path += buildCornerPathFromParams('tr', rtr, p, w, h);
-  path += ` L ${w} ${h - rbr}`;
+  path += buildWobblyEdgeSegment(w, rtr, w, h - rbr, 'right', p, rng, r);
   path += buildCornerPathFromParams('br', rbr, p, w, h);
   if (bottomSpan > 0.001) {
     const step = bottomSpan / bottomSteps;
@@ -905,29 +1096,36 @@ function receiptPath(w: number, h: number, rng: () => number, r: number, p: Pres
   }
   path += ` L ${rbl} ${h}`;
   path += buildCornerPathFromParams('bl', rbl, p, w, h);
-  path += ` L 0 ${rtl}`;
+  path += buildWobblyEdgeSegment(0, h - rbl, 0, rtl, 'left', p, rng, r);
   path += buildCornerPathFromParams('tl', rtl, p, w, h);
   path += ' Z';
   return path;
 }
 
-function roundedRectPath(w: number, h: number, p: PresetParams, defaultCornerRadius: number): string {
+function roundedRectPath(
+  w: number,
+  h: number,
+  p: PresetParams,
+  defaultCornerRadius: number,
+  rng: () => number,
+  r: number
+): string {
   const { tl, tr, br, bl } = getCornerRadii(w, h, p, defaultCornerRadius);
   let path = `M ${tl} 0`;
-  path += ` L ${w - tr} 0`;
+  path += buildWobblyEdgeSegment(tl, 0, w - tr, 0, 'top', p, rng, r);
   path += buildCornerPathFromParams('tr', tr, p, w, h);
-  path += ` L ${w} ${h - br}`;
+  path += buildWobblyEdgeSegment(w, tr, w, h - br, 'right', p, rng, r);
   path += buildCornerPathFromParams('br', br, p, w, h);
-  path += ` L ${bl} ${h}`;
+  path += buildWobblyEdgeSegment(w - br, h, bl, h, 'bottom', p, rng, r);
   path += buildCornerPathFromParams('bl', bl, p, w, h);
-  path += ` L 0 ${tl}`;
+  path += buildWobblyEdgeSegment(0, h - bl, 0, tl, 'left', p, rng, r);
   path += buildCornerPathFromParams('tl', tl, p, w, h);
   path += ' Z';
   return path;
 }
 
 function basicPaperPath(w: number, h: number, _rng: () => number, _r: number, p: PresetParams): string {
-  return roundedRectPath(w, h, p, 6);
+  return roundedRectPath(w, h, p, 6, _rng, _r);
 }
 
 // Generate dash pattern for stitch lines

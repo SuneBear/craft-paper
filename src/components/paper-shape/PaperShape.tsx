@@ -388,11 +388,20 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     const explicitBleed = typeof presetParams?.cutoutAABleed === 'number'
       ? Math.max(0, Math.min(4, presetParams.cutoutAABleed))
       : undefined;
-    const defaultBleedForShape = (shape: number) => (
-      shape === 0
+    const readEdgeWobble = (edge: 'top' | 'right' | 'bottom' | 'left') => {
+      if (edge === 'top') return Math.max(0, presetParams?.edgeWobbleTop ?? presetParams?.edgeWobble ?? 0);
+      if (edge === 'right') return Math.max(0, presetParams?.edgeWobbleRight ?? presetParams?.edgeWobble ?? 0);
+      if (edge === 'bottom') return Math.max(0, presetParams?.edgeWobbleBottom ?? presetParams?.edgeWobble ?? 0);
+      return Math.max(0, presetParams?.edgeWobbleLeft ?? presetParams?.edgeWobble ?? 0);
+    };
+    const defaultBleedForShape = (shape: number, edge: 'top' | 'right' | 'bottom' | 'left') => {
+      const base = shape === 0
         ? Math.max(0.8, strokeWidth * 0.85 + 0.35)
-        : Math.max(0.5, strokeWidth * 0.55 + 0.18)
-    );
+        : Math.max(0.5, strokeWidth * 0.55 + 0.18);
+      // Wobbly outer edge increases local AA mismatch around cutout intersections.
+      const wobbleCompensation = Math.min(2.6, readEdgeWobble(edge) * 0.42);
+      return base + wobbleCompensation;
+    };
 
     const shapes: Array<
       | { kind: 'polygon'; points: string }
@@ -405,12 +414,15 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
       const cutR = Math.max(3, Math.min(maxCutR, readCutoutEdgeNumber(presetParams, 'top', 'radius', globalCutR)));
       const cutDepth = Math.max(1.5, Math.min(maxCutDepth, readCutoutEdgeNumber(presetParams, 'top', 'depth', globalCutDepth)));
       const cutOffset = readCutoutEdgeNumber(presetParams, 'top', 'offset', globalCutOffset);
-      const bleed = explicitBleed ?? defaultBleedForShape(cutShape);
+      const bleed = explicitBleed !== undefined
+        ? Math.max(explicitBleed, defaultBleedForShape(cutShape, 'top'))
+        : defaultBleedForShape(cutShape, 'top');
+      const edgeWobble = readEdgeWobble('top');
       const maskR = cutR + bleed;
       const maskDepth = cutDepth + bleed;
       const cutSkew = clampN(maskR * 0.42, 1, maskR * 0.78);
       const rr = clampN(Math.min(maskR * 0.45, maskDepth * 0.55), 0.8, Math.min(maskR - 0.4, maskDepth - 0.4));
-      const outer = bleed + 0.4;
+      const outer = bleed + 0.4 + Math.min(2.2, edgeWobble * 0.35);
       const topCx = clampN(width / 2 + cutOffset, maskR + 2, width - maskR - 2);
       if (cutShape === 1) {
         shapes.push({ kind: 'ellipse', cx: topCx, cy: 0, rx: maskR, ry: maskDepth });
@@ -426,12 +438,15 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
       const cutR = Math.max(3, Math.min(maxCutR, readCutoutEdgeNumber(presetParams, 'right', 'radius', globalCutR)));
       const cutDepth = Math.max(1.5, Math.min(maxCutDepth, readCutoutEdgeNumber(presetParams, 'right', 'depth', globalCutDepth)));
       const cutOffset = readCutoutEdgeNumber(presetParams, 'right', 'offset', globalCutOffset);
-      const bleed = explicitBleed ?? defaultBleedForShape(cutShape);
+      const bleed = explicitBleed !== undefined
+        ? Math.max(explicitBleed, defaultBleedForShape(cutShape, 'right'))
+        : defaultBleedForShape(cutShape, 'right');
+      const edgeWobble = readEdgeWobble('right');
       const maskR = cutR + bleed;
       const maskDepth = cutDepth + bleed;
       const cutSkew = clampN(maskR * 0.42, 1, maskR * 0.78);
       const rr = clampN(Math.min(maskR * 0.45, maskDepth * 0.55), 0.8, Math.min(maskR - 0.4, maskDepth - 0.4));
-      const outer = bleed + 0.4;
+      const outer = bleed + 0.4 + Math.min(2.2, edgeWobble * 0.35);
       const rightCy = clampN(height / 2 + cutOffset, maskR + 2, height - maskR - 2);
       if (cutShape === 1) {
         shapes.push({ kind: 'ellipse', cx: width, cy: rightCy, rx: maskDepth, ry: maskR });
@@ -447,12 +462,15 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
       const cutR = Math.max(3, Math.min(maxCutR, readCutoutEdgeNumber(presetParams, 'bottom', 'radius', globalCutR)));
       const cutDepth = Math.max(1.5, Math.min(maxCutDepth, readCutoutEdgeNumber(presetParams, 'bottom', 'depth', globalCutDepth)));
       const cutOffset = readCutoutEdgeNumber(presetParams, 'bottom', 'offset', globalCutOffset);
-      const bleed = explicitBleed ?? defaultBleedForShape(cutShape);
+      const bleed = explicitBleed !== undefined
+        ? Math.max(explicitBleed, defaultBleedForShape(cutShape, 'bottom'))
+        : defaultBleedForShape(cutShape, 'bottom');
+      const edgeWobble = readEdgeWobble('bottom');
       const maskR = cutR + bleed;
       const maskDepth = cutDepth + bleed;
       const cutSkew = clampN(maskR * 0.42, 1, maskR * 0.78);
       const rr = clampN(Math.min(maskR * 0.45, maskDepth * 0.55), 0.8, Math.min(maskR - 0.4, maskDepth - 0.4));
-      const outer = bleed + 0.4;
+      const outer = bleed + 0.4 + Math.min(2.2, edgeWobble * 0.35);
       const bottomCx = clampN(width / 2 + cutOffset, maskR + 2, width - maskR - 2);
       if (cutShape === 1) {
         shapes.push({ kind: 'ellipse', cx: bottomCx, cy: height, rx: maskR, ry: maskDepth });
@@ -468,12 +486,15 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
       const cutR = Math.max(3, Math.min(maxCutR, readCutoutEdgeNumber(presetParams, 'left', 'radius', globalCutR)));
       const cutDepth = Math.max(1.5, Math.min(maxCutDepth, readCutoutEdgeNumber(presetParams, 'left', 'depth', globalCutDepth)));
       const cutOffset = readCutoutEdgeNumber(presetParams, 'left', 'offset', globalCutOffset);
-      const bleed = explicitBleed ?? defaultBleedForShape(cutShape);
+      const bleed = explicitBleed !== undefined
+        ? Math.max(explicitBleed, defaultBleedForShape(cutShape, 'left'))
+        : defaultBleedForShape(cutShape, 'left');
+      const edgeWobble = readEdgeWobble('left');
       const maskR = cutR + bleed;
       const maskDepth = cutDepth + bleed;
       const cutSkew = clampN(maskR * 0.42, 1, maskR * 0.78);
       const rr = clampN(Math.min(maskR * 0.45, maskDepth * 0.55), 0.8, Math.min(maskR - 0.4, maskDepth - 0.4));
-      const outer = bleed + 0.4;
+      const outer = bleed + 0.4 + Math.min(2.2, edgeWobble * 0.35);
       const leftCy = clampN(height / 2 + cutOffset, maskR + 2, height - maskR - 2);
       if (cutShape === 1) {
         shapes.push({ kind: 'ellipse', cx: 0, cy: leftCy, rx: maskDepth, ry: maskR });
@@ -717,8 +738,8 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     const bleed = 8;
     let needed = basePadding;
     for (const deco of decorations) {
-      const baseW = deco.type === 'washi-tape' ? 80 : deco.type === 'staple' ? 28 : 24;
-      const baseH = deco.type === 'washi-tape' ? 22 : deco.type === 'staple' ? 10 : 24;
+      const baseW = deco.type === 'washi-tape' ? 80 : deco.type === 'staple' ? 22 : 24;
+      const baseH = deco.type === 'washi-tape' ? 22 : deco.type === 'staple' ? 20 : 24;
       const w = baseW * deco.transform.scale;
       const h = baseH * deco.transform.scale;
       const cx = deco.transform.x + w / 2;
@@ -984,15 +1005,6 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
         )}
 
         {/* Stroke layer */}
-        <path
-          d={path}
-          fill="none"
-          stroke={stroke}
-          strokeWidth={strokeWidth}
-          strokeLinejoin="round"
-          strokeLinecap="round"
-          mask={hasCutoutMask ? `url(#${maskId})` : undefined}
-        />
         {cutoutStrokePaths.map((d, i) => (
           <path
             key={`cutout-stroke-${i}`}
@@ -1004,6 +1016,16 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
             strokeLinejoin="round"
           />
         ))}
+        {/* TODO: Optimize cutout + outline into a single contour stroke to eliminate subpixel seams on heavily wobbled edges. */}
+        <path
+          d={path}
+          fill="none"
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          mask={hasCutoutMask ? `url(#${maskId})` : undefined}
+        />
 
         {/* Perforation hole rings (tag-hole style) */}
         {shouldPunchPerforation && perforationDots.map((dot, i) => (
