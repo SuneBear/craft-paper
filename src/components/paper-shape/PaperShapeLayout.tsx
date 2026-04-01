@@ -7,7 +7,7 @@ export function PaperShapeLayout() {
       <div className="max-w-6xl mx-auto px-4 py-8">
         <header className="mb-6">
           <h1 className="text-4xl font-hand font-bold text-foreground tracking-wide">
-            📄 Paper Shape
+            ✂️ Craft Paper Shape
           </h1>
           <p className="text-muted-foreground font-craft mt-1">
             童趣可爱手绘风纸张形状组件系统

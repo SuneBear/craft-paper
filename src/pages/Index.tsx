@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { PaperShape } from '@/components/paper-shape/PaperShape';
+import { presetInfo } from '@/components/paper-shape/geometry';
 import { motion } from 'framer-motion';
 
 const Index = () => {
@@ -12,14 +13,14 @@ const Index = () => {
         className="text-center space-y-8"
       >
         <h1 className="text-5xl font-hand font-bold text-foreground">
-          ✂️ Paper Shape Studio
+          ✂️ Craft Paper Shape
         </h1>
         <p className="text-lg text-muted-foreground font-craft max-w-md mx-auto">
           童趣可爱手绘风纸张形状组件系统
         </p>
 
         <div className="flex gap-6 justify-center flex-wrap">
-          {(['stamp', 'coupon', 'ticket', 'tag'] as const).map((preset, i) => (
+          {(['stamp', 'coupon', 'folded', 'tag'] as const).map((preset, i) => (
             <motion.div
               key={preset}
               initial={{ opacity: 0, y: 20, rotate: -5 + i * 3 }}
@@ -35,7 +36,12 @@ const Index = () => {
                 paperColor={['cream', 'pink', 'mint', 'sky'][i]}
                 showPattern={i % 2 === 0}
                 patternType="dots"
-              />
+              >
+                <div className="text-center leading-tight">
+                  <p className="text-xl">{presetInfo[preset].emoji}</p>
+                  <p className="text-xs font-craft text-foreground/75">{presetInfo[preset].label}</p>
+                </div>
+              </PaperShape>
             </motion.div>
           ))}
         </div>
@@ -44,7 +50,7 @@ const Index = () => {
           to="/ui/paper-shape"
           className="inline-block px-8 py-3 rounded-xl bg-primary text-primary-foreground font-craft font-medium text-lg shadow-md hover:opacity-90 transition"
         >
-          进入创作台 →
+          查看详情 →
         </Link>
       </motion.div>
     </div>
