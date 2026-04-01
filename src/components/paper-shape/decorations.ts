@@ -20,6 +20,72 @@ export interface DecorationItem {
   transform: DecorationTransform;
 }
 
+export function getDecorationBaseSize(type: DecorationType): { w: number; h: number } {
+  if (type === 'washi-tape') return { w: 80, h: 22 };
+  if (type === 'staple') return { w: 28, h: 10 };
+  return { w: 24, h: 24 };
+}
+
+function resizeAxisWithEdgeAnchor(
+  start: number,
+  elementSize: number,
+  fromSize: number,
+  toSize: number
+): number {
+  const left = start;
+  const right = fromSize - (start + elementSize);
+  const edgeBand = Math.max(elementSize * 0.9, fromSize * 0.2);
+
+  if (right <= edgeBand && right < left) {
+    return toSize - elementSize - right;
+  }
+  if (left <= edgeBand && left <= right) {
+    return left;
+  }
+
+  const fromSafe = Math.max(1, fromSize);
+  return (start / fromSafe) * toSize;
+}
+
+export function resizeDecorationsForCanvas(
+  decorations: DecorationItem[],
+  fromWidth: number,
+  fromHeight: number,
+  toWidth: number,
+  toHeight: number
+): DecorationItem[] {
+  if (
+    fromWidth <= 0
+    || fromHeight <= 0
+    || toWidth <= 0
+    || toHeight <= 0
+    || (fromWidth === toWidth && fromHeight === toHeight)
+  ) {
+    return decorations;
+  }
+
+  return decorations.map((deco) => {
+    const { w: baseW, h: baseH } = getDecorationBaseSize(deco.type);
+    const visualW = baseW * deco.transform.scale;
+    const visualH = baseH * deco.transform.scale;
+    const nextX = resizeAxisWithEdgeAnchor(deco.transform.x, visualW, fromWidth, toWidth);
+    const nextY = resizeAxisWithEdgeAnchor(deco.transform.y, visualH, fromHeight, toHeight);
+
+    if (nextX === deco.transform.x && nextY === deco.transform.y) {
+      return deco;
+    }
+
+    return {
+      ...deco,
+      transform: {
+        ...deco.transform,
+        x: nextX,
+        y: nextY,
+      },
+    };
+  });
+}
+
 export function getWashiTapePlacementTransform(
   width: number,
   _height: number,

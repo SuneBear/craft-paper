@@ -9,6 +9,7 @@ import { presetInfo, type PaperPreset, type PresetParams } from '@/components/pa
 import {
   createDecoration,
   getWashiTapePlacementTransform,
+  resizeDecorationsForCanvas,
   type DecorationItem,
   type DecorationTransform,
   type DecorationType,
@@ -58,6 +59,7 @@ export default function PaperShapePresetDetail() {
   const [activeDecoTab, setActiveDecoTab] = useState<DecorationType>('washi-tape');
   const [contentMode, setContentMode] = useState<number | null>(null);
   const [contentTitle, setContentTitle] = useState('');
+  const prevCanvasSizeRef = useRef({ width, height });
 
   useEffect(() => {
     setPresetParams({});
@@ -75,6 +77,10 @@ export default function PaperShapePresetDetail() {
 
     const shared = decodeShareState(searchParams.get('s'));
     if (!shared) return;
+    const nextWidth = typeof shared.width === 'number' ? shared.width : prevCanvasSizeRef.current.width;
+    const nextHeight = typeof shared.height === 'number' ? shared.height : prevCanvasSizeRef.current.height;
+    prevCanvasSizeRef.current = { width: nextWidth, height: nextHeight };
+
     if (typeof shared.width === 'number') setWidth(shared.width);
     if (typeof shared.height === 'number') setHeight(shared.height);
     if (typeof shared.seed === 'number') setSeed(shared.seed);
@@ -88,6 +94,14 @@ export default function PaperShapePresetDetail() {
     if (shared.presetParams) setPresetParams(shared.presetParams);
     if (shared.decorations) setDecorations(shared.decorations);
   }, [searchParams]);
+
+  useEffect(() => {
+    const prevSize = prevCanvasSizeRef.current;
+    if (prevSize.width === width && prevSize.height === height) return;
+
+    prevCanvasSizeRef.current = { width, height };
+    setDecorations((prev) => resizeDecorationsForCanvas(prev, prevSize.width, prevSize.height, width, height));
+  }, [width, height]);
 
   const resolvedPreset: PaperPreset = preset ?? 'stamp';
   const info = presetInfo[resolvedPreset];

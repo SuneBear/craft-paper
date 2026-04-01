@@ -7,6 +7,7 @@ import { presetInfo, type PaperPreset, type PresetParams } from '@/components/pa
 import {
   createDecoration,
   getWashiTapePlacementTransform,
+  resizeDecorationsForCanvas,
   type DecorationItem,
   type DecorationTransform,
   type DecorationType,
@@ -48,6 +49,7 @@ export default function PaperShapePlayground() {
   const [presetParams, setPresetParams] = useState<PresetParams>({});
   const [decorations, setDecorations] = useState<DecorationItem[]>([]);
   const [activeDecoTab, setActiveDecoTab] = useState<DecorationType>('washi-tape');
+  const prevCanvasSizeRef = useRef({ width, height });
 
   useEffect(() => {
     const shared = decodeShareState(searchParams.get('s'));
@@ -64,6 +66,14 @@ export default function PaperShapePlayground() {
     if (shared.presetParams) setPresetParams(shared.presetParams);
     if (shared.decorations) setDecorations(shared.decorations);
   }, [searchParams]);
+
+  useEffect(() => {
+    const prevSize = prevCanvasSizeRef.current;
+    if (prevSize.width === width && prevSize.height === height) return;
+
+    prevCanvasSizeRef.current = { width, height };
+    setDecorations((prev) => resizeDecorationsForCanvas(prev, prevSize.width, prevSize.height, width, height));
+  }, [width, height]);
 
   const handlePresetChange = useCallback((p: PaperPreset) => {
     setPreset(p);

@@ -1,6 +1,6 @@
 import { PaperShape } from '@/components/paper-shape/PaperShape';
 import { presetInfo, type PaperPreset, type PresetParams } from '@/components/paper-shape/geometry';
-import type { DecorationItem } from '@/components/paper-shape/decorations';
+import { resizeDecorationsForCanvas, type DecorationItem } from '@/components/paper-shape/decorations';
 import { PaperShapeSampleContent } from '@/components/paper-shape/PaperShapeSampleContent';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
@@ -12,6 +12,8 @@ const allPresets: PaperPreset[] = [
   'folded', 'torn', 'stitched', 'scalloped-edge',
   'receipt', 'basic-paper',
 ];
+const PREVIEW_PRESET_WIDTH = 180;
+const PREVIEW_PRESET_HEIGHT = 140;
 const EDITOR_PRESET_WIDTH = 280;
 const EDITOR_PRESET_HEIGHT = 200;
 
@@ -36,6 +38,7 @@ function generateExamples(): ExampleItem[] {
     coupon: 2,
     ticket: 2,
     folded: 4,
+    'basic-paper': 8,
   };
 
   allPresets.forEach((preset, i) => {
@@ -160,14 +163,59 @@ function generateExamples(): ExampleItem[] {
         }
       }
 
+      const basicPaperPosterTitles = [
+        '春日手帐配色',
+        '电影票根拼贴',
+        '一页三段式排版',
+        '胶带叠贴练习',
+        '本周手帐主题',
+        '旅行手帐速记',
+        '读书页边注设计',
+        '咖啡店拼贴实验',
+      ];
+      const isBasicPaper = preset === 'basic-paper';
+      const titleText = isBasicPaper
+        ? basicPaperPosterTitles[v % basicPaperPosterTitles.length]
+        : `${presetInfo[preset].label} ${v > 0 ? `变体 ${v + 1}` : ''}`.trim();
+      const contentMode = isBasicPaper ? 5 : (i + v) % 6;
+      const pattern = isBasicPaper ? patternTypes[(v + 1) % patternTypes.length] : patternTypes[(i + v) % patternTypes.length];
+
+      if (isBasicPaper && v === 3) {
+        decos.push(
+          { id: 'ex-sticker-4', type: 'sticker', variant: 'heart', transform: { x: 145, y: 104, rotation: -9, scale: 0.86 } },
+        );
+      }
+      if (isBasicPaper && v === 4) {
+        decos.push(
+          { id: 'ex-tape-3', type: 'washi-tape', variant: 'stripe-mint', transform: { x: 28, y: -8, rotation: -6, scale: 0.68 } },
+        );
+      }
+      if (isBasicPaper && v === 5) {
+        decos.push(
+          { id: 'ex-tape-4', type: 'washi-tape', variant: 'dots-mint', transform: { x: 142, y: -8, rotation: 5, scale: 0.66 } },
+        );
+      }
+      if (isBasicPaper && v === 6) {
+        decos.push(
+          { id: 'ex-staple-3', type: 'staple', variant: 'gold', transform: { x: 80, y: 2, rotation: -1, scale: 1 } },
+          { id: 'ex-sticker-5', type: 'sticker', variant: 'cat', transform: { x: 144, y: 96, rotation: -6, scale: 0.95 } },
+        );
+      }
+      if (isBasicPaper && v === 7) {
+        decos.push(
+          { id: 'ex-sticker-6', type: 'sticker', variant: 'star', transform: { x: 34, y: 96, rotation: -12, scale: 0.92 } },
+          { id: 'ex-sticker-7', type: 'sticker', variant: 'heart', transform: { x: 146, y: 24, rotation: 10, scale: 0.82 } },
+        );
+      }
+
       examples.push({
         id: `${preset}-${v}`,
         preset,
         color: paperColors[(i * 3 + v) % paperColors.length],
-        pattern: patternTypes[(i + v) % patternTypes.length],
+        pattern,
         seed: i * 13 + v * 7 + 42,
-        title: `${presetInfo[preset].label} ${v > 0 ? `变体 ${v + 1}` : ''}`.trim(),
-        contentMode: (i + v) % 5,
+        title: titleText,
+        contentMode,
         presetParams,
         decorations: decos.length > 0 ? decos : undefined,
       });
@@ -209,6 +257,15 @@ export default function PaperShapeExamples() {
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
         {filtered.map((ex, i) => {
           const info = presetInfo[ex.preset];
+          const scaledDecorations = ex.decorations
+            ? resizeDecorationsForCanvas(
+                ex.decorations,
+                PREVIEW_PRESET_WIDTH,
+                PREVIEW_PRESET_HEIGHT,
+                EDITOR_PRESET_WIDTH,
+                EDITOR_PRESET_HEIGHT
+              )
+            : undefined;
           const encodedState = encodeShareState({
             preset: ex.preset,
             width: EDITOR_PRESET_WIDTH,
@@ -220,7 +277,7 @@ export default function PaperShapeExamples() {
             patternType: ex.pattern,
             patternParams: {},
             presetParams: ex.presetParams,
-            decorations: ex.decorations,
+            decorations: scaledDecorations,
           });
           const detailLink = `/ui/paper-shape/preset/${ex.preset}?s=${encodeURIComponent(encodedState)}&cm=${ex.contentMode}&ct=${encodeURIComponent(ex.title)}`;
           return (
@@ -235,8 +292,8 @@ export default function PaperShapeExamples() {
                 <div className="transition-transform group-hover:scale-105 group-hover:-rotate-1">
                   <PaperShape
                     preset={ex.preset}
-                    width={180}
-                    height={140}
+                    width={PREVIEW_PRESET_WIDTH}
+                    height={PREVIEW_PRESET_HEIGHT}
                     seed={ex.seed}
                     paperColor={ex.color}
                     showPattern={ex.pattern !== 'none'}
