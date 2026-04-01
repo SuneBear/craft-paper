@@ -187,14 +187,14 @@ function generateExamples(): ExampleItem[] {
 
       if (isBasicPaper) {
         const baseWobbleByVariant: Partial<PresetParams>[] = [
-          { edgeWobble: 1.1, edgeWobbleTop: 0.8, edgeWobbleBottom: 1.3 },
-          { edgeWobble: 1.25, edgeWobbleLeft: 0.9, edgeWobbleRight: 1.4 },
-          { edgeWobble: 1.15, edgeWobbleTop: 1.0, edgeWobbleRight: 1.35 },
-          { edgeWobble: 1.55, edgeWobbleTop: 1.15, edgeWobbleRight: 1.9 },
-          { edgeWobble: 1.45, edgeWobbleBottom: 2.0, edgeWobbleLeft: 1.0 },
-          { edgeWobble: 1.7, edgeWobbleTop: 1.2, edgeWobbleBottom: 1.55 },
-          { edgeWobble: 1.3, edgeWobbleLeft: 0.95, edgeWobbleBottom: 1.45 },
-          { edgeWobble: 1.35, edgeWobbleTop: 1.0, edgeWobbleRight: 1.55 },
+          { edgeWobble: 2.1, edgeWobbleTop: 1.8, edgeWobbleBottom: 2.4 },
+          { edgeWobble: 2.25, edgeWobbleLeft: 2.0, edgeWobbleRight: 2.6 },
+          { edgeWobble: 2.15, edgeWobbleTop: 1.95, edgeWobbleRight: 2.45 },
+          { edgeWobble: 2.55, edgeWobbleTop: 2.2, edgeWobbleRight: 2.9 },
+          { edgeWobble: 2.45, edgeWobbleBottom: 2.95, edgeWobbleLeft: 2.0 },
+          { edgeWobble: 2.7, edgeWobbleTop: 2.25, edgeWobbleBottom: 2.6 },
+          { edgeWobble: 2.3, edgeWobbleLeft: 2.05, edgeWobbleBottom: 2.5 },
+          { edgeWobble: 2.35, edgeWobbleTop: 2.1, edgeWobbleRight: 2.65 },
         ];
         const baseWobble = baseWobbleByVariant[v];
         if (baseWobble) {
@@ -208,9 +208,9 @@ function generateExamples(): ExampleItem[] {
       if (isBasicPaper && v === 3) {
         presetParams = {
           ...(presetParams ?? {}),
-          edgeWobble: 1.55,
-          edgeWobbleTop: 1.15,
-          edgeWobbleRight: 1.9,
+          edgeWobble: 2.55,
+          edgeWobbleTop: 2.2,
+          edgeWobbleRight: 2.9,
         };
         decos.push(
           { id: 'ex-sticker-4', type: 'sticker', variant: 'heart', transform: { x: 145, y: 104, rotation: -9, scale: 0.86 } },
@@ -219,9 +219,9 @@ function generateExamples(): ExampleItem[] {
       if (isBasicPaper && v === 4) {
         presetParams = {
           ...(presetParams ?? {}),
-          edgeWobble: 1.45,
-          edgeWobbleBottom: 2.0,
-          edgeWobbleLeft: 1.0,
+          edgeWobble: 2.45,
+          edgeWobbleBottom: 2.95,
+          edgeWobbleLeft: 2.0,
         };
         decos.push(
           { id: 'ex-tape-3', type: 'washi-tape', variant: 'stripe-mint', transform: { x: 28, y: -8, rotation: -6, scale: 0.68 } },
@@ -230,9 +230,9 @@ function generateExamples(): ExampleItem[] {
       if (isBasicPaper && v === 5) {
         presetParams = {
           ...(presetParams ?? {}),
-          edgeWobble: 1.7,
-          edgeWobbleTop: 1.2,
-          edgeWobbleBottom: 1.55,
+          edgeWobble: 2.7,
+          edgeWobbleTop: 2.25,
+          edgeWobbleBottom: 2.6,
         };
         decos.push(
           { id: 'ex-tape-4', type: 'washi-tape', variant: 'dots-mint', transform: { x: 142, y: -8, rotation: 5, scale: 0.66 } },
