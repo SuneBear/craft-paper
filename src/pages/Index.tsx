@@ -27,6 +27,7 @@ const Index = () => {
               animate={{ opacity: 1, y: 0, rotate: -5 + i * 3 }}
               transition={{ delay: 0.2 + i * 0.1 }}
               whileHover={{ scale: 1.1, rotate: 0 }}
+              style={{ marginTop: preset === 'stamp' ? 10 : 0 }}
             >
               <PaperShape
                 preset={preset}

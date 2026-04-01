@@ -119,6 +119,62 @@ export interface PresetParams {
   cutoutAABleed?: number;       // 裁剪抗锯齿余量（mask 外扩）
 }
 
+/**
+ * Parameters that are generally reusable across presets (visual style layer).
+ * Use this when you want a "global paper style" independent of the semantic preset.
+ */
+export type ShapeCommonParams = Pick<PresetParams,
+  | 'cornerRadius'
+  | 'cornerRadiusTL'
+  | 'cornerRadiusTR'
+  | 'cornerRadiusBR'
+  | 'cornerRadiusBL'
+  | 'cornerShape'
+  | 'cornerShapeTL'
+  | 'cornerShapeTR'
+  | 'cornerShapeBR'
+  | 'cornerShapeBL'
+  | 'cornerSuperellipse'
+  | 'shadowEnabled'
+  | 'shadowOffsetX'
+  | 'shadowOffsetY'
+  | 'shadowOpacity'
+  | 'shadowColor'
+  | 'edgeWobble'
+  | 'edgeWobbleTop'
+  | 'edgeWobbleRight'
+  | 'edgeWobbleBottom'
+  | 'edgeWobbleLeft'
+  | 'edgeWobbleDensity'
+  | 'cutoutEdges'
+  | 'cutoutRadius'
+  | 'cutoutRadiusTop'
+  | 'cutoutRadiusRight'
+  | 'cutoutRadiusBottom'
+  | 'cutoutRadiusLeft'
+  | 'cutoutDepth'
+  | 'cutoutDepthTop'
+  | 'cutoutDepthRight'
+  | 'cutoutDepthBottom'
+  | 'cutoutDepthLeft'
+  | 'cutoutOffset'
+  | 'cutoutOffsetTop'
+  | 'cutoutOffsetRight'
+  | 'cutoutOffsetBottom'
+  | 'cutoutOffsetLeft'
+  | 'cutoutShape'
+  | 'cutoutShapeTop'
+  | 'cutoutShapeRight'
+  | 'cutoutShapeBottom'
+  | 'cutoutShapeLeft'
+  | 'cutoutAABleed'
+>;
+
+/**
+ * Preset/feature semantics (coupon/ticket/stamp/folded/etc) excluding common style params.
+ */
+export type PresetSpecificParams = Omit<PresetParams, keyof ShapeCommonParams>;
+
 export interface ShapeConfig {
   width: number;
   height: number;
@@ -518,13 +574,20 @@ export function generatePath(config: ShapeConfig): string {
 }
 
 function stampPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
-  const margin = Math.min(w, h) * 0.08;
-  const perfR = p.perforationRadius ?? Math.min(w, h) * 0.04;
+  const minSide = Math.min(w, h);
+  const perfR = p.perforationRadius ?? minSide * 0.04;
   const inward = Math.round(p.stampArcDirection ?? 1) === 0;
+  // Stamp uses perforated arcs on all edges, which can make it look visually smaller.
+  // Keep inset tighter than other presets so overall silhouette is closer in apparent size.
+  const margin = clamp(
+    Math.max(minSide * 0.028, inward ? perfR * 0.4 : perfR * 0.68),
+    minSide * 0.02,
+    minSide * 0.08
+  );
   const arcSweep = inward ? 1 : 0;
-  const cornerR = Math.min(perfR * 0.8, Math.min(w, h) * 0.08);
-  const innerW = w - margin * 2 - cornerR * 2;
-  const innerH = h - margin * 2 - cornerR * 2;
+  const cornerR = Math.min(perfR * 0.58, minSide * 0.06);
+  const innerW = Math.max(8, w - margin * 2 - cornerR * 2);
+  const innerH = Math.max(8, h - margin * 2 - cornerR * 2);
 
   const countH = Math.max(4, Math.round(innerW / (perfR * 3)));
   const countV = Math.max(3, Math.round(innerH / (perfR * 3)));

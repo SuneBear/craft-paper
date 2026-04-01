@@ -1,7 +1,7 @@
 import React, { useMemo, useId, useRef, useCallback, useEffect, useState } from 'react';
 import Moveable from 'react-moveable';
 import { generatePath, getTagHole, getFoldTriangles, getStitchPath, generateStitchDashes } from './geometry';
-import type { PaperPreset, ShapeConfig, PresetParams } from './geometry';
+import type { PaperPreset, ShapeConfig, PresetParams, ShapeCommonParams } from './geometry';
 import type { DecorationItem, DecorationTransform } from './decorations';
 import { DraggableDecoration } from './DraggableDecoration';
 import { cn } from '@/lib/utils';
@@ -40,6 +40,12 @@ export interface PaperShapeProps {
   children?: React.ReactNode;
   style?: React.CSSProperties;
   onClick?: () => void;
+  /**
+   * Global/cross-preset visual params (corner/shadow/cutout/edgeWobble, etc).
+   * Merged with `presetParams`; when both provide same key, `shapeParams` wins.
+   */
+  shapeParams?: ShapeCommonParams;
+  /** Preset-specific params (legacy + compatibility: still accepts mixed params). */
   presetParams?: PresetParams;
   contentPadding?: number;
   decorations?: DecorationItem[];
@@ -224,7 +230,8 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
   children,
   style,
   onClick,
-  presetParams,
+  shapeParams,
+  presetParams: presetParamsRaw,
   contentPadding = 12,
   decorations = [],
   onDecorationChange,
@@ -232,6 +239,10 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
   interactiveDecorations = false,
   contentInteractive = false,
 }) => {
+  const presetParams = useMemo<PresetParams>(
+    () => ({ ...(presetParamsRaw ?? {}), ...(shapeParams ?? {}) }),
+    [presetParamsRaw, shapeParams]
+  );
   const uid = useId().replace(/:/g, '');
   const clipId = `clip-${uid}`;
   const patternId = `pat-${uid}`;
