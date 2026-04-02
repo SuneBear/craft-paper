@@ -224,6 +224,16 @@ export function PaperShapeEditorPanel({
       'cornerRadiusTR',
       'cornerRadiusBR',
       'cornerRadiusBL',
+      'cornerRadiusX',
+      'cornerRadiusY',
+      'cornerRadiusXTL',
+      'cornerRadiusYTL',
+      'cornerRadiusXTR',
+      'cornerRadiusYTR',
+      'cornerRadiusXBR',
+      'cornerRadiusYBR',
+      'cornerRadiusXBL',
+      'cornerRadiusYBL',
       'stitchColor',
     ].includes(d.key as string)
       && !(preset === 'folded' && d.key === 'foldSize')
@@ -264,12 +274,23 @@ export function PaperShapeEditorPanel({
     preset === 'stitched' ? 12 :
     preset === 'basic-paper' ? 6 :
     0;
-  const cornerMax = Math.max(8, Math.min(80, Math.floor(Math.min(width, height) * 0.5)));
+  const cornerMaxX = Math.max(8, Math.min(120, Math.floor(width * 0.5)));
+  const cornerMaxY = Math.max(8, Math.min(120, Math.floor(height * 0.5)));
   const cornerBase = presetParams.cornerRadius ?? cornerDefault;
+  const cornerBaseX = presetParams.cornerRadiusX ?? cornerBase;
+  const cornerBaseY = presetParams.cornerRadiusY ?? cornerBase;
   const cornerTL = presetParams.cornerRadiusTL ?? cornerBase;
   const cornerTR = presetParams.cornerRadiusTR ?? cornerBase;
   const cornerBR = presetParams.cornerRadiusBR ?? cornerBase;
   const cornerBL = presetParams.cornerRadiusBL ?? cornerBase;
+  const cornerTLX = presetParams.cornerRadiusXTL ?? cornerTL ?? cornerBaseX;
+  const cornerTLY = presetParams.cornerRadiusYTL ?? cornerTL ?? cornerBaseY;
+  const cornerTRX = presetParams.cornerRadiusXTR ?? cornerTR ?? cornerBaseX;
+  const cornerTRY = presetParams.cornerRadiusYTR ?? cornerTR ?? cornerBaseY;
+  const cornerBRX = presetParams.cornerRadiusXBR ?? cornerBR ?? cornerBaseX;
+  const cornerBRY = presetParams.cornerRadiusYBR ?? cornerBR ?? cornerBaseY;
+  const cornerBLX = presetParams.cornerRadiusXBL ?? cornerBL ?? cornerBaseX;
+  const cornerBLY = presetParams.cornerRadiusYBL ?? cornerBL ?? cornerBaseY;
   const cornerShape = Math.max(0, Math.min(5, Math.round(presetParams.cornerShape ?? 0)));
   const cornerShapeTL = typeof presetParams.cornerShapeTL === 'number'
     ? Math.max(0, Math.min(5, Math.round(presetParams.cornerShapeTL)))
@@ -316,6 +337,7 @@ export function PaperShapeEditorPanel({
   const supportsEdgeWobble = preset === 'basic-paper' || preset === 'stitched' || preset === 'receipt' || preset === 'folded';
   const edgeWobbleMax = Math.max(4, Math.min(42, Math.min(width, height) * 0.22));
   const edgeWobble = Math.max(0, Math.min(edgeWobbleMax, presetParams.edgeWobble ?? 0));
+  const edgeWobbleDensity = Math.max(0.35, Math.min(4, presetParams.edgeWobbleDensity ?? 1));
   const readEdgeWobbleValue = (key: keyof PresetParams, fallback: number) => {
     const raw = presetParams[key];
     const n = typeof raw === 'number' ? raw : fallback;
@@ -535,6 +557,16 @@ export function PaperShapeEditorPanel({
               cornerRadiusTR: undefined,
               cornerRadiusBR: undefined,
               cornerRadiusBL: undefined,
+              cornerRadiusX: undefined,
+              cornerRadiusY: undefined,
+              cornerRadiusXTL: undefined,
+              cornerRadiusYTL: undefined,
+              cornerRadiusXTR: undefined,
+              cornerRadiusYTR: undefined,
+              cornerRadiusXBR: undefined,
+              cornerRadiusYBR: undefined,
+              cornerRadiusXBL: undefined,
+              cornerRadiusYBL: undefined,
               cornerShape: 0,
               cornerShapeTL: undefined,
               cornerShapeTR: undefined,
@@ -549,42 +581,105 @@ export function PaperShapeEditorPanel({
         </div>
         {cornerSectionOpen && (
           <>
-            <div>
-              <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
-                <span>基础圆角</span>
-                <span className="text-foreground">{cornerBase.toFixed(1)}</span>
-              </label>
-              <input
-                type="range"
-                min={0}
-                max={cornerMax}
-                step={0.5}
-                value={cornerBase}
-                onChange={(e) => setPresetParams((prev) => ({ ...prev, cornerRadius: Number(e.target.value) }))}
-                className="w-full accent-primary"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                ['cornerRadiusTL', '左上', cornerTL],
-                ['cornerRadiusTR', '右上', cornerTR],
-                ['cornerRadiusBL', '左下', cornerBL],
-                ['cornerRadiusBR', '右下', cornerBR],
-              ].map(([key, label, val]) => (
-                <div key={key}>
+            <div className="space-y-2 rounded-lg border border-border/70 bg-background/45 p-2">
+              <p className="text-[10px] font-craft text-muted-foreground">
+                支持 CSS 类似 8 值语义：4个角分别设置 X/Y 半径（当前在基础纸张场景最明显）
+              </p>
+              <div>
+                <label className="text-[10px] font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+                  <span>全局半径（统一基准）</span>
+                  <span className="text-foreground">{cornerBase.toFixed(1)}</span>
+                </label>
+                <input
+                  type="range"
+                  min={0}
+                  max={Math.min(cornerMaxX, cornerMaxY)}
+                  step={0.5}
+                  value={cornerBase}
+                  onChange={(e) => {
+                    const next = Number(e.target.value);
+                    setPresetParams((prev) => ({
+                      ...prev,
+                      cornerRadius: next,
+                      cornerRadiusX: next,
+                      cornerRadiusY: next,
+                    }));
+                  }}
+                  className="w-full accent-primary"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
                   <label className="text-[10px] font-craft font-medium text-muted-foreground mb-1 flex justify-between">
-                    <span>{label}</span>
-                    <span className="text-foreground">{Number(val).toFixed(1)}</span>
+                    <span>基础 X 半径</span>
+                    <span className="text-foreground">{cornerBaseX.toFixed(1)}</span>
                   </label>
                   <input
                     type="range"
                     min={0}
-                    max={cornerMax}
+                    max={cornerMaxX}
                     step={0.5}
-                    value={Number(val)}
-                    onChange={(e) => setPresetParams((prev) => ({ ...prev, [key]: Number(e.target.value) }))}
+                    value={cornerBaseX}
+                    onChange={(e) => setPresetParams((prev) => ({ ...prev, cornerRadiusX: Number(e.target.value) }))}
                     className="w-full accent-primary"
                   />
+                </div>
+                <div>
+                  <label className="text-[10px] font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+                    <span>基础 Y 半径</span>
+                    <span className="text-foreground">{cornerBaseY.toFixed(1)}</span>
+                  </label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={cornerMaxY}
+                    step={0.5}
+                    value={cornerBaseY}
+                    onChange={(e) => setPresetParams((prev) => ({ ...prev, cornerRadiusY: Number(e.target.value) }))}
+                    className="w-full accent-primary"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2">
+              {[
+                ['TL', '左上', cornerTLX, cornerTLY, 'cornerRadiusXTL', 'cornerRadiusYTL'],
+                ['TR', '右上', cornerTRX, cornerTRY, 'cornerRadiusXTR', 'cornerRadiusYTR'],
+                ['BL', '左下', cornerBLX, cornerBLY, 'cornerRadiusXBL', 'cornerRadiusYBL'],
+                ['BR', '右下', cornerBRX, cornerBRY, 'cornerRadiusXBR', 'cornerRadiusYBR'],
+              ].map(([id, label, xVal, yVal, xKey, yKey]) => (
+                <div key={id} className="grid grid-cols-2 gap-2 rounded-lg border border-border/70 bg-background/45 p-2">
+                  <div>
+                    <label className="text-[10px] font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+                      <span>{label} X</span>
+                      <span className="text-foreground">{Number(xVal).toFixed(1)}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min={0}
+                      max={cornerMaxX}
+                      step={0.5}
+                      value={Number(xVal)}
+                      onChange={(e) => setPresetParams((prev) => ({ ...prev, [xKey]: Number(e.target.value) }))}
+                      className="w-full accent-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+                      <span>{label} Y</span>
+                      <span className="text-foreground">{Number(yVal).toFixed(1)}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min={0}
+                      max={cornerMaxY}
+                      step={0.5}
+                      value={Number(yVal)}
+                      onChange={(e) => setPresetParams((prev) => ({ ...prev, [yKey]: Number(e.target.value) }))}
+                      className="w-full accent-primary"
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -703,6 +798,7 @@ export function PaperShapeEditorPanel({
                 edgeWobbleRight: undefined,
                 edgeWobbleBottom: undefined,
                 edgeWobbleLeft: undefined,
+                edgeWobbleDensity: undefined,
               }))}
               className="text-[10px] font-craft text-muted-foreground hover:text-foreground"
             >
@@ -725,6 +821,24 @@ export function PaperShapeEditorPanel({
                   onChange={(e) => setPresetParams((prev) => ({ ...prev, edgeWobble: Number(e.target.value) }))}
                   className="w-full accent-primary"
                 />
+              </div>
+              <div>
+                <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+                  <span>扭曲点密度</span>
+                  <span className="text-foreground">{edgeWobbleDensity.toFixed(2)}</span>
+                </label>
+                <input
+                  type="range"
+                  min={0.35}
+                  max={4}
+                  step={0.05}
+                  value={edgeWobbleDensity}
+                  onChange={(e) => setPresetParams((prev) => ({ ...prev, edgeWobbleDensity: Number(e.target.value) }))}
+                  className="w-full accent-primary"
+                />
+                <p className="mt-1 text-[10px] font-craft text-muted-foreground">
+                  低值更平顺，高值会增加边缘采样点，让线条更“碎”。
+                </p>
               </div>
               <div className="space-y-2 rounded-lg border border-border/70 bg-background/45 p-2">
                 <div className="flex items-center justify-between">
@@ -1362,7 +1476,7 @@ export function PaperShapeEditorPanel({
         </div>
         <div>
           <label className="text-xs font-craft font-medium text-muted-foreground mb-1 block">高 {height}</label>
-          <input type="range" min={80} max={360} value={height} onChange={(e) => setHeight(Number(e.target.value))} className="w-full accent-primary" />
+          <input type="range" min={80} max={520} value={height} onChange={(e) => setHeight(Number(e.target.value))} className="w-full accent-primary" />
         </div>
       </div>
 

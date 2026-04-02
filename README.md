@@ -98,7 +98,7 @@ export function Demo() {
 - `width?: number` / `height?: number`：画布尺寸
 - `layoutMode?: 'fixed' | 'content' | 'fill'`：布局模式（固定尺寸/内容自适应/父容器宽度自适应）
 - `minWidth?` / `maxWidth?` / `minHeight?` / `maxHeight?`：`layoutMode` 下的尺寸约束
-- `canvasPadding?: number`：外层画布留白（默认 `0`，外边贴合；需要外扩时手动设置）
+- `canvasPadding?: number`：外层画布留白（默认 `0`，组件会按描边/阴影/花边/直边扭曲自动补足防裁剪；需要更大外扩可手动设置）
 - `seed?: number` / `roughness?: number`：随机种子与粗糙度
 - `paperColor?: string`：纸张颜色（支持内置 key 或 CSS 颜色）
 - `strokeColor?: string` / `strokeWidth?: number`：描边设置
@@ -203,12 +203,16 @@ import { PaperShape, PaperShapeSplitContent } from '@/components/paper-shape';
 
 高频参数示例：
 
-- 圆角与角形：`cornerRadius` / `cornerRadiusTL/TR/BR/BL` / `cornerShape`
+- 圆角与角形：
+  - 传统圆角：`cornerRadius` / `cornerRadiusTL/TR/BR/BL`
+  - 椭圆圆角（CSS 8 值语义）：`cornerRadiusX/Y` + `cornerRadiusXTL/YTL/XTR/YTR/XBR/YBR/XBL/YBL`
+  - 角形：`cornerShape`
 - 折角：`foldSize` / `foldCorners` / `foldCurve` / `foldColor`
 - 裁剪：`cutoutEdges` / `cutoutShape` / `cutoutRadius` / `cutoutDepth` / `cutoutOffset`
 - 阴影：`shadowEnabled` / `shadowOffsetX/Y` / `shadowOpacity` / `shadowColor`
-- 直边扭曲：`edgeWobble`（全局）+ `edgeWobbleTop/Right/Bottom/Left`（单边覆盖）
+- 直边扭曲：`edgeWobble`（全局强度）+ `edgeWobbleDensity`（点密度）+ `edgeWobbleTop/Right/Bottom/Left`（单边覆盖）
 - 票券分割线：`perforationOffset`（`coupon` 默认右偏，约 +12）
+- 花边：`scallopEdge` / `scallopGap` / `scallopDepth`（编辑器内 `scallopGap` 上限为 `180`）
 
 示例：
 
@@ -219,6 +223,10 @@ import { PaperShape, PaperShapeSplitContent } from '@/components/paper-shape';
   height={210}
   presetParams={{
     cornerRadius: 10,
+    cornerRadiusXTL: 28,
+    cornerRadiusYTL: 18,
+    cornerRadiusXTR: 20,
+    cornerRadiusYTR: 26,
     edgeWobble: 2.2,
     edgeWobbleBottom: 2.8,
     shadowOpacity: 0.18,
@@ -290,17 +298,15 @@ const sticker = createDecoration('sticker', 'heart', 160, 90, {
 - `PaperShape` 对外导出入口（barrel）：`src/components/paper-shape/index.ts`
 - `PosterTitle` 的引号装饰会自动避让正文区域，并在视觉层级上保持可见，避免右侧引号被标题内容遮挡。
 
-已知优化点：
+## 9. 已知问题与后续优化
 
 - `PaperShapeSvg.tsx` 内有 TODO：`cutout` 与外轮廓若要彻底消除亚像素接缝，可考虑合并为单轮廓描边流程。
 - 目前 `PaperShape` 作为容器时，在整体尺寸策略、安全区域计算与使用方式（替代 `div` / `button` 的易用性）上还不够理想；该部分需要继续优化，才能更稳定地承接常规容器语义。
-
----
-
-## 9. 材质风格 TODO
-
-- 当前仓库暂不启用新的“材质风格”实现（保持现有扁平风）。
-- 后续计划再独立评估并设计：`paper-emboss`（纸张压纹）与 `collage-raised`（拼贴抬起）两条方向。
+- 基础纸张（`basic-paper`）可继续加强「Blob / Blob-Rect」表达：目标是整体更圆润、四角与中段有轻微向内凹的轮廓感（类似手绘软质贴纸外形）。
+- 当前已支持 `cornerRadiusX/Y + 四角 X/Y`（CSS 类似 8 值语义），后续可补一键风格预设与中段内凹参数（避免仅靠手动调角点）。
+- 当前仓库暂不启用新的“材质风格”实现（保持现有扁平风）；后续计划评估 `paper-emboss`（纸张压纹）与 `collage-raised`（拼贴抬起）两条方向。
+- 工程化方向：制作 `tailwind` 插件，支持将形状参数输出为 `polygon/path`（clip-path），通过 class 直接应用到普通 `div`；描边可通过伪类（如 `::before/::after`）进行渲染与复用。
+- 交互编辑方向：支持文字编辑，或提供独立富文本编辑器，并以纸张作为内容容器，营造“在纸上写字”的编辑体验。
 - 新方案落地时，需同步更新组件 API、编辑器面板、示例页与分享/导出协议。
 
 ---

@@ -66,6 +66,16 @@ export interface PresetParams {
   cornerRadiusTR?: number;      // 右上圆角
   cornerRadiusBR?: number;      // 右下圆角
   cornerRadiusBL?: number;      // 左下圆角
+  cornerRadiusX?: number;       // 圆角X半径（横向）
+  cornerRadiusY?: number;       // 圆角Y半径（纵向）
+  cornerRadiusXTL?: number;     // 左上角X半径
+  cornerRadiusYTL?: number;     // 左上角Y半径
+  cornerRadiusXTR?: number;     // 右上角X半径
+  cornerRadiusYTR?: number;     // 右上角Y半径
+  cornerRadiusXBR?: number;     // 右下角X半径
+  cornerRadiusYBR?: number;     // 右下角Y半径
+  cornerRadiusXBL?: number;     // 左下角X半径
+  cornerRadiusYBL?: number;     // 左下角Y半径
   cornerShape?: number;         // 全局角形状: 0round 1scoop 2bevel 3notch 4squircle 5superellipse
   cornerShapeTL?: number;       // 左上角形状覆盖（未设置时跟随 cornerShape）
   cornerShapeTR?: number;       // 右上角形状覆盖（未设置时跟随 cornerShape）
@@ -129,6 +139,16 @@ export type ShapeCommonParams = Pick<PresetParams,
   | 'cornerRadiusTR'
   | 'cornerRadiusBR'
   | 'cornerRadiusBL'
+  | 'cornerRadiusX'
+  | 'cornerRadiusY'
+  | 'cornerRadiusXTL'
+  | 'cornerRadiusYTL'
+  | 'cornerRadiusXTR'
+  | 'cornerRadiusYTR'
+  | 'cornerRadiusXBR'
+  | 'cornerRadiusYBR'
+  | 'cornerRadiusXBL'
+  | 'cornerRadiusYBL'
   | 'cornerShape'
   | 'cornerShapeTL'
   | 'cornerShapeTR'
@@ -242,7 +262,8 @@ function buildWobblyEdgeSegment(
   edge: EdgeSlot,
   p: PresetParams,
   rng: () => number,
-  roughness: number
+  roughness: number,
+  spanReference?: number
 ): string {
   const dx = x2 - x1;
   const dy = y2 - y1;
@@ -258,10 +279,16 @@ function buildWobblyEdgeSegment(
     return ` L ${formatCoord(x2)} ${formatCoord(y2)}`;
   }
 
-  const density = clamp(p.edgeWobbleDensity ?? 1, 0.35, 2.6);
-  const segments = Math.max(1, Math.min(14, Math.round((length / 56) * density)));
+  const density = clamp(p.edgeWobbleDensity ?? 1, 0.35, 4);
+  const referenceLength = Math.max(length, spanReference ?? length);
+  const targetSegments = Math.max(1, Math.round((referenceLength / 56) * density));
+  const maxSegmentsByLength = Math.max(1, Math.round(length / 6));
+  const segments = Math.max(1, Math.min(20, Math.min(targetSegments, maxSegmentsByLength)));
   const rough = clamp(roughness, 0, 1);
-  const amplitude = wobbleAmount * (0.7 + rough * 0.6);
+  const cornerCompensation = spanReference && spanReference > length
+    ? clamp(spanReference / Math.max(1, length), 1, 2.4)
+    : 1;
+  const amplitude = wobbleAmount * (0.7 + rough * 0.6) * Math.pow(cornerCompensation, 0.24);
   const tangentJitter = Math.max(0.15, (length / segments) * 0.16);
 
   let segment = '';
@@ -394,6 +421,43 @@ function getCornerRadii(w: number, h: number, p: PresetParams, defaultRadius: nu
   return { tl, tr, br, bl };
 }
 
+function getCornerRadiiXY(w: number, h: number, p: PresetParams, defaultRadius: number) {
+  const maxRX = w * 0.5;
+  const maxRY = h * 0.5;
+  const baseLegacy = p.cornerRadius ?? defaultRadius;
+  const baseX = clamp(p.cornerRadiusX ?? baseLegacy, 0, maxRX);
+  const baseY = clamp(p.cornerRadiusY ?? baseLegacy, 0, maxRY);
+
+  let tlx = clamp(p.cornerRadiusXTL ?? p.cornerRadiusTL ?? baseX, 0, maxRX);
+  let trx = clamp(p.cornerRadiusXTR ?? p.cornerRadiusTR ?? baseX, 0, maxRX);
+  let brx = clamp(p.cornerRadiusXBR ?? p.cornerRadiusBR ?? baseX, 0, maxRX);
+  let blx = clamp(p.cornerRadiusXBL ?? p.cornerRadiusBL ?? baseX, 0, maxRX);
+
+  let tly = clamp(p.cornerRadiusYTL ?? p.cornerRadiusTL ?? baseY, 0, maxRY);
+  let tryy = clamp(p.cornerRadiusYTR ?? p.cornerRadiusTR ?? baseY, 0, maxRY);
+  let bry = clamp(p.cornerRadiusYBR ?? p.cornerRadiusBR ?? baseY, 0, maxRY);
+  let bly = clamp(p.cornerRadiusYBL ?? p.cornerRadiusBL ?? baseY, 0, maxRY);
+
+  const fitPair = (a: number, b: number, limit: number): [number, number] => {
+    const sum = a + b;
+    if (sum <= limit || sum <= 0) return [a, b];
+    const k = limit / sum;
+    return [a * k, b * k];
+  };
+
+  [tlx, trx] = fitPair(tlx, trx, w);
+  [blx, brx] = fitPair(blx, brx, w);
+  [tly, bly] = fitPair(tly, bly, h);
+  [tryy, bry] = fitPair(tryy, bry, h);
+
+  return {
+    tl: { x: tlx, y: tly },
+    tr: { x: trx, y: tryy },
+    br: { x: brx, y: bry },
+    bl: { x: blx, y: bly },
+  };
+}
+
 function getCornerShapeCode(p: PresetParams, slot?: CornerSlot): number {
   const globalCode = Math.max(0, Math.min(5, Math.round(p.cornerShape ?? 0)));
   if (!slot) return globalCode;
@@ -438,6 +502,13 @@ function cornerEndPoint(slot: CornerSlot, r: number, w: number, h: number): { x:
   return { x: r, y: 0 };
 }
 
+function cornerEndPointXY(slot: CornerSlot, rx: number, ry: number, w: number, h: number): { x: number; y: number } {
+  if (slot === 'tr') return { x: w, y: ry };
+  if (slot === 'br') return { x: w - rx, y: h };
+  if (slot === 'bl') return { x: 0, y: h - ry };
+  return { x: rx, y: 0 };
+}
+
 function cornerNotchPoint(slot: CornerSlot, r: number, w: number, h: number): { x: number; y: number } {
   if (slot === 'tr') return { x: w - r, y: r };
   if (slot === 'br') return { x: w - r, y: h - r };
@@ -445,11 +516,25 @@ function cornerNotchPoint(slot: CornerSlot, r: number, w: number, h: number): { 
   return { x: r, y: r };
 }
 
+function cornerNotchPointXY(slot: CornerSlot, rx: number, ry: number, w: number, h: number): { x: number; y: number } {
+  if (slot === 'tr') return { x: w - rx, y: ry };
+  if (slot === 'br') return { x: w - rx, y: h - ry };
+  if (slot === 'bl') return { x: rx, y: h - ry };
+  return { x: rx, y: ry };
+}
+
 function cornerPoint(slot: CornerSlot, t: number, q: number, r: number, w: number, h: number): { x: number; y: number } {
   if (slot === 'tr') return { x: w - r + t * r, y: q * r };
   if (slot === 'br') return { x: w - q * r, y: h - r + t * r };
   if (slot === 'bl') return { x: r - t * r, y: h - q * r };
   return { x: q * r, y: r - t * r };
+}
+
+function cornerPointXY(slot: CornerSlot, t: number, q: number, rx: number, ry: number, w: number, h: number): { x: number; y: number } {
+  if (slot === 'tr') return { x: w - rx + t * rx, y: q * ry };
+  if (slot === 'br') return { x: w - q * rx, y: h - ry + t * ry };
+  if (slot === 'bl') return { x: rx - t * rx, y: h - q * ry };
+  return { x: q * rx, y: ry - t * ry };
 }
 
 function cornerProgress(t: number, exponent: number, concave: boolean): number {
@@ -501,6 +586,47 @@ function buildCornerPathSegment(
   return segment;
 }
 
+function buildCornerPathSegmentXY(
+  slot: CornerSlot,
+  radiusX: number,
+  radiusY: number,
+  style: CornerStyle,
+  w: number,
+  h: number,
+): string {
+  if (radiusX <= 0.001 && radiusY <= 0.001) {
+    const v = cornerVertex(slot, w, h);
+    return ` L ${v.x} ${v.y}`;
+  }
+
+  const rx = Math.max(0, radiusX);
+  const ry = Math.max(0, radiusY);
+  const end = cornerEndPointXY(slot, rx, ry, w, h);
+  if (style.kind === 'bevel') {
+    return ` L ${end.x} ${end.y}`;
+  }
+  if (style.kind === 'notch') {
+    const notch = cornerNotchPointXY(slot, rx, ry, w, h);
+    return ` L ${notch.x} ${notch.y} L ${end.x} ${end.y}`;
+  }
+
+  const absK = Math.abs(style.k);
+  if (absK <= 0.0001) {
+    return ` L ${end.x} ${end.y}`;
+  }
+  const concave = style.k < 0;
+  const exponent = Math.min(2048, Math.pow(2, absK));
+  const steps = Math.max(6, Math.min(36, Math.round(Math.max(rx, ry) / 2.2)));
+  let segment = '';
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps;
+    const q = cornerProgress(t, exponent, concave);
+    const pt = cornerPointXY(slot, t, q, rx, ry, w, h);
+    segment += ` L ${Number(pt.x.toFixed(3))} ${Number(pt.y.toFixed(3))}`;
+  }
+  return segment;
+}
+
 function buildCornerPathFromParams(
   slot: CornerSlot,
   radius: number,
@@ -509,6 +635,17 @@ function buildCornerPathFromParams(
   h: number,
 ): string {
   return buildCornerPathSegment(slot, radius, getCornerStyle(p, slot), w, h);
+}
+
+function buildCornerPathFromParamsXY(
+  slot: CornerSlot,
+  radiusX: number,
+  radiusY: number,
+  p: PresetParams,
+  w: number,
+  h: number,
+): string {
+  return buildCornerPathSegmentXY(slot, radiusX, radiusY, getCornerStyle(p, slot), w, h);
 }
 
 function buildSideCenters(
@@ -828,7 +965,8 @@ function foldedPath(w: number, h: number, rng: () => number, r: number, p: Prese
     'top',
     p,
     rng,
-    r
+    r,
+    w
   );
   if (tr) {
     path += buildFoldCutSegment('tr', w, h, fs, p);
@@ -844,7 +982,8 @@ function foldedPath(w: number, h: number, rng: () => number, r: number, p: Prese
     'right',
     p,
     rng,
-    r
+    r,
+    h
   );
   if (br) {
     path += buildFoldCutSegment('br', w, h, fs, p);
@@ -860,7 +999,8 @@ function foldedPath(w: number, h: number, rng: () => number, r: number, p: Prese
     'bottom',
     p,
     rng,
-    r
+    r,
+    w
   );
   if (bl) {
     path += buildFoldCutSegment('bl', w, h, fs, p);
@@ -876,7 +1016,8 @@ function foldedPath(w: number, h: number, rng: () => number, r: number, p: Prese
     'left',
     p,
     rng,
-    r
+    r,
+    h
   );
   if (tl) {
     path += buildFoldCutSegment('tl', w, h, fs, p);
@@ -953,104 +1094,71 @@ export function getStitchPath(w: number, h: number, params?: PresetParams): stri
 
 function scallopedPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
   const sr = p.scallopRadius ?? 12;
-  const edge = Math.round(p.scallopEdge ?? 0);
+  const edge = clamp(Math.round(p.scallopEdge ?? 0), 0, 4);
   const spacing = Math.max(8, p.scallopGap ?? sr * 2.2);
   const depthBase = Math.max(1, p.scallopDepth ?? sr * 0.7);
-  const points: string[] = [];
+  const topScalloped = edge === 0 || edge === 1;
+  const rightScalloped = edge === 0 || edge === 2;
+  const bottomScalloped = edge === 0 || edge === 3;
+  const leftScalloped = edge === 0 || edge === 4;
+  const { tl, tr, br, bl } = getCornerRadii(w, h, p, 0);
 
-  const countH = Math.max(2, Math.round(w / spacing));
-  const countV = Math.max(2, Math.round(h / spacing));
-  const stepH = w / countH;
-  const stepV = h / countV;
-
-  if (edge === 1) {
-    points.push('M 0 0');
-    for (let i = 0; i < countH; i++) {
-      const x1 = i * stepH;
-      const x2 = (i + 1) * stepH;
-      const mid = (x1 + x2) / 2;
+  const buildHorizontalScallops = (xStart: number, xEnd: number, y: number, outward: 1 | -1): string => {
+    const length = Math.abs(xEnd - xStart);
+    if (length <= 0.001) return ` L ${formatCoord(xEnd)} ${formatCoord(y)}`;
+    const count = Math.max(1, Math.round(length / spacing));
+    const step = (xEnd - xStart) / count;
+    let segment = '';
+    for (let i = 1; i <= count; i++) {
+      const s = xStart + (i - 1) * step;
+      const e = i === count ? xEnd : xStart + i * step;
+      const mid = (s + e) * 0.5;
       const d = wobble(depthBase, r * 2, rng);
-      points.push(`Q ${mid} ${-d} ${x2} 0`);
+      segment += ` Q ${formatCoord(mid)} ${formatCoord(y + outward * d)} ${formatCoord(e)} ${formatCoord(y)}`;
     }
-    points.push(`L ${w} ${h} L 0 ${h} Z`);
-    return points.join(' ');
-  }
+    return segment;
+  };
 
-  if (edge === 2) {
-    points.push(`M 0 0 L ${w} 0`);
-    for (let i = 0; i < countV; i++) {
-      const y1 = i * stepV;
-      const y2 = (i + 1) * stepV;
-      const mid = (y1 + y2) / 2;
+  const buildVerticalScallops = (x: number, yStart: number, yEnd: number, outward: 1 | -1): string => {
+    const length = Math.abs(yEnd - yStart);
+    if (length <= 0.001) return ` L ${formatCoord(x)} ${formatCoord(yEnd)}`;
+    const count = Math.max(1, Math.round(length / spacing));
+    const step = (yEnd - yStart) / count;
+    let segment = '';
+    for (let i = 1; i <= count; i++) {
+      const s = yStart + (i - 1) * step;
+      const e = i === count ? yEnd : yStart + i * step;
+      const mid = (s + e) * 0.5;
       const d = wobble(depthBase, r * 2, rng);
-      points.push(`Q ${w + d} ${mid} ${w} ${y2}`);
+      segment += ` Q ${formatCoord(x + outward * d)} ${formatCoord(mid)} ${formatCoord(x)} ${formatCoord(e)}`;
     }
-    points.push(`L 0 ${h} Z`);
-    return points.join(' ');
-  }
+    return segment;
+  };
 
-  if (edge === 3) {
-    points.push(`M 0 0 L ${w} 0 L ${w} ${h}`);
-    for (let i = countH; i > 0; i--) {
-      const x1 = i * stepH;
-      const x2 = (i - 1) * stepH;
-      const mid = (x1 + x2) / 2;
-      const d = wobble(depthBase, r * 2, rng);
-      points.push(`Q ${mid} ${h + d} ${x2} ${h}`);
-    }
-    points.push('Z');
-    return points.join(' ');
-  }
+  let path = `M ${formatCoord(tl)} 0`;
 
-  if (edge === 4) {
-    points.push(`M 0 0 L ${w} 0 L ${w} ${h} L 0 ${h}`);
-    for (let i = countV; i > 0; i--) {
-      const y1 = i * stepV;
-      const y2 = (i - 1) * stepV;
-      const mid = (y1 + y2) / 2;
-      const d = wobble(depthBase, r * 2, rng);
-      points.push(`Q ${-d} ${mid} 0 ${y2}`);
-    }
-    points.push('Z');
-    return points.join(' ');
-  }
+  path += topScalloped
+    ? buildHorizontalScallops(tl, w - tr, 0, -1)
+    : ` L ${formatCoord(w - tr)} 0`;
+  path += buildCornerPathFromParams('tr', tr, p, w, h);
 
-  points.push(`M 0 0`);
+  path += rightScalloped
+    ? buildVerticalScallops(w, tr, h - br, 1)
+    : ` L ${formatCoord(w)} ${formatCoord(h - br)}`;
+  path += buildCornerPathFromParams('br', br, p, w, h);
 
-  for (let i = 0; i < countH; i++) {
-    const x1 = i * stepH;
-    const x2 = (i + 1) * stepH;
-    const mid = (x1 + x2) / 2;
-    const d = wobble(depthBase, r * 2, rng);
-    points.push(`Q ${mid} ${-d} ${x2} 0`);
-  }
+  path += bottomScalloped
+    ? buildHorizontalScallops(w - br, bl, h, 1)
+    : ` L ${formatCoord(bl)} ${formatCoord(h)}`;
+  path += buildCornerPathFromParams('bl', bl, p, w, h);
 
-  for (let i = 0; i < countV; i++) {
-    const y1 = i * stepV;
-    const y2 = (i + 1) * stepV;
-    const mid = (y1 + y2) / 2;
-    const d = wobble(depthBase, r * 2, rng);
-    points.push(`Q ${w + d} ${mid} ${w} ${y2}`);
-  }
+  path += leftScalloped
+    ? buildVerticalScallops(0, h - bl, tl, -1)
+    : ` L 0 ${formatCoord(tl)}`;
+  path += buildCornerPathFromParams('tl', tl, p, w, h);
 
-  for (let i = countH; i > 0; i--) {
-    const x1 = i * stepH;
-    const x2 = (i - 1) * stepH;
-    const mid = (x1 + x2) / 2;
-    const d = wobble(depthBase, r * 2, rng);
-    points.push(`Q ${mid} ${h + d} ${x2} ${h}`);
-  }
-
-  for (let i = countV; i > 0; i--) {
-    const y1 = i * stepV;
-    const y2 = (i - 1) * stepV;
-    const mid = (y1 + y2) / 2;
-    const d = wobble(depthBase, r * 2, rng);
-    points.push(`Q ${-d} ${mid} 0 ${y2}`);
-  }
-
-  points.push('Z');
-  return points.join(' ');
+  path += ' Z';
+  return path;
 }
 
 function receiptPath(w: number, h: number, rng: () => number, r: number, p: PresetParams): string {
@@ -1101,11 +1209,11 @@ function receiptPath(w: number, h: number, rng: () => number, r: number, p: Pres
     }
     path += ` L ${w - rtr} 0`;
     path += buildCornerPathFromParams('tr', rtr, p, w, h);
-    path += buildWobblyEdgeSegment(w, rtr, w, h - rbr, 'right', p, rng, r);
+    path += buildWobblyEdgeSegment(w, rtr, w, h - rbr, 'right', p, rng, r, h);
     path += buildCornerPathFromParams('br', rbr, p, w, h);
-    path += buildWobblyEdgeSegment(w - rbr, h, rbl, h, 'bottom', p, rng, r);
+    path += buildWobblyEdgeSegment(w - rbr, h, rbl, h, 'bottom', p, rng, r, w);
     path += buildCornerPathFromParams('bl', rbl, p, w, h);
-    path += buildWobblyEdgeSegment(0, h - rbl, 0, rtl, 'left', p, rng, r);
+    path += buildWobblyEdgeSegment(0, h - rbl, 0, rtl, 'left', p, rng, r, h);
     path += buildCornerPathFromParams('tl', rtl, p, w, h);
     path += ' Z';
     return path;
@@ -1114,11 +1222,11 @@ function receiptPath(w: number, h: number, rng: () => number, r: number, p: Pres
   // zigzag on left edge
   if (edge === 2) {
     let path = `M ${rtl} 0`;
-    path += buildWobblyEdgeSegment(rtl, 0, w - rtr, 0, 'top', p, rng, r);
+    path += buildWobblyEdgeSegment(rtl, 0, w - rtr, 0, 'top', p, rng, r, w);
     path += buildCornerPathFromParams('tr', rtr, p, w, h);
-    path += buildWobblyEdgeSegment(w, rtr, w, h - rbr, 'right', p, rng, r);
+    path += buildWobblyEdgeSegment(w, rtr, w, h - rbr, 'right', p, rng, r, h);
     path += buildCornerPathFromParams('br', rbr, p, w, h);
-    path += buildWobblyEdgeSegment(w - rbr, h, rbl, h, 'bottom', p, rng, r);
+    path += buildWobblyEdgeSegment(w - rbr, h, rbl, h, 'bottom', p, rng, r, w);
     path += buildCornerPathFromParams('bl', rbl, p, w, h);
     if (leftSpan > 0.001) {
       const step = leftSpan / leftSteps;
@@ -1137,7 +1245,7 @@ function receiptPath(w: number, h: number, rng: () => number, r: number, p: Pres
   // zigzag on right edge
   if (edge === 3) {
     let path = `M ${rtl} 0`;
-    path += buildWobblyEdgeSegment(rtl, 0, w - rtr, 0, 'top', p, rng, r);
+    path += buildWobblyEdgeSegment(rtl, 0, w - rtr, 0, 'top', p, rng, r, w);
     path += buildCornerPathFromParams('tr', rtr, p, w, h);
     if (rightSpan > 0.001) {
       const step = rightSpan / rightSteps;
@@ -1149,9 +1257,9 @@ function receiptPath(w: number, h: number, rng: () => number, r: number, p: Pres
     }
     path += ` L ${w} ${h - rbr}`;
     path += buildCornerPathFromParams('br', rbr, p, w, h);
-    path += buildWobblyEdgeSegment(w - rbr, h, rbl, h, 'bottom', p, rng, r);
+    path += buildWobblyEdgeSegment(w - rbr, h, rbl, h, 'bottom', p, rng, r, w);
     path += buildCornerPathFromParams('bl', rbl, p, w, h);
-    path += buildWobblyEdgeSegment(0, h - rbl, 0, rtl, 'left', p, rng, r);
+    path += buildWobblyEdgeSegment(0, h - rbl, 0, rtl, 'left', p, rng, r, h);
     path += buildCornerPathFromParams('tl', rtl, p, w, h);
     path += ' Z';
     return path;
@@ -1159,9 +1267,9 @@ function receiptPath(w: number, h: number, rng: () => number, r: number, p: Pres
 
   // default: zigzag on bottom edge
   let path = `M ${rtl} 0`;
-  path += buildWobblyEdgeSegment(rtl, 0, w - rtr, 0, 'top', p, rng, r);
+  path += buildWobblyEdgeSegment(rtl, 0, w - rtr, 0, 'top', p, rng, r, w);
   path += buildCornerPathFromParams('tr', rtr, p, w, h);
-  path += buildWobblyEdgeSegment(w, rtr, w, h - rbr, 'right', p, rng, r);
+  path += buildWobblyEdgeSegment(w, rtr, w, h - rbr, 'right', p, rng, r, h);
   path += buildCornerPathFromParams('br', rbr, p, w, h);
   if (bottomSpan > 0.001) {
     const step = bottomSpan / bottomSteps;
@@ -1173,7 +1281,7 @@ function receiptPath(w: number, h: number, rng: () => number, r: number, p: Pres
   }
   path += ` L ${rbl} ${h}`;
   path += buildCornerPathFromParams('bl', rbl, p, w, h);
-  path += buildWobblyEdgeSegment(0, h - rbl, 0, rtl, 'left', p, rng, r);
+  path += buildWobblyEdgeSegment(0, h - rbl, 0, rtl, 'left', p, rng, r, h);
   path += buildCornerPathFromParams('tl', rtl, p, w, h);
   path += ' Z';
   return path;
@@ -1187,16 +1295,16 @@ function roundedRectPath(
   rng: () => number,
   r: number
 ): string {
-  const { tl, tr, br, bl } = getCornerRadii(w, h, p, defaultCornerRadius);
-  let path = `M ${tl} 0`;
-  path += buildWobblyEdgeSegment(tl, 0, w - tr, 0, 'top', p, rng, r);
-  path += buildCornerPathFromParams('tr', tr, p, w, h);
-  path += buildWobblyEdgeSegment(w, tr, w, h - br, 'right', p, rng, r);
-  path += buildCornerPathFromParams('br', br, p, w, h);
-  path += buildWobblyEdgeSegment(w - br, h, bl, h, 'bottom', p, rng, r);
-  path += buildCornerPathFromParams('bl', bl, p, w, h);
-  path += buildWobblyEdgeSegment(0, h - bl, 0, tl, 'left', p, rng, r);
-  path += buildCornerPathFromParams('tl', tl, p, w, h);
+  const { tl, tr, br, bl } = getCornerRadiiXY(w, h, p, defaultCornerRadius);
+  let path = `M ${tl.x} 0`;
+  path += buildWobblyEdgeSegment(tl.x, 0, w - tr.x, 0, 'top', p, rng, r, w);
+  path += buildCornerPathFromParamsXY('tr', tr.x, tr.y, p, w, h);
+  path += buildWobblyEdgeSegment(w, tr.y, w, h - br.y, 'right', p, rng, r, h);
+  path += buildCornerPathFromParamsXY('br', br.x, br.y, p, w, h);
+  path += buildWobblyEdgeSegment(w - br.x, h, bl.x, h, 'bottom', p, rng, r, w);
+  path += buildCornerPathFromParamsXY('bl', bl.x, bl.y, p, w, h);
+  path += buildWobblyEdgeSegment(0, h - bl.y, 0, tl.y, 'left', p, rng, r, h);
+  path += buildCornerPathFromParamsXY('tl', tl.x, tl.y, p, w, h);
   path += ' Z';
   return path;
 }
@@ -1263,7 +1371,7 @@ export const presetParamsDefs: Record<PaperPreset, { key: keyof PresetParams; la
   ],
   'scalloped-edge': [
     { key: 'scallopEdge', label: '花边方向(0四边/1上/2右/3下/4左)', min: 0, max: 4, step: 1, defaultVal: () => 0 },
-    { key: 'scallopGap', label: '花边间距', min: 8, max: 80, step: 1, defaultVal: () => 26 },
+    { key: 'scallopGap', label: '花边间距', min: 8, max: 180, step: 1, defaultVal: () => 26 },
     { key: 'scallopDepth', label: '花边深度', min: 1, max: 28, step: 0.5, defaultVal: () => 8.4 },
   ],
   receipt: [

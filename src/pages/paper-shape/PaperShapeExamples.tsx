@@ -61,6 +61,7 @@ function generateExamples(): ExampleItem[] {
             foldCorners: 2, // 右上
             edgeWobble: 1.1,
             edgeWobbleBottom: 1.5,
+            edgeWobbleDensity: 1.25,
           };
           decos.push(
             { id: 'ex-tape-1', type: 'washi-tape', variant: 'stripe-pink', transform: { x: 30, y: -8, rotation: -5, scale: 0.7 } },
@@ -114,8 +115,9 @@ function generateExamples(): ExampleItem[] {
         presetParams = {
           scallopRadius: 12,
           scallopEdge: 2, // 仅右侧花边（与其他单边案例错开）
-          scallopGap: 24,
+          scallopGap: 36,
           scallopDepth: 10,
+          cornerRadius: 14,
         };
       }
 
@@ -208,6 +210,69 @@ function generateExamples(): ExampleItem[] {
           presetParams = {
             ...(presetParams ?? {}),
             ...baseWobble,
+          };
+        }
+
+        // Blob + rectangle experiment (CSS-like 8-value corner semantics: 4 corners x/y radius)
+        const blobCornerByVariant: Partial<PresetParams>[] = [
+          {
+            cornerRadiusX: 24,
+            cornerRadiusY: 18,
+            cornerRadiusXTL: 36,
+            cornerRadiusYTL: 22,
+            cornerRadiusXTR: 28,
+            cornerRadiusYTR: 30,
+            cornerRadiusXBL: 24,
+            cornerRadiusYBL: 18,
+            cornerRadiusXBR: 20,
+            cornerRadiusYBR: 16,
+          },
+          {},
+          {
+            cornerRadiusX: 22,
+            cornerRadiusY: 26,
+            cornerRadiusXTL: 18,
+            cornerRadiusYTL: 34,
+            cornerRadiusXTR: 34,
+            cornerRadiusYTR: 20,
+            cornerRadiusXBL: 26,
+            cornerRadiusYBL: 28,
+            cornerRadiusXBR: 16,
+            cornerRadiusYBR: 22,
+          },
+          {},
+          {
+            cornerRadiusX: 26,
+            cornerRadiusY: 20,
+            cornerRadiusXTL: 30,
+            cornerRadiusYTL: 24,
+            cornerRadiusXTR: 20,
+            cornerRadiusYTR: 18,
+            cornerRadiusXBL: 34,
+            cornerRadiusYBL: 14,
+            cornerRadiusXBR: 18,
+            cornerRadiusYBR: 26,
+          },
+          {},
+          {},
+          {
+            cornerRadiusX: 20,
+            cornerRadiusY: 28,
+            cornerRadiusXTL: 14,
+            cornerRadiusYTL: 34,
+            cornerRadiusXTR: 32,
+            cornerRadiusYTR: 22,
+            cornerRadiusXBL: 30,
+            cornerRadiusYBL: 20,
+            cornerRadiusXBR: 18,
+            cornerRadiusYBR: 30,
+          },
+        ];
+        const blobCorner = blobCornerByVariant[v];
+        if (blobCorner) {
+          presetParams = {
+            ...(presetParams ?? {}),
+            ...blobCorner,
           };
         }
       }

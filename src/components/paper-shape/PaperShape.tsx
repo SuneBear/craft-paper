@@ -119,10 +119,30 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
   const shadowOffsetX = clampNum(presetParams?.shadowOffsetX ?? 3, -32, 32);
   const shadowOffsetY = clampNum(presetParams?.shadowOffsetY ?? 3, -32, 32);
   const shadowOpacity = clampNum(presetParams?.shadowOpacity ?? 0.2, 0, 1);
+  const roughnessClamped = clampNum(roughness, 0, 1);
+
+  const maxEdgeWobble = Math.max(
+    0,
+    presetParams?.edgeWobble ?? 0,
+    presetParams?.edgeWobbleTop ?? 0,
+    presetParams?.edgeWobbleRight ?? 0,
+    presetParams?.edgeWobbleBottom ?? 0,
+    presetParams?.edgeWobbleLeft ?? 0
+  );
 
   const strokeBleed = strokeWidth > 0 ? strokeWidth * 0.8 + 1 : 0;
   const shadowBleed = shadowEnabled && shadowOpacity > 0
     ? Math.max(Math.abs(shadowOffsetX), Math.abs(shadowOffsetY)) + Math.max(2, strokeWidth * 0.8 + 1)
+    : 0;
+  const edgeWobbleBleed = maxEdgeWobble > 0
+    ? maxEdgeWobble * (0.8 + roughnessClamped * 0.7) + 1.2
+    : 0;
+  const scallopDepthBase = Math.max(
+    1,
+    presetParams?.scallopDepth ?? ((presetParams?.scallopRadius ?? 12) * 0.7)
+  );
+  const scallopBleed = preset === 'scalloped-edge'
+    ? scallopDepthBase + roughnessClamped * 2.4 + strokeWidth * 0.6 + 1
     : 0;
   const receiptZigzagBleed = preset === 'receipt'
     ? Math.max(0, (presetParams?.zigzagHeight ?? 8) + 2)
@@ -130,7 +150,7 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
   const resolvedCanvasPadding = Math.max(
     0,
     canvasPadding,
-    Math.ceil(Math.max(strokeBleed, shadowBleed, receiptZigzagBleed))
+    Math.ceil(Math.max(strokeBleed, shadowBleed, edgeWobbleBleed, scallopBleed, receiptZigzagBleed))
   );
 
   const resolvedContentPadding = useMemo(

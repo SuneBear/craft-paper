@@ -1,13 +1,24 @@
 import { PaperShape } from '@/components/paper-shape';
-import { presetInfo, type PaperPreset, type PresetParams } from '@/components/paper-shape/geometry';
+import type { PaperPreset, PresetParams } from '@/components/paper-shape/geometry';
 import { PAPER_COLORS } from '@/components/paper-shape/paperShapeUtils';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 
-type StackMode = 'vertical-bottom' | 'vertical-top' | 'diagonal' | 'messy';
+type StackMode = 'scrapbook' | 'vertical-bottom' | 'vertical-top' | 'diagonal' | 'messy';
 type TuningPreset = 'clean' | 'balanced' | 'dramatic';
 
+interface StackItem {
+  preset: PaperPreset;
+  color: string;
+  rotate: number;
+  offsetX: number;
+  offsetY: number;
+  seed: number;
+  presetParams?: PresetParams;
+}
+
 const stackModeOptions: Array<{ key: StackMode; label: string; desc: string }> = [
+  { key: 'scrapbook', label: '手帐拼贴', desc: '参考手帐拼贴排布：错落叠放、轻旋转、露边明显' },
   { key: 'vertical-bottom', label: '底部纵向', desc: '像一叠纸压在底部，最有“纸堆”感' },
   { key: 'vertical-top', label: '顶部纵向', desc: '堆叠边缘露在顶部，参考 Vertical Top' },
   { key: 'diagonal', label: '对角堆叠', desc: '各层按同方向斜向位移，参考 Diagonal' },
@@ -67,6 +78,10 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
 function resolvePaperColor(value: string): string {
   return PAPER_COLORS[value] || value;
 }
@@ -79,18 +94,49 @@ function mixTowardTopColor(baseColor: string, topColor: string, amount: number):
   return `color-mix(in hsl, ${baseColor} ${baseWeight}%, ${topColor} ${topWeight}%)`;
 }
 
+function getPresetOpticalInsets(preset: PaperPreset): { x: number; top: number; bottom: number } {
+  if (preset === 'receipt') return { x: 0.05, top: 0.11, bottom: 0.04 };
+  if (preset === 'tag') return { x: 0.05, top: 0.08, bottom: 0.05 };
+  if (preset === 'coupon' || preset === 'ticket') return { x: 0.05, top: 0.07, bottom: 0.06 };
+  if (preset === 'folded') return { x: 0.04, top: 0.06, bottom: 0.05 };
+  return { x: 0.04, top: 0.06, bottom: 0.06 };
+}
+
+function resolveScrapbookPose(
+  index: number,
+  total: number,
+  item: StackItem
+): StackItem {
+  const threeCardTemplate = [
+    { x: -20, y: 7, r: -2.8 },
+    { x: 20, y: 6, r: 2.6 },
+    { x: 1, y: -3, r: -0.8 },
+  ];
+  const fourCardTemplate = [
+    { x: -24, y: 9, r: -3.0 },
+    { x: 24, y: 8, r: 2.8 },
+    { x: -5, y: -1, r: -1.1 },
+    { x: 5, y: -4, r: 0.9 },
+  ];
+  const fallbackTemplate = [
+    { x: -18, y: 7, r: -2.6 },
+    { x: 0, y: 2, r: -0.6 },
+    { x: 18, y: 6, r: 2.4 },
+  ];
+  const template = total === 3 ? threeCardTemplate : total === 4 ? fourCardTemplate : fallbackTemplate;
+  const t = template[Math.min(index, template.length - 1)] ?? template[template.length - 1];
+  return {
+    ...item,
+    offsetX: t.x + item.offsetX * 0.12,
+    offsetY: t.y + item.offsetY * 0.1,
+    rotate: t.r + item.rotate * 0.15,
+  };
+}
+
 const stackExamples: Array<{
   title: string;
   desc: string;
-  items: Array<{
-    preset: PaperPreset;
-    color: string;
-    rotate: number;
-    offsetX: number;
-    offsetY: number;
-    seed: number;
-    presetParams?: PresetParams;
-  }>;
+  items: StackItem[];
 }> = [
   {
     title: '📄 直角纸张堆叠',
@@ -168,64 +214,87 @@ const stackExamples: Array<{
     ],
   },
   {
-    title: '📒 手帐拼贴',
-    desc: '混合形状的手帐风拼贴效果',
+    title: '📒 折角拼贴',
+    desc: '三卡构图：左偏、右偏、中间主卡',
     items: [
-      { preset: 'torn', color: 'cream', rotate: -0.9, offsetX: -14, offsetY: 12, seed: 110 },
-      { preset: 'scalloped-edge', color: 'pink', rotate: -0.1, offsetX: -5, offsetY: 6, seed: 120 },
-      { preset: 'stitched', color: 'sky', rotate: 0.5, offsetX: 4, offsetY: 0, seed: 130 },
-      { preset: 'folded', color: 'apricot', rotate: 1, offsetX: 13, offsetY: -5, seed: 140 },
+      {
+        preset: 'folded',
+        color: 'mint',
+        rotate: -3.8,
+        offsetX: -20,
+        offsetY: 7,
+        seed: 110,
+        presetParams: { foldSize: 14, foldCorners: 2, cornerRadius: 0, edgeWobble: 1.05, edgeWobbleLeft: 1.3 },
+      },
+      {
+        preset: 'folded',
+        color: 'apricot',
+        rotate: 3.6,
+        offsetX: 20,
+        offsetY: 6,
+        seed: 120,
+        presetParams: { foldSize: 13, foldCorners: 2, cornerRadius: 0, edgeWobble: 1.08, edgeWobbleRight: 1.28 },
+      },
+      {
+        preset: 'folded',
+        color: 'cream',
+        rotate: -1.1,
+        offsetX: 1,
+        offsetY: -3,
+        seed: 130,
+        presetParams: { foldSize: 15, foldCorners: 2, cornerRadius: 0, edgeWobble: 0.98, edgeWobbleTop: 1.22 },
+      },
     ],
   },
 ];
 
 export default function PaperShapeStack() {
-  const [stackMode, setStackMode] = useState<StackMode>('vertical-bottom');
+  const [stackMode, setStackMode] = useState<StackMode>('scrapbook');
   const [tuningPreset, setTuningPreset] = useState<TuningPreset>('balanced');
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [depthGap, setDepthGap] = useState(13);
-  const [offsetStrength, setOffsetStrength] = useState(7);
-  const [rotateStrength, setRotateStrength] = useState(1.1);
-  const [randomRotateStrength, setRandomRotateStrength] = useState(0.8);
+  const [depthGap, setDepthGap] = useState(12);
+  const [offsetStrength, setOffsetStrength] = useState(9);
+  const [rotateStrength, setRotateStrength] = useState(1.35);
+  const [randomRotateStrength, setRandomRotateStrength] = useState(1.05);
   const [hoverOrderStrength, setHoverOrderStrength] = useState(1);
-  const [rearDepthStrength, setRearDepthStrength] = useState(1);
-  const [rearColorCloseness, setRearColorCloseness] = useState(0.35);
-  const [rearOpacityFloor, setRearOpacityFloor] = useState(0.45);
+  const [rearDepthStrength, setRearDepthStrength] = useState(0.9);
+  const [rearColorCloseness, setRearColorCloseness] = useState(0.42);
+  const [rearOpacityFloor, setRearOpacityFloor] = useState(0.52);
 
   const pullOrder = (base: number) => Math.min(1.25, Math.max(0, base * hoverOrderStrength));
   const applyTuningPreset = (preset: TuningPreset) => {
     setTuningPreset(preset);
     if (preset === 'clean') {
-      setDepthGap(11);
-      setOffsetStrength(5);
-      setRotateStrength(0.7);
-      setRandomRotateStrength(0.3);
-      setHoverOrderStrength(0.7);
-      setRearDepthStrength(0.8);
-      setRearColorCloseness(0.55);
-      setRearOpacityFloor(0.62);
+      setDepthGap(10);
+      setOffsetStrength(6);
+      setRotateStrength(0.8);
+      setRandomRotateStrength(0.45);
+      setHoverOrderStrength(0.72);
+      setRearDepthStrength(0.76);
+      setRearColorCloseness(0.58);
+      setRearOpacityFloor(0.66);
       return;
     }
     if (preset === 'dramatic') {
-      setDepthGap(16);
-      setOffsetStrength(10);
-      setRotateStrength(1.7);
-      setRandomRotateStrength(1.6);
-      setHoverOrderStrength(1.35);
-      setRearDepthStrength(1.55);
-      setRearColorCloseness(0.2);
-      setRearOpacityFloor(0.32);
+      setDepthGap(15);
+      setOffsetStrength(12);
+      setRotateStrength(1.95);
+      setRandomRotateStrength(1.8);
+      setHoverOrderStrength(1.3);
+      setRearDepthStrength(1.42);
+      setRearColorCloseness(0.26);
+      setRearOpacityFloor(0.38);
       return;
     }
     // balanced
-    setDepthGap(13);
-    setOffsetStrength(7);
-    setRotateStrength(1.1);
-    setRandomRotateStrength(0.8);
+    setDepthGap(12);
+    setOffsetStrength(9);
+    setRotateStrength(1.35);
+    setRandomRotateStrength(1.05);
     setHoverOrderStrength(1);
-    setRearDepthStrength(1);
-    setRearColorCloseness(0.35);
-    setRearOpacityFloor(0.45);
+    setRearDepthStrength(0.9);
+    setRearColorCloseness(0.42);
+    setRearOpacityFloor(0.52);
   };
 
   const randomizePanel = () => {
@@ -245,7 +314,7 @@ export default function PaperShapeStack() {
   const getStackMotion = (
     depth: number,
     spreadIndex: number,
-    item: { offsetX: number; offsetY: number; rotate: number; seed: number }
+    item: StackItem
   ) => {
     const depthSign = depth % 2 === 0 ? -1 : 1;
     const itemJitterX = item.offsetX * 0.15;
@@ -253,6 +322,24 @@ export default function PaperShapeStack() {
     const itemJitterRotate = item.rotate * 0.1;
     const rotateNoise = (seededNoise(item.seed + depth * 19) - 0.5) * 2 * randomRotateStrength;
     const verticalLift = 4 + depth * 1.05;
+
+    if (stackMode === 'scrapbook') {
+      const x = item.offsetX * 0.88 + spreadIndex * (offsetStrength * 0.1) + depthSign * (depth * 0.42);
+      const y = item.offsetY + depth * (depthGap * 0.18) - depth * 1.0 - 8;
+      const rotate = item.rotate * (0.62 + rotateStrength * 0.12) + rotateNoise * 0.16;
+      // Hover uses partial gather: keep visible layering and some rotation.
+      const orderedX = item.offsetX * 0.46 + spreadIndex * Math.max(5.5, offsetStrength * 0.15);
+      const orderedY = item.offsetY * 0.34 + depth * Math.max(1.2, depthGap * 0.16) - 5.5;
+      const orderedRotate = item.rotate * 0.48 + spreadIndex * 0.22;
+      return {
+        x,
+        y,
+        rotate,
+        hoverX: lerp(x, orderedX, pullOrder(0.48)),
+        hoverY: lerp(y, orderedY, pullOrder(0.48)) - verticalLift * 0.08,
+        hoverRotate: lerp(rotate, orderedRotate, pullOrder(0.8)),
+      };
+    }
 
     if (stackMode === 'vertical-top') {
       const x = itemJitterX + depthSign * (offsetStrength * 0.22 + depth * 0.8);
@@ -480,84 +567,108 @@ export default function PaperShapeStack() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: si * 0.1 }}
-            className="relative overflow-hidden rounded-[28px] border border-border/70 bg-gradient-to-br from-card via-card to-muted/40 p-6 shadow-[0_24px_60px_-34px_rgba(30,24,17,0.5)]"
+            className="relative overflow-hidden rounded-[28px] border border-[#d8cbb7]/85 bg-[#f8f1e4] p-6 shadow-[0_24px_54px_-34px_rgba(58,41,26,0.42)]"
           >
-            <div className="pointer-events-none absolute inset-x-10 top-3 h-16 rounded-full bg-white/40 blur-3xl opacity-60" />
-            <div className="pointer-events-none absolute inset-x-12 bottom-5 h-12 rounded-full bg-black/35 blur-3xl opacity-55" />
+            <div
+              className="pointer-events-none absolute inset-0 opacity-45"
+              style={{
+                backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(130,95,66,0.17) 1px, transparent 0)',
+                backgroundSize: '15px 15px',
+              }}
+            />
+            <div className="pointer-events-none absolute inset-x-12 top-4 h-14 rounded-full bg-white/35 blur-3xl opacity-55" />
+            <div className="pointer-events-none absolute inset-x-14 bottom-4 h-10 rounded-full bg-[#6b5039]/25 blur-2xl opacity-60" />
 
             <h3 className="font-hand text-xl font-semibold mb-1">{stack.title}</h3>
             <p className="text-xs text-muted-foreground font-craft mb-5">{stack.desc}</p>
 
             <motion.div
-              className="relative flex items-center justify-center min-h-[250px] [perspective:1100px]"
+              className="relative flex items-center justify-center min-h-[286px] [perspective:1100px]"
               initial="rest"
               animate="rest"
               whileHover="hover"
             >
               <div
-                className="pointer-events-none absolute left-1/2 top-[68%] h-12 -translate-x-1/2 rounded-full bg-black/22 blur-xl"
-                style={{ width: `${220 + offsetStrength * 8}px` }}
+                className="pointer-events-none absolute left-1/2 top-[72%] h-12 -translate-x-1/2 rounded-full bg-[#6b5039]/26 blur-xl"
+                style={{ width: `${252 + offsetStrength * 8}px` }}
               />
               {stack.items.map((item, i) => {
+                const stackItem = stackMode === 'scrapbook'
+                  ? resolveScrapbookPose(i, stack.items.length, item)
+                  : item;
                 const topIndex = stack.items.length - 1;
                 const depth = topIndex - i;
                 const spreadIndex = i - topIndex / 2;
                 const depthRatio = topIndex > 0 ? depth / topIndex : 0;
                 const toneDrop = depthRatio * rearDepthStrength * (1 - rearColorCloseness * 0.8);
                 const topPaperColor = resolvePaperColor(stack.items[topIndex]?.color ?? item.color);
-                const ownPaperColor = resolvePaperColor(item.color);
+                const ownPaperColor = resolvePaperColor(stackItem.color);
                 const colorMixAmount = depthRatio * rearColorCloseness;
                 const mixedPaperColor = mixTowardTopColor(ownPaperColor, topPaperColor, colorMixAmount);
-                const motionLayout = getStackMotion(depth, spreadIndex, item);
-                const restScale = Math.max(0.86, 1 - depth * 0.03);
+                const motionLayout = getStackMotion(depth, spreadIndex, stackItem);
+                const restScale = Math.max(0.92, 1 - depth * 0.017);
                 const layerOpacity = Math.max(rearOpacityFloor, 1 - depthRatio * (0.62 * rearDepthStrength));
-                const baseDim = depthRatio * 0.32;
+                const sizeNoise = (seededNoise(item.seed + 701 + si * 13) - 0.5) * 0.08;
+                const sizeModeBias = stackMode === 'scrapbook' ? 0.02 + Math.abs(spreadIndex) * 0.012 : 0;
+                const sizeScale = clamp(1 + sizeNoise + sizeModeBias - depth * 0.01, 0.96, 1.12);
+                const cardWidth = Math.round(232 * sizeScale);
+                const cardHeight = Math.round(168 * sizeScale);
+                const opticalInsets = getPresetOpticalInsets(stackItem.preset);
+                const opticalOffsetY = -((opticalInsets.top - opticalInsets.bottom) * cardHeight * 0.5);
+                const visualWidth = Math.round(cardWidth * (1 - opticalInsets.x * 2));
+                const baseDim = depthRatio * 0.12;
                 const depthTone = (rearDepthStrength - 1) * depthRatio * 0.55;
-                const brightness = Math.max(0.42, Math.min(1.2, 1 - baseDim - depthTone));
-                const saturation = Math.max(0.6, 1 - toneDrop * 0.3);
-                const shadowOpacity = Math.max(0.14, 0.34 - depthRatio * (0.22 + rearDepthStrength * 0.06));
+                const brightness = clamp(1 - baseDim - depthTone, 0.78, 1.16);
+                const saturation = clamp(1 - toneDrop * 0.24, 0.72, 1.12);
+                const shadowOpacity = Math.max(0.12, 0.3 - depthRatio * (0.18 + rearDepthStrength * 0.05));
+                const hoverScale = stackMode === 'scrapbook' ? restScale + 0.015 : restScale + 0.03;
 
                 return (
                   <motion.div
                     key={i}
-                    className="absolute h-[130px] w-[180px] origin-bottom"
+                    className="absolute origin-bottom"
                     variants={{
                       rest: {
                         x: motionLayout.x,
-                        y: motionLayout.y,
+                        y: motionLayout.y + opticalOffsetY,
                         rotate: motionLayout.rotate,
                         scale: restScale,
                       },
                       hover: {
                         x: motionLayout.hoverX,
-                        y: motionLayout.hoverY,
+                        y: motionLayout.hoverY + opticalOffsetY,
                         rotate: motionLayout.hoverRotate,
-                        scale: restScale + 0.03,
+                        scale: hoverScale,
                       },
                     }}
                     style={{
                       zIndex: i,
+                      width: cardWidth,
+                      height: cardHeight,
                       opacity: layerOpacity,
                       filter: `brightness(${brightness}) saturate(${saturation})`,
                     }}
                     transition={{ type: 'spring', stiffness: 300, damping: 24, mass: 0.5 }}
                   >
                     <div
-                      className="pointer-events-none absolute inset-x-5 bottom-[-14px] h-8 rounded-full bg-black blur-md"
-                      style={{ opacity: shadowOpacity }}
+                      className="pointer-events-none absolute left-1/2 bottom-[-14px] h-8 -translate-x-1/2 rounded-full bg-[#5e4733] blur-md"
+                      style={{ width: `${Math.max(92, visualWidth * 0.78)}px`, opacity: shadowOpacity }}
                     />
                     <PaperShape
-                      preset={item.preset}
-                      width={180}
-                      height={130}
-                      seed={item.seed}
+                      preset={stackItem.preset}
+                      width={cardWidth}
+                      height={cardHeight}
+                      canvasPadding={0}
+                      seed={stackItem.seed}
                       paperColor={mixedPaperColor}
+                      strokeWidth={1.6}
                       showPattern={i >= topIndex - 1}
                       patternType={i === topIndex ? 'dots' : 'lines'}
-                      presetParams={item.presetParams}
-                    >
-                      <span className="text-2xl">{presetInfo[item.preset].emoji}</span>
-                    </PaperShape>
+                      presetParams={{
+                        ...(stackItem.presetParams ?? {}),
+                        shadowEnabled: false,
+                      }}
+                    />
                   </motion.div>
                 );
               })}
