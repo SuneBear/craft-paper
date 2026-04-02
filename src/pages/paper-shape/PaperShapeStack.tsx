@@ -1,4 +1,4 @@
-import { PaperShape } from '@/components/paper-shape/PaperShape';
+import { PaperShape } from '@/components/paper-shape';
 import { presetInfo, type PaperPreset, type PresetParams } from '@/components/paper-shape/geometry';
 import { PAPER_COLORS } from '@/components/paper-shape/paperShapeUtils';
 import { motion } from 'framer-motion';

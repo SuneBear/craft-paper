@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { PaperShape } from '@/components/paper-shape/PaperShape';
+import { PaperShape } from '@/components/paper-shape';
 import { presetInfo, type PaperPreset } from '@/components/paper-shape/geometry';
 import { motion } from 'framer-motion';
 import { encodeShareState } from '@/lib/paper-shape-share';

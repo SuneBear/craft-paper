@@ -1,4 +1,4 @@
-import { PaperShape } from '@/components/paper-shape/PaperShape';
+import { PaperShape } from '@/components/paper-shape';
 import { PosterTitle } from '@/components/paper-shape/PosterTitle';
 import { useMemo, useState } from 'react';
 

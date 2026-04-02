@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { PaperShape } from '@/components/paper-shape/PaperShape';
+import { PaperShape } from '@/components/paper-shape';
 import { presetInfo } from '@/components/paper-shape/geometry';
 import { motion } from 'framer-motion';
 

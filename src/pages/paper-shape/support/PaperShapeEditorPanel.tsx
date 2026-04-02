@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { presetInfo, presetParamsDefs, type PaperPreset, type PresetParams } from '@/components/paper-shape/geometry';
-import type { PaperPatternType, PatternParams } from '@/components/paper-shape/PaperShape';
+import type { PaperPatternType, PatternParams } from '@/components/paper-shape';
 import { cn } from '@/lib/utils';
 
 const paperColors = [

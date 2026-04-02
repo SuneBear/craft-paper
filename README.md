@@ -44,7 +44,7 @@ npm run dev
 ### 3.1 最小用法
 
 ```tsx
-import { PaperShape } from '@/components/paper-shape/PaperShape';
+import { PaperShape } from '@/components/paper-shape';
 
 export function Demo() {
   return (
@@ -217,6 +217,7 @@ const sticker = createDecoration('sticker', 'heart', 160, 90, {
 13. 随机参数策略：`src/lib/paper-shape-random.ts`
 
 补充：
+- `PaperShape` 对外导出入口（barrel）：`src/components/paper-shape/index.ts`
 - `PosterTitle` 的引号装饰会自动避让正文区域，并在视觉层级上保持可见，避免右侧引号被标题内容遮挡。
 
 已知优化点：

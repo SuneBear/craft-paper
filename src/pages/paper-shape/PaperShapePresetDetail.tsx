@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
-import { PaperShape, type PaperPatternType, type PatternParams } from '@/components/paper-shape/PaperShape';
+import { PaperShape, type PaperPatternType, type PatternParams } from '@/components/paper-shape';
 import { PaperShapeEditorPanel } from './support/PaperShapeEditorPanel';
 import { PaperShapeSampleContent } from './support/PaperShapeSampleContent';
 import { DecorationEditorSection } from './support/DecorationEditorSection';

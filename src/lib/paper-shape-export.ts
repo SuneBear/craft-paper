@@ -1,6 +1,6 @@
 import type { DecorationItem } from '@/components/paper-shape/decorations';
 import type { PaperPreset, PresetParams } from '@/components/paper-shape/geometry';
-import type { PaperPatternType, PatternParams } from '@/components/paper-shape/PaperShape';
+import type { PaperPatternType, PatternParams } from '@/components/paper-shape';
 
 export interface PaperShapeExportState {
   preset: PaperPreset;
