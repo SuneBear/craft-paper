@@ -223,6 +223,9 @@ export function PosterTitle({
   const quoteConfig: PosterTitleQuoteDecoration | null = quote
     ? (typeof quote === 'object' ? quote : {})
     : null;
+  const hasCustomOpenQuote = typeof quote === 'object' && (quote.openX !== undefined || quote.openY !== undefined);
+  const hasCustomCloseQuote = typeof quote === 'object' && (quote.closeX !== undefined || quote.closeY !== undefined);
+  const useAnchoredDefaultQuotes = !!quoteConfig && !hasCustomOpenQuote && !hasCustomCloseQuote;
   const rootRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const lineGroupRef = useRef<HTMLDivElement>(null);
@@ -338,6 +341,16 @@ export function PosterTitle({
 
   const resolvedQuoteLayout = useMemo(() => {
     if (!quoteConfig) return null;
+    if (useAnchoredDefaultQuotes) {
+      return {
+        openX: quoteConfig.openX ?? 8,
+        openY: quoteConfig.openY ?? 14,
+        closeX: quoteConfig.closeX ?? 94,
+        closeY: quoteConfig.closeY ?? 84,
+        size: quoteConfig.size ?? 46,
+      };
+    }
+    const quoteOverrides = typeof quote === 'object' ? quote : null;
 
     const base = {
       openX: quoteConfig.openX ?? 8,
@@ -356,9 +369,15 @@ export function PosterTitle({
     const halfH = quoteH / 2;
     const clampX = (v: number) => clampPercent(v, 2 + halfW, 98 - halfW);
     const clampY = (v: number) => clampPercent(v, 2 + halfH, 98 - halfH);
+    const textLeft = textRect.x;
+    const textTop = textRect.y;
+    const textRight = textRect.x + textRect.w;
+    const textBottom = textRect.y + textRect.h;
+    const sideGap = quoteW * 0.72 + 0.8;
+    const verticalGap = quoteH * 0.72 + 0.8;
     const textBox = {
-      x: textRect.x + textRect.w / 2,
-      y: textRect.y + textRect.h / 2,
+      x: textLeft + textRect.w / 2,
+      y: textTop + textRect.h / 2,
       w: textRect.w + 4,
       h: textRect.h + 5,
     };
@@ -367,26 +386,45 @@ export function PosterTitle({
       && Math.abs(y - textBox.y) < (quoteH + textBox.h) / 2
     );
 
-    let openX = clampX(base.openX);
-    let openY = clampY(base.openY);
+    const hasCustomOpen = !!quoteOverrides && (quoteOverrides.openX !== undefined || quoteOverrides.openY !== undefined);
+    const hasCustomClose = !!quoteOverrides && (quoteOverrides.closeX !== undefined || quoteOverrides.closeY !== undefined);
+
+    // Default layout: open quote at top-left of text block.
+    let openX = hasCustomOpen ? clampX(base.openX) : clampX(textLeft - sideGap);
+    let openY = hasCustomOpen ? clampY(base.openY) : clampY(textTop - verticalGap);
+    if (!hasCustomOpen) {
+      openX = clampX(Math.min(openX, textLeft - quoteW * 0.2));
+      openY = clampY(Math.min(openY, textTop - quoteH * 0.2));
+    }
     if (overlapText(openX, openY)) {
-      const targetX = clampX(textRect.x - quoteW * 0.72);
-      const targetY = clampY(textRect.y - quoteH * 0.72);
-      openX = clampX(lerp(openX, targetX, 0.88));
-      openY = clampY(lerp(openY, targetY, 0.88));
+      openX = clampX(lerp(openX, textLeft - sideGap, 0.9));
+      openY = clampY(lerp(openY, textTop - verticalGap, 0.9));
     }
 
-    let closeX = clampX(base.closeX);
-    let closeY = clampY(base.closeY);
+    // Default layout: close quote at bottom-right of text block.
+    let closeX = hasCustomClose ? clampX(base.closeX) : clampX(textRight + sideGap);
+    let closeY = hasCustomClose ? clampY(base.closeY) : clampY(textBottom + verticalGap);
+    if (!hasCustomClose) {
+      closeX = clampX(Math.max(closeX, textRight + quoteW * 0.2));
+      closeY = clampY(Math.max(closeY, textBottom + quoteH * 0.2));
+    }
     if (overlapText(closeX, closeY)) {
-      const targetX = clampX(textRect.x + textRect.w + quoteW * 0.72);
-      const targetY = clampY(textRect.y + textRect.h + quoteH * 0.72);
-      closeX = clampX(lerp(closeX, targetX, 0.88));
-      closeY = clampY(lerp(closeY, targetY, 0.88));
+      closeX = clampX(lerp(closeX, textRight + sideGap, 0.9));
+      closeY = clampY(lerp(closeY, textBottom + verticalGap, 0.9));
+    }
+
+    // Final safety nudge for very tight containers.
+    for (let i = 0; i < 3 && (overlapText(openX, openY) || openY >= textTop); i += 1) {
+      openX = clampX(openX - 2.5);
+      openY = clampY(openY - 2.5);
+    }
+    for (let i = 0; i < 3 && (overlapText(closeX, closeY) || closeY <= textBottom); i += 1) {
+      closeX = clampX(closeX + 2.5);
+      closeY = clampY(closeY + 2.5);
     }
 
     return { ...base, openX, openY, closeX, closeY };
-  }, [layoutMetrics, quoteConfig]);
+  }, [layoutMetrics, quote, quoteConfig, useAnchoredDefaultQuotes]);
 
   const fitContent = useCallback(() => {
     const root = rootRef.current;
@@ -495,7 +533,7 @@ export function PosterTitle({
           transformOrigin: adaptiveMetrics.blockAlign === 'left' ? 'left center' : 'center center',
         }}
       >
-        {quoteConfig && resolvedQuoteLayout && (
+        {quoteConfig && !useAnchoredDefaultQuotes && resolvedQuoteLayout && (
           <>
             <span
               className="absolute z-[2] pointer-events-none select-none leading-none"
@@ -529,6 +567,38 @@ export function PosterTitle({
         )}
 
         <div ref={lineGroupRef} className="relative z-[1]" style={{ display: 'grid', rowGap: `${adaptiveMetrics.lineGapEm}em` }}>
+          {quoteConfig && useAnchoredDefaultQuotes && (
+            <>
+              <span
+                className="absolute z-[2] pointer-events-none select-none leading-none"
+                style={{
+                  left: '0%',
+                  top: '0%',
+                  transform: 'translate(-62%, -78%)',
+                  fontSize: `${quoteConfig.size ?? 46}px`,
+                  color: quoteConfig.color ?? 'hsl(24 36% 35% / 0.5)',
+                  opacity: quoteConfig.opacity ?? 0.85,
+                }}
+                aria-hidden
+              >
+                {quoteConfig.openSymbol ?? '“'}
+              </span>
+              <span
+                className="absolute z-[2] pointer-events-none select-none leading-none"
+                style={{
+                  right: '0%',
+                  bottom: '0%',
+                  transform: 'translate(62%, 86%)',
+                  fontSize: `${quoteConfig.size ?? 46}px`,
+                  color: quoteConfig.color ?? 'hsl(24 36% 35% / 0.5)',
+                  opacity: quoteConfig.opacity ?? 0.85,
+                }}
+                aria-hidden
+              >
+                {quoteConfig.closeSymbol ?? '”'}
+              </span>
+            </>
+          )}
           {lines.map((line, lineIndex) => {
             const lineSizeEm = sizeEmMap[line.size ?? 'md'] * adaptiveMetrics.fontScale;
             return (

@@ -144,9 +144,9 @@ export default function PaperShapeContainers() {
             <div >
               <p className="font-craft text-xs uppercase tracking-[0.2em] text-muted-foreground">Paper Shape Container Lab</p>
               <PosterTitle
-                className="mt-1"
+                className="mt-1 h-20"
                 align="left"
-                kicker="容器示例："
+                kicker="&nbsp;"
                 quote={true}
                 lines={[
                   {
@@ -159,10 +159,8 @@ export default function PaperShapeContainers() {
                   },
                 ]}
                 emojis={[
-                  { value: '✨', x: 96, y: 164, size: 16, rotate: 10 },
-                ]}
-                symbols={[
-                  { kind: 'dash', x: 22, y: 88, size: 20, rotate: -3, opacity: 0.45 },
+                  { value: '❣️', x: 20, y: -39, size: 16, rotate: -10 },
+                  { value: '✨', x: 86, y: 164, size: 16, rotate: 10 },
                 ]}
               />
               <p className="mt-3 max-w-3xl font-craft text-sm leading-relaxed text-muted-foreground">
@@ -282,7 +280,6 @@ export default function PaperShapeContainers() {
                       ],
                     },
                   ]}
-                  emojis={[{ value: '🧷', x: 94, y: 18, size: 15, rotate: 8 }]}
                   symbols={[{ kind: 'dash', x: 22, y: 84, size: 22, rotate: -4, opacity: 0.44 }]}
                 />
                 <p className="font-craft text-sm leading-relaxed text-foreground/85">
