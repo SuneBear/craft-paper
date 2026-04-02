@@ -39,6 +39,12 @@ export default function PaperShapeOverview() {
           >
             打开编辑器 🎮
           </Link>
+          <Link
+            to="/ui/paper-shape/containers"
+            className="px-5 py-2.5 rounded-xl bg-accent text-accent-foreground font-craft text-sm font-medium hover:opacity-90 transition"
+          >
+            容器示例 🧩
+          </Link>
         </div>
       </section>
 

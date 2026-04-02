@@ -2,6 +2,7 @@
 
 手绘风纸张形状组件系统，基于 React + Vite + TypeScript。  
 项目内置多种纸张预设、纹理、折角/裁剪/缝线等参数编辑能力，以及装饰物（贴纸/胶带/订书钉）交互编辑。
+该项目最初通过 [Lovable](https://lovable.dev/) 生成并初始化，在此基础上持续迭代开发。
 
 ---
 
@@ -29,9 +30,10 @@ npm run dev
 - `/`：首页入口
 - `/ui/paper-shape`：Paper Shape 模块主页
 - `/ui/paper-shape/examples`：预设示例列表
+- `/ui/paper-shape/containers`：容器示例页（实验性质，当前为初步尝试，后续会有重大调整）
 - `/ui/paper-shape/preset/:preset`：预设详情编辑页
 - `/ui/paper-shape/playground`：自由编辑器
-- `/ui/paper-shape/stack`：堆叠展示页
+- `/ui/paper-shape/stack`：卡牌堆叠与拼贴展示页（底层卡片暗化 + 透明度衰减 + 悬停扇形展开）
 
 ---
 
@@ -57,6 +59,9 @@ export function Demo() {
 
 - `preset?: PaperPreset`：预设类型（默认 `basic-paper`）
 - `width?: number` / `height?: number`：画布尺寸
+- `layoutMode?: 'fixed' | 'content' | 'fill'`：布局模式（固定尺寸/内容自适应/父容器宽度自适应）
+- `minWidth?` / `maxWidth?` / `minHeight?` / `maxHeight?`：`layoutMode` 下的尺寸约束
+- `canvasPadding?: number`：外层画布留白（默认 `0`，外边贴合；需要外扩时手动设置）
 - `seed?: number` / `roughness?: number`：随机种子与粗糙度
 - `paperColor?: string`：纸张颜色（支持内置 key 或 CSS 颜色）
 - `strokeColor?: string` / `strokeWidth?: number`：描边设置
@@ -66,9 +71,33 @@ export function Demo() {
 - `decorations?: DecorationItem[]`：装饰数据
 - `interactiveDecorations?: boolean`：是否可拖拽/旋转/缩放装饰
 - `onDecorationChange?` / `onDecorationRemove?`：装饰编辑回调
-- `contentPadding?: number`：内容安全内边距
+- `contentPadding?: number | { all?; x?; y?; top?; right?; bottom?; left? }`：内容安全内边距（`all` 为基础值，其余字段可覆盖）
+- `contentAlign?: 'center' | 'start'`：内容层对齐方式（居中/左上起始）
+- `contentClassName?: string`：内容层容器 className
 - `contentInteractive?: boolean`：内容层是否可交互
 - `children?: ReactNode`：内容层
+
+### 3.3 作为 UI 容器（无需新组件名）
+
+```tsx
+<PaperShape
+  preset="basic-paper"
+  layoutMode="fill"
+  minHeight={180}
+  maxWidth={680}
+  contentAlign="start"
+  contentPadding={{ all: 12, x: 14, top: 16, bottom: 12 }}
+>
+  <div className="w-full">
+    <h3>游记面板</h3>
+    <p>内容会自动避让打孔/切角安全区。</p>
+  </div>
+</PaperShape>
+```
+
+说明：
+- SSR 首屏使用 `width` / `height` 初始值渲染；
+- 客户端会基于内容和父容器宽度做自适应微调（避免新建 `PaperShapeContainer` API）。
 
 ---
 
@@ -163,6 +192,8 @@ const sticker = createDecoration('sticker', 'heart', 160, 90, {
 - 预设详情页：[src/pages/paper-shape/PaperShapePresetDetail.tsx](src/pages/paper-shape/PaperShapePresetDetail.tsx)
 - Playground：[src/pages/paper-shape/PaperShapePlayground.tsx](src/pages/paper-shape/PaperShapePlayground.tsx)
 - 示例页：[src/pages/paper-shape/PaperShapeExamples.tsx](src/pages/paper-shape/PaperShapeExamples.tsx)
+- 堆叠页：[src/pages/paper-shape/PaperShapeStack.tsx](src/pages/paper-shape/PaperShapeStack.tsx)（卡牌堆叠层次、底层暗化与透明度控制）
+- 容器示例页：[src/pages/paper-shape/PaperShapeContainers.tsx](src/pages/paper-shape/PaperShapeContainers.tsx)
 - 参数面板：[src/components/paper-shape/PaperShapeEditorPanel.tsx](src/components/paper-shape/PaperShapeEditorPanel.tsx)
 
 ---
@@ -173,9 +204,11 @@ const sticker = createDecoration('sticker', 'heart', 160, 90, {
 
 1. 几何生成：`src/components/paper-shape/geometry.ts`
 2. 主渲染与遮罩：`src/components/paper-shape/PaperShape.tsx`
-3. 参数 UI：`src/components/paper-shape/PaperShapeEditorPanel.tsx`
-4. 示例数据：`src/pages/paper-shape/PaperShapeExamples.tsx`
-5. 随机参数策略：`src/lib/paper-shape-random.ts`
+3. 自适应布局逻辑：`src/components/paper-shape/usePaperAutoLayout.ts`
+4. 参数 UI：`src/components/paper-shape/PaperShapeEditorPanel.tsx`
+5. 示例数据：`src/pages/paper-shape/PaperShapeExamples.tsx`
+6. 容器示例：`src/pages/paper-shape/PaperShapeContainers.tsx`
+7. 随机参数策略：`src/lib/paper-shape-random.ts`
 
 已知优化点：
 

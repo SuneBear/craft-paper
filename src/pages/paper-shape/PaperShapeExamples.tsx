@@ -19,6 +19,18 @@ const EDITOR_PRESET_HEIGHT = 200;
 
 const paperColors = ['cream', 'cloud', 'pink', 'apricot', 'peach', 'mint', 'sky', 'lavender'];
 const patternTypes: Array<'none' | 'lines' | 'grid' | 'dots'> = ['none', 'lines', 'grid', 'dots'];
+const stackPreviewItems: Array<{
+  preset: PaperPreset;
+  color: string;
+  rotate: number;
+  x: number;
+  y: number;
+  seed: number;
+}> = [
+  { preset: 'torn', color: 'cream', rotate: -4, x: -16, y: 12, seed: 731 },
+  { preset: 'ticket', color: 'mint', rotate: 3, x: 12, y: 1, seed: 732 },
+  { preset: 'scalloped-edge', color: 'pink', rotate: -1, x: 0, y: -10, seed: 733 },
+];
 
 interface ExampleItem {
   id: string;
@@ -296,6 +308,80 @@ export default function PaperShapeExamples() {
           </button>
         ))}
       </div>
+
+      <section className="relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-br from-card via-card to-muted/40 p-5">
+        <div className="pointer-events-none absolute inset-x-8 bottom-2 h-10 rounded-full bg-black/35 blur-2xl opacity-55" />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+          <div>
+            <h3 className="font-hand text-xl font-semibold text-foreground">卡牌堆叠风格预览</h3>
+            <p className="mt-1 text-xs font-craft text-muted-foreground">底层卡片暗化+减透明，顶部更亮，hover 时轻微展开</p>
+          </div>
+          <Link
+            to="/ui/paper-shape/stack"
+            className="shrink-0 rounded-lg border border-border bg-background/75 px-3 py-1.5 text-[11px] font-craft text-foreground/85 hover:bg-background transition"
+          >
+            查看完整堆叠 →
+          </Link>
+        </div>
+
+        <motion.div
+          className="relative mt-5 flex min-h-[190px] items-center justify-center [perspective:1000px]"
+          initial="rest"
+          animate="rest"
+          whileHover="hover"
+        >
+          {stackPreviewItems.map((item, i) => {
+            const topIndex = stackPreviewItems.length - 1;
+            const depth = topIndex - i;
+            const spreadIndex = i - topIndex / 2;
+            const restX = item.x - depth * 4;
+            const restY = item.y + depth * 10;
+            const restScale = Math.max(0.84, 1 - depth * 0.04);
+            const restRotate = item.rotate - depth * 0.6;
+            const layerOpacity = Math.max(0.38, 1 - depth * 0.2);
+            const brightness = Math.max(0.56, 1 - depth * 0.14);
+            const saturation = Math.max(0.72, 1 - depth * 0.09);
+
+            return (
+              <motion.div
+                key={item.seed}
+                className="absolute h-[130px] w-[180px] origin-bottom"
+                variants={{
+                  rest: { x: restX, y: restY, rotate: restRotate, scale: restScale },
+                  hover: {
+                    x: restX + spreadIndex * 13,
+                    y: restY - (5 + depth * 1.8),
+                    rotate: restRotate + spreadIndex * 2,
+                    scale: restScale + 0.03,
+                  },
+                }}
+                style={{
+                  zIndex: i,
+                  opacity: layerOpacity,
+                  filter: `brightness(${brightness}) saturate(${saturation})`,
+                }}
+                transition={{ type: 'spring', stiffness: 280, damping: 24, mass: 0.52 }}
+              >
+                <div
+                  className="pointer-events-none absolute inset-x-5 bottom-[-12px] h-7 rounded-full bg-black blur-md"
+                  style={{ opacity: Math.max(0.15, 0.32 - depth * 0.06) }}
+                />
+                <PaperShape
+                  preset={item.preset}
+                  width={180}
+                  height={130}
+                  seed={item.seed}
+                  paperColor={item.color}
+                  showPattern={i >= topIndex - 1}
+                  patternType={i === topIndex ? 'dots' : 'lines'}
+                >
+                  <span className="text-2xl">{presetInfo[item.preset].emoji}</span>
+                </PaperShape>
+              </motion.div>
+            );
+          })}
+        </motion.div>
+      </section>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
         {filtered.map((ex, i) => {

@@ -4,9 +4,21 @@ import { generatePath, getTagHole, getFoldTriangles, getStitchPath, generateStit
 import type { PaperPreset, ShapeConfig, PresetParams, ShapeCommonParams } from './geometry';
 import type { DecorationItem, DecorationTransform } from './decorations';
 import { DraggableDecoration } from './DraggableDecoration';
+import { type PaperShapeLayoutMode, usePaperAutoLayout } from './usePaperAutoLayout';
 import { cn } from '@/lib/utils';
 
 export type PaperPatternType = 'lines' | 'grid' | 'dots' | 'diagonal' | 'waves' | 'none';
+export type PaperContentPadding =
+  | number
+  | {
+    all?: number;
+    top?: number;
+    right?: number;
+    bottom?: number;
+    left?: number;
+    x?: number;
+    y?: number;
+  };
 
 export interface PatternParams {
   patternColor?: string;
@@ -28,6 +40,18 @@ export interface PaperShapeProps {
   preset?: PaperPreset;
   width?: number;
   height?: number;
+  /**
+   * fixed: uses width/height directly.
+   * content: size grows with content.
+   * fill: width follows parent container, height grows with content.
+   */
+  layoutMode?: PaperShapeLayoutMode;
+  minWidth?: number;
+  maxWidth?: number;
+  minHeight?: number;
+  maxHeight?: number;
+  /** Extra outer bleed around svg canvas. Default 0 keeps outer edge flush. */
+  canvasPadding?: number;
   seed?: number;
   roughness?: number;
   paperColor?: string;
@@ -47,12 +71,18 @@ export interface PaperShapeProps {
   shapeParams?: ShapeCommonParams;
   /** Preset-specific params (legacy + compatibility: still accepts mixed params). */
   presetParams?: PresetParams;
-  contentPadding?: number;
+  contentPadding?: PaperContentPadding;
   decorations?: DecorationItem[];
   onDecorationChange?: (id: string, transform: DecorationTransform) => void;
   onDecorationRemove?: (id: string) => void;
   interactiveDecorations?: boolean;
   contentInteractive?: boolean;
+  /**
+   * center: keep children centered (legacy behavior)
+   * start: align content from top-left and stretch width
+   */
+  contentAlign?: 'center' | 'start';
+  contentClassName?: string;
 }
 
 const PAPER_COLORS: Record<string, string> = {
@@ -73,9 +103,31 @@ const ACCENT_COLORS = [
   'hsl(270, 30%, 76%)',
   'hsl(30, 65%, 68%)',
 ];
+const DEFAULT_CANVAS_PADDING = 0;
 
 function clampNum(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+function resolveContentPadding(value: PaperContentPadding): {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+} {
+  if (typeof value === 'number') {
+    const n = Math.max(0, value);
+    return { top: n, right: n, bottom: n, left: n };
+  }
+  const all = Math.max(0, value.all ?? 0);
+  const x = Math.max(0, value.x ?? all);
+  const y = Math.max(0, value.y ?? all);
+  return {
+    top: Math.max(0, value.top ?? y),
+    right: Math.max(0, value.right ?? x),
+    bottom: Math.max(0, value.bottom ?? y),
+    left: Math.max(0, value.left ?? x),
+  };
 }
 
 function parseHexColor(input: string): { r: number; g: number; b: number } | null {
@@ -216,8 +268,14 @@ function readCutoutEdgeShape(
 
 export const PaperShape: React.FC<PaperShapeProps> = ({
   preset = 'basic-paper',
-  width = 240,
-  height = 180,
+  width: widthProp = 240,
+  height: heightProp = 180,
+  layoutMode = 'fixed',
+  minWidth = 120,
+  maxWidth = 1200,
+  minHeight: minHeightProp,
+  maxHeight = 1200,
+  canvasPadding = DEFAULT_CANVAS_PADDING,
   seed = 42,
   roughness = 0.3,
   paperColor,
@@ -238,11 +296,57 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
   onDecorationRemove,
   interactiveDecorations = false,
   contentInteractive = false,
+  contentAlign = 'center',
+  contentClassName,
 }) => {
   const presetParams = useMemo<PresetParams>(
     () => ({ ...(presetParamsRaw ?? {}), ...(shapeParams ?? {}) }),
     [presetParamsRaw, shapeParams]
   );
+  const shadowEnabled = presetParams?.shadowEnabled !== false;
+  const shadowOffsetX = clampNum(presetParams?.shadowOffsetX ?? 3, -32, 32);
+  const shadowOffsetY = clampNum(presetParams?.shadowOffsetY ?? 3, -32, 32);
+  const shadowOpacity = clampNum(presetParams?.shadowOpacity ?? 0.2, 0, 1);
+  const strokeBleed = strokeWidth > 0 ? strokeWidth * 0.8 + 1 : 0;
+  const shadowBleed = shadowEnabled && shadowOpacity > 0
+    ? Math.max(Math.abs(shadowOffsetX), Math.abs(shadowOffsetY)) + Math.max(2, strokeWidth * 0.8 + 1)
+    : 0;
+  const receiptZigzagBleed = preset === 'receipt'
+    ? Math.max(0, (presetParams?.zigzagHeight ?? 8) + 2)
+    : 0;
+  const resolvedCanvasPadding = Math.max(
+    0,
+    canvasPadding,
+    Math.ceil(Math.max(strokeBleed, shadowBleed, receiptZigzagBleed))
+  );
+  const resolvedContentPadding = useMemo(
+    () => resolveContentPadding(contentPadding),
+    [contentPadding]
+  );
+  const resolvedMinHeight = typeof minHeightProp === 'number'
+    ? minHeightProp
+    : (layoutMode === 'fixed' ? 56 : 0);
+
+  // TODO(paper-shape-container): Revisit container-mode implementation end-to-end:
+  // unify auto-layout rules, safe-area/padding model, SSR first paint behavior,
+  // nested fill constraints, and visual bleed handling (stroke/shadow/decorations).
+  const { hostRef, contentRef, width, height } = usePaperAutoLayout({
+    layoutMode,
+    width: widthProp,
+    height: heightProp,
+    minWidth,
+    maxWidth,
+    minHeight: resolvedMinHeight,
+    maxHeight,
+    fillWidthCompensation: resolvedCanvasPadding * 2,
+    widthPaddingCompensation: layoutMode === 'content'
+      ? resolvedContentPadding.left + resolvedContentPadding.right
+      : 0,
+    heightPaddingCompensation: layoutMode === 'fixed'
+      ? 0
+      : resolvedContentPadding.top + resolvedContentPadding.bottom,
+    observeDeps: [children, contentAlign],
+  });
   const uid = useId().replace(/:/g, '');
   const clipId = `clip-${uid}`;
   const patternId = `pat-${uid}`;
@@ -260,10 +364,6 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     : PAPER_COLORS.cream;
 
   const stroke = strokeColor || 'hsl(24, 36%, 35%)';
-  const shadowEnabled = presetParams?.shadowEnabled !== false;
-  const shadowOffsetX = clampNum(presetParams?.shadowOffsetX ?? 3, -32, 32);
-  const shadowOffsetY = clampNum(presetParams?.shadowOffsetY ?? 3, -32, 32);
-  const shadowOpacity = clampNum(presetParams?.shadowOpacity ?? 0.2, 0, 1);
   const manualShadowColor = typeof presetParams?.shadowColor === 'string' ? presetParams.shadowColor.trim() : '';
   const paperShadowColor = manualShadowColor || derivePaperShadowColor(fill, stroke);
   const foldTone = presetParams?.foldColor || stroke;
@@ -745,7 +845,7 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
   }, [preset, presetParams, perforationGuide, width, height]);
 
   const padding = useMemo(() => {
-    const basePadding = 16;
+    const basePadding = resolvedCanvasPadding;
     const bleed = 8;
     let needed = basePadding;
     for (const deco of decorations) {
@@ -773,7 +873,7 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
       );
     }
     return Math.ceil(needed);
-  }, [decorations, width, height]);
+  }, [decorations, resolvedCanvasPadding, width, height]);
   const svgW = width + padding * 2;
   const svgH = height + padding * 2;
   const decorationTargetRefs = useRef<Record<string, SVGGElement | null>>({});
@@ -858,87 +958,92 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
 
   return (
     <div
-      className={cn('relative inline-block', className)}
-      style={{ width: svgW, height: svgH, ...style }}
-      onPointerDown={handleCanvasPointerDown}
-      onClick={onClick}
+      ref={hostRef}
+      className={cn(layoutMode === 'fill' ? 'block w-full' : 'inline-block max-w-full', className)}
+      style={style}
     >
-      <svg
-        ref={svgRef}
-        width={svgW}
-        height={svgH}
-        viewBox={`${-padding} ${-padding} ${svgW} ${svgH}`}
-        className="absolute inset-0"
+      <div
+        className={cn('relative', layoutMode === 'fill' ? 'block' : 'inline-block')}
+        style={{ width: svgW, height: svgH }}
+        onPointerDown={handleCanvasPointerDown}
+        onClick={onClick}
       >
-        <defs>
-          <clipPath id={clipId}>
-            <path d={path} />
-          </clipPath>
+        <svg
+          ref={svgRef}
+          width={svgW}
+          height={svgH}
+          viewBox={`${-padding} ${-padding} ${svgW} ${svgH}`}
+          className="absolute inset-0"
+        >
+          <defs>
+            <clipPath id={clipId}>
+              <path d={path} />
+            </clipPath>
 
-          {hasCutoutMask && (
-            <mask id={maskId}>
-              <rect x={-padding} y={-padding} width={svgW} height={svgH} fill="white" />
-              {tagHole && (
-                <circle cx={tagHole.cx} cy={tagHole.cy} r={tagHole.r} fill="black" />
-              )}
-              {perforationMaskDots.map((dot, i) => (
-                <circle key={`mask-dot-${i}`} cx={dot.x} cy={dot.y} r={dot.r} fill="black" />
-              ))}
-              {cutoutMaskShapes.map((shape, i) => (
-                shape.kind === 'polygon' ? (
-                  <polygon key={`mask-cut-${i}`} points={shape.points} fill="black" />
-                ) : shape.kind === 'ellipse' ? (
-                  <ellipse key={`mask-cut-${i}`} cx={shape.cx} cy={shape.cy} rx={shape.rx} ry={shape.ry} fill="black" />
-                ) : (
-                  <rect
-                    key={`mask-cut-${i}`}
-                    x={shape.x}
-                    y={shape.y}
-                    width={shape.width}
-                    height={shape.height}
-                    rx={shape.rx}
-                    ry={shape.ry}
-                    fill="black"
+            {hasCutoutMask && (
+              <mask id={maskId}>
+                <rect x={-padding} y={-padding} width={svgW} height={svgH} fill="white" />
+                {tagHole && (
+                  <circle cx={tagHole.cx} cy={tagHole.cy} r={tagHole.r} fill="black" />
+                )}
+                {perforationMaskDots.map((dot, i) => (
+                  <circle key={`mask-dot-${i}`} cx={dot.x} cy={dot.y} r={dot.r} fill="black" />
+                ))}
+                {cutoutMaskShapes.map((shape, i) => (
+                  shape.kind === 'polygon' ? (
+                    <polygon key={`mask-cut-${i}`} points={shape.points} fill="black" />
+                  ) : shape.kind === 'ellipse' ? (
+                    <ellipse key={`mask-cut-${i}`} cx={shape.cx} cy={shape.cy} rx={shape.rx} ry={shape.ry} fill="black" />
+                  ) : (
+                    <rect
+                      key={`mask-cut-${i}`}
+                      x={shape.x}
+                      y={shape.y}
+                      width={shape.width}
+                      height={shape.height}
+                      rx={shape.rx}
+                      ry={shape.ry}
+                      fill="black"
+                    />
+                  )
+                ))}
+              </mask>
+            )}
+
+            {showPattern && patternType !== 'none' && (
+              <pattern
+                id={patternId}
+                width={patternType === 'dots' ? dotGap : patternType === 'grid' ? gridGap : patternType === 'diagonal' ? diagonalGap : patternType === 'waves' ? waveGap : lineGap}
+                height={patternType === 'dots' ? dotGap : patternType === 'grid' ? gridGap : patternType === 'diagonal' ? diagonalGap : patternType === 'waves' ? waveGap : lineGap}
+                patternUnits="userSpaceOnUse"
+              >
+                {patternType === 'lines' && (
+                  <line x1="0" y1={lineGap} x2={lineGap} y2={lineGap} stroke={patternColor} strokeWidth={lineWidth} opacity={patternOpacity} />
+                )}
+                {patternType === 'grid' && (
+                  <>
+                    <line x1="0" y1={gridGap} x2={gridGap} y2={gridGap} stroke={patternColor} strokeWidth={gridWidth} opacity={patternOpacity} />
+                    <line x1={gridGap} y1="0" x2={gridGap} y2={gridGap} stroke={patternColor} strokeWidth={gridWidth} opacity={patternOpacity} />
+                  </>
+                )}
+                {patternType === 'dots' && (
+                  <circle cx={dotGap / 2} cy={dotGap / 2} r={dotSize} fill={patternColor} opacity={patternOpacity} />
+                )}
+                {patternType === 'diagonal' && (
+                  <line x1="0" y1={diagonalGap} x2={diagonalGap} y2="0" stroke={patternColor} strokeWidth={diagonalWidth} opacity={patternOpacity} />
+                )}
+                {patternType === 'waves' && (
+                  <path
+                    d={`M 0 ${waveGap / 2} Q ${waveGap / 4} ${waveGap / 2 - waveAmplitude} ${waveGap / 2} ${waveGap / 2} Q ${waveGap * 0.75} ${waveGap / 2 + waveAmplitude} ${waveGap} ${waveGap / 2}`}
+                    fill="none"
+                    stroke={patternColor}
+                    strokeWidth={waveWidth}
+                    opacity={patternOpacity}
                   />
-                )
-              ))}
-            </mask>
-          )}
-
-          {showPattern && patternType !== 'none' && (
-            <pattern
-              id={patternId}
-              width={patternType === 'dots' ? dotGap : patternType === 'grid' ? gridGap : patternType === 'diagonal' ? diagonalGap : patternType === 'waves' ? waveGap : lineGap}
-              height={patternType === 'dots' ? dotGap : patternType === 'grid' ? gridGap : patternType === 'diagonal' ? diagonalGap : patternType === 'waves' ? waveGap : lineGap}
-              patternUnits="userSpaceOnUse"
-            >
-              {patternType === 'lines' && (
-                <line x1="0" y1={lineGap} x2={lineGap} y2={lineGap} stroke={patternColor} strokeWidth={lineWidth} opacity={patternOpacity} />
-              )}
-              {patternType === 'grid' && (
-                <>
-                  <line x1="0" y1={gridGap} x2={gridGap} y2={gridGap} stroke={patternColor} strokeWidth={gridWidth} opacity={patternOpacity} />
-                  <line x1={gridGap} y1="0" x2={gridGap} y2={gridGap} stroke={patternColor} strokeWidth={gridWidth} opacity={patternOpacity} />
-                </>
-              )}
-              {patternType === 'dots' && (
-                <circle cx={dotGap / 2} cy={dotGap / 2} r={dotSize} fill={patternColor} opacity={patternOpacity} />
-              )}
-              {patternType === 'diagonal' && (
-                <line x1="0" y1={diagonalGap} x2={diagonalGap} y2="0" stroke={patternColor} strokeWidth={diagonalWidth} opacity={patternOpacity} />
-              )}
-              {patternType === 'waves' && (
-                <path
-                  d={`M 0 ${waveGap / 2} Q ${waveGap / 4} ${waveGap / 2 - waveAmplitude} ${waveGap / 2} ${waveGap / 2} Q ${waveGap * 0.75} ${waveGap / 2 + waveAmplitude} ${waveGap} ${waveGap / 2}`}
-                  fill="none"
-                  stroke={patternColor}
-                  strokeWidth={waveWidth}
-                  opacity={patternOpacity}
-                />
-              )}
-            </pattern>
-          )}
-        </defs>
+                )}
+              </pattern>
+            )}
+          </defs>
 
         {/* Shadow layer */}
         {shadowEnabled && shadowOpacity > 0 && (
@@ -1078,95 +1183,108 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
           />
         )}
 
-        {/* Decorations layer */}
-        {decorations.map((deco) => (
-          <DraggableDecoration
-            key={deco.id}
-            item={deco}
-            selected={selectedDecorationId === deco.id}
-            onSelect={setSelectedDecorationId}
-            interactive={interactiveDecorations}
-            registerTarget={registerDecorationTarget}
+          {/* Decorations layer */}
+          {decorations.map((deco) => (
+            <DraggableDecoration
+              key={deco.id}
+              item={deco}
+              selected={selectedDecorationId === deco.id}
+              onSelect={setSelectedDecorationId}
+              interactive={interactiveDecorations}
+              registerTarget={registerDecorationTarget}
+            />
+          ))}
+        </svg>
+
+        {interactiveDecorations && selectedDecoration && selectedDecorationTarget && (
+          <Moveable
+            target={selectedDecorationTarget}
+            container={svgRef.current?.parentElement ?? undefined}
+            rootContainer={svgRef.current?.parentElement ?? undefined}
+            origin={false}
+            edge={false}
+            draggable={true}
+            rotatable={true}
+            scalable={true}
+            keepRatio={true}
+            renderDirections={['nw', 'ne', 'sw', 'se']}
+            rotationPosition="top"
+            throttleDrag={0}
+            throttleRotate={0}
+            throttleScale={0}
+            onDragStart={() => {
+              moveableOriginRef.current = selectedDecoration.transform;
+            }}
+            onDrag={({ beforeTranslate }) => {
+              const origin = moveableOriginRef.current ?? selectedDecoration.transform;
+              handleDecoChange(selectedDecoration.id, {
+                ...origin,
+                x: origin.x + beforeTranslate[0],
+                y: origin.y + beforeTranslate[1],
+              });
+            }}
+            onDragEnd={() => {
+              moveableOriginRef.current = null;
+            }}
+            onRotateStart={() => {
+              moveableOriginRef.current = selectedDecoration.transform;
+            }}
+            onRotate={({ beforeRotate }) => {
+              const origin = moveableOriginRef.current ?? selectedDecoration.transform;
+              handleDecoChange(selectedDecoration.id, {
+                ...origin,
+                rotation: origin.rotation + beforeRotate,
+              });
+            }}
+            onRotateEnd={() => {
+              moveableOriginRef.current = null;
+            }}
+            onScaleStart={({ set }) => {
+              moveableOriginRef.current = selectedDecoration.transform;
+              set([selectedDecoration.transform.scale, selectedDecoration.transform.scale]);
+            }}
+            onScale={({ scale }) => {
+              const origin = moveableOriginRef.current ?? selectedDecoration.transform;
+              const nextScale = Math.max(0.3, Math.min(3, scale[0]));
+              handleDecoChange(selectedDecoration.id, {
+                ...origin,
+                scale: nextScale,
+              });
+            }}
+            onScaleEnd={() => {
+              moveableOriginRef.current = null;
+            }}
           />
-        ))}
-      </svg>
+        )}
 
-      {interactiveDecorations && selectedDecoration && selectedDecorationTarget && (
-        <Moveable
-          target={selectedDecorationTarget}
-          container={svgRef.current?.parentElement ?? undefined}
-          rootContainer={svgRef.current?.parentElement ?? undefined}
-          origin={false}
-          edge={false}
-          draggable={true}
-          rotatable={true}
-          scalable={true}
-          keepRatio={true}
-          renderDirections={['nw', 'ne', 'sw', 'se']}
-          rotationPosition="top"
-          throttleDrag={0}
-          throttleRotate={0}
-          throttleScale={0}
-          onDragStart={() => {
-            moveableOriginRef.current = selectedDecoration.transform;
-          }}
-          onDrag={({ beforeTranslate }) => {
-            const origin = moveableOriginRef.current ?? selectedDecoration.transform;
-            handleDecoChange(selectedDecoration.id, {
-              ...origin,
-              x: origin.x + beforeTranslate[0],
-              y: origin.y + beforeTranslate[1],
-            });
-          }}
-          onDragEnd={() => {
-            moveableOriginRef.current = null;
-          }}
-          onRotateStart={() => {
-            moveableOriginRef.current = selectedDecoration.transform;
-          }}
-          onRotate={({ beforeRotate }) => {
-            const origin = moveableOriginRef.current ?? selectedDecoration.transform;
-            handleDecoChange(selectedDecoration.id, {
-              ...origin,
-              rotation: origin.rotation + beforeRotate,
-            });
-          }}
-          onRotateEnd={() => {
-            moveableOriginRef.current = null;
-          }}
-          onScaleStart={({ set }) => {
-            moveableOriginRef.current = selectedDecoration.transform;
-            set([selectedDecoration.transform.scale, selectedDecoration.transform.scale]);
-          }}
-          onScale={({ scale }) => {
-            const origin = moveableOriginRef.current ?? selectedDecoration.transform;
-            const nextScale = Math.max(0.3, Math.min(3, scale[0]));
-            handleDecoChange(selectedDecoration.id, {
-              ...origin,
-              scale: nextScale,
-            });
-          }}
-          onScaleEnd={() => {
-            moveableOriginRef.current = null;
-          }}
-        />
-      )}
-
-      {/* Content overlay */}
-      {children && (
-        <div
-          className="absolute inset-0 flex items-center justify-center"
-          style={{
-            paddingTop: `${padding + contentPadding + contentSafeInsets.top}px`,
-            paddingRight: `${padding + contentPadding + contentSafeInsets.right}px`,
-            paddingBottom: `${padding + contentPadding + contentSafeInsets.bottom}px`,
-            paddingLeft: `${padding + contentPadding + contentSafeInsets.left}px`,
-            pointerEvents: contentInteractive ? 'auto' : (interactiveDecorations ? 'none' : 'auto'),
-          }}
-        >
-          {children}
-        </div>
-      )}
+        {/* Content overlay */}
+        {children && (
+          <div
+            className={cn(
+              'absolute inset-0 flex',
+              contentAlign === 'start' ? 'items-start justify-start' : 'items-center justify-center'
+            )}
+            style={{
+              paddingTop: `${padding + resolvedContentPadding.top + contentSafeInsets.top}px`,
+              paddingRight: `${padding + resolvedContentPadding.right + contentSafeInsets.right}px`,
+              paddingBottom: `${padding + resolvedContentPadding.bottom + contentSafeInsets.bottom}px`,
+              paddingLeft: `${padding + resolvedContentPadding.left + contentSafeInsets.left}px`,
+              pointerEvents: contentInteractive ? 'auto' : (interactiveDecorations ? 'none' : 'auto'),
+            }}
+          >
+            <div
+              ref={contentRef}
+              className={cn(
+                layoutMode === 'fill' || contentAlign === 'start' ? 'w-full max-w-full' : 'inline-flex',
+                contentAlign === 'start' ? 'min-h-0 flex flex-col items-stretch justify-start' : 'items-center justify-center',
+                contentClassName
+              )}
+            >
+              {children}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

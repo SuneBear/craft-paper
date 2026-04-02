@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { PaperShape, type PaperPatternType, type PatternParams } from '@/components/paper-shape/PaperShape';
 import { PaperShapeEditorPanel } from '@/components/paper-shape/PaperShapeEditorPanel';
 import { DecorationEditorSection } from '@/components/paper-shape/DecorationEditorSection';
@@ -241,6 +241,20 @@ export default function PaperShapePlayground() {
         >
           💡 点击装饰可旋转/缩放/删除，拖拽可移动位置
         </p>
+
+        <Link
+          to="/ui/paper-shape/stack"
+          className="absolute bottom-3 left-3 rounded-lg bg-background/90 px-2.5 py-1 text-[11px] font-craft text-foreground/80 border border-border hover:bg-background transition"
+        >
+          📚 看堆叠示例
+        </Link>
+
+        <Link
+          to="/ui/paper-shape/containers"
+          className="absolute bottom-3 right-3 rounded-lg bg-background/90 px-2.5 py-1 text-[11px] font-craft text-foreground/80 border border-border hover:bg-background transition"
+        >
+          🧩 看容器示例
+        </Link>
       </div>
 
       <div className="self-stretch lg:min-h-0 lg:h-full flex flex-col gap-5">

@@ -52,7 +52,7 @@ export default function PaperShapeStack() {
       <div>
         <h2 className="text-2xl font-hand font-bold text-foreground mb-2">纸张堆叠与拼贴</h2>
         <p className="text-sm text-muted-foreground font-craft">
-          将不同形状的纸张组合在一起，创造手帐风拼贴效果
+          参考卡牌堆叠视觉：底层更暗、更轻透，顶部更清晰，悬停时轻微扇形展开
         </p>
       </div>
 
@@ -63,51 +63,76 @@ export default function PaperShapeStack() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: si * 0.1 }}
-            className="bg-card rounded-2xl border border-border p-6"
+            className="relative overflow-hidden rounded-[28px] border border-border/70 bg-gradient-to-br from-card via-card to-muted/40 p-6 shadow-[0_24px_60px_-34px_rgba(30,24,17,0.5)]"
           >
+            <div className="pointer-events-none absolute inset-x-10 top-3 h-16 rounded-full bg-white/40 blur-3xl opacity-60" />
+            <div className="pointer-events-none absolute inset-x-12 bottom-5 h-12 rounded-full bg-black/35 blur-3xl opacity-55" />
+
             <h3 className="font-hand text-xl font-semibold mb-1">{stack.title}</h3>
             <p className="text-xs text-muted-foreground font-craft mb-5">{stack.desc}</p>
 
             <motion.div
-              className="relative flex items-center justify-center min-h-[240px]"
+              className="relative flex items-center justify-center min-h-[250px] [perspective:1100px]"
               initial="rest"
               animate="rest"
               whileHover="hover"
             >
-              {stack.items.map((item, i) => (
-                <motion.div
-                  key={i}
-                  className="absolute"
-                  variants={{
-                    rest: {
-                      x: item.offsetX,
-                      y: item.offsetY,
-                      rotate: item.rotate,
-                      scale: 1,
-                    },
-                    hover: {
-                      x: item.offsetX + (i - (stack.items.length - 1) / 2) * 2,
-                      y: item.offsetY - (2 + i * 1.5),
-                      rotate: item.rotate + (item.rotate >= 0 ? 1.8 : -1.8),
-                      scale: 1.03 + i * 0.01,
-                    },
-                  }}
-                  style={{ zIndex: i }}
-                  transition={{ type: 'spring', stiffness: 300 }}
-                >
-                  <PaperShape
-                    preset={item.preset}
-                    width={180}
-                    height={130}
-                    seed={item.seed}
-                    paperColor={item.color}
-                    showPattern={i === stack.items.length - 1}
-                    patternType="dots"
+              {stack.items.map((item, i) => {
+                const topIndex = stack.items.length - 1;
+                const depth = topIndex - i;
+                const spreadIndex = i - topIndex / 2;
+                const restX = item.offsetX - depth * 4;
+                const restY = item.offsetY + depth * 10;
+                const restRotate = item.rotate - depth * 0.6;
+                const restScale = Math.max(0.84, 1 - depth * 0.04);
+                const layerOpacity = Math.max(0.38, 1 - depth * 0.2);
+                const brightness = Math.max(0.56, 1 - depth * 0.14);
+                const saturation = Math.max(0.72, 1 - depth * 0.09);
+                const shadowOpacity = Math.max(0.16, 0.34 - depth * 0.06);
+
+                return (
+                  <motion.div
+                    key={i}
+                    className="absolute h-[130px] w-[180px] origin-bottom"
+                    variants={{
+                      rest: {
+                        x: restX,
+                        y: restY,
+                        rotate: restRotate,
+                        scale: restScale,
+                      },
+                      hover: {
+                        x: restX + spreadIndex * 14,
+                        y: restY - (5 + depth * 1.8),
+                        rotate: restRotate + spreadIndex * 2,
+                        scale: restScale + 0.03,
+                      },
+                    }}
+                    style={{
+                      zIndex: i,
+                      opacity: layerOpacity,
+                      filter: `brightness(${brightness}) saturate(${saturation})`,
+                    }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 24, mass: 0.5 }}
                   >
-                    <span className="text-2xl">{presetInfo[item.preset].emoji}</span>
-                  </PaperShape>
-                </motion.div>
-              ))}
+                    <div
+                      className="pointer-events-none absolute inset-x-5 bottom-[-12px] h-7 rounded-full bg-black blur-md"
+                      style={{ opacity: shadowOpacity }}
+                    />
+                    <PaperShape
+                      preset={item.preset}
+                      width={180}
+                      height={130}
+                      seed={item.seed}
+                      paperColor={item.color}
+                      showPattern={i >= topIndex - 1}
+                      patternType={i === topIndex ? 'dots' : 'lines'}
+                    >
+                      <span className="text-2xl">{presetInfo[item.preset].emoji}</span>
+                    </PaperShape>
+                  </motion.div>
+                );
+              })}
             </motion.div>
           </motion.div>
         ))}
