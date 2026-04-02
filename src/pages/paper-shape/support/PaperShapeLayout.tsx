@@ -21,7 +21,7 @@ export function PaperShapeLayout() {
             className="inline-flex items-center gap-1.5 self-start rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-craft text-foreground/85 hover:bg-muted/60 transition"
           >
             <span aria-hidden>🔗</span>
-            <span>Get Remote Source · SuneBear/craft-paper</span>
+            <span>Code · SuneBear/craft-paper</span>
           </a>
         </header>
         <PaperShapeNav />
