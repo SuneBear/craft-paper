@@ -402,6 +402,9 @@ export function PaperShapeEditorPanel({
                   </button>
                 ))}
               </div>
+              <p className="mt-2 text-[10px] font-craft text-muted-foreground leading-tight">
+                内容建议：主区放标题/权益，副券放编号/核销码；可用打孔线偏移自由调整主副券比例。
+              </p>
             </div>
           )}
           {preset === 'stamp' && (

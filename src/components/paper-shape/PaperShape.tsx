@@ -245,6 +245,7 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
 
   const svgW = width + padding * 2;
   const svgH = height + padding * 2;
+  const svgPointerEvents: 'auto' | 'none' = (interactiveDecorations || typeof onClick === 'function') ? 'auto' : 'none';
 
   const {
     selectedDecoration,
@@ -317,6 +318,7 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
           setSelectedDecorationId={setSelectedDecorationId}
           interactiveDecorations={interactiveDecorations}
           registerDecorationTarget={registerDecorationTarget}
+          svgPointerEvents={svgPointerEvents}
         />
 
         {interactiveDecorations && selectedDecoration && selectedDecorationTarget && (

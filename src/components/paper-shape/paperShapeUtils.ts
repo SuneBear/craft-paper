@@ -109,7 +109,7 @@ export function derivePaperShadowColor(fillColor: string, fallback: string): str
 }
 
 export function edgeBiasedSplit(length: number, offsetRaw: number, edgeRatioRaw: number = 0.2): number {
-  const edgeRatio = Math.max(0.14, Math.min(0.32, edgeRatioRaw));
+  const edgeRatio = Math.max(0.14, Math.min(0.45, edgeRatioRaw));
   const side = offsetRaw < 0 ? -1 : 1;
   const anchor = side < 0 ? length * edgeRatio : length * (1 - edgeRatio);
   const clampedOffset = Math.max(-length * 0.25, Math.min(length * 0.25, offsetRaw));

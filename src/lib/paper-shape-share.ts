@@ -4,6 +4,7 @@ import type { PaperPatternType, PatternParams } from '@/components/paper-shape';
 
 export interface PaperShapeShareState {
   preset: PaperPreset;
+  layoutMode?: 'fixed' | 'content' | 'fill';
   width: number;
   height: number;
   seed: number;

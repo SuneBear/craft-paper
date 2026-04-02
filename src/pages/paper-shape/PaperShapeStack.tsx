@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { useState } from 'react';
 
 type StackMode = 'vertical-bottom' | 'vertical-top' | 'diagonal' | 'messy';
+type TuningPreset = 'clean' | 'balanced' | 'dramatic';
 
 const stackModeOptions: Array<{ key: StackMode; label: string; desc: string }> = [
   { key: 'vertical-bottom', label: '底部纵向', desc: '像一叠纸压在底部，最有“纸堆”感' },
@@ -12,6 +13,50 @@ const stackModeOptions: Array<{ key: StackMode; label: string; desc: string }> =
   { key: 'diagonal', label: '对角堆叠', desc: '各层按同方向斜向位移，参考 Diagonal' },
   { key: 'messy', label: '杂乱堆叠', desc: '轻微左右交错与旋转，参考 Disorganized' },
 ];
+
+const tuningPresetOptions: Array<{ key: TuningPreset; label: string; desc: string }> = [
+  { key: 'clean', label: '规整', desc: '低随机、轻收拢，排布更干净' },
+  { key: 'balanced', label: '均衡', desc: '默认推荐，层次和可读性平衡' },
+  { key: 'dramatic', label: '戏剧', desc: '更强错位与深度，视觉冲击更大' },
+];
+
+interface SliderFieldProps {
+  label: string;
+  value: number;
+  valueText: string;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (value: number) => void;
+}
+
+function SliderField({
+  label,
+  value,
+  valueText,
+  min,
+  max,
+  step,
+  onChange,
+}: SliderFieldProps) {
+  return (
+    <label className="space-y-1.5">
+      <div className="flex items-center justify-between text-[11px] font-craft text-muted-foreground">
+        <span>{label}</span>
+        <span>{valueText}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full accent-primary"
+      />
+    </label>
+  );
+}
 
 function seededNoise(seed: number): number {
   const x = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
@@ -112,6 +157,8 @@ const stackExamples: Array<{
 
 export default function PaperShapeStack() {
   const [stackMode, setStackMode] = useState<StackMode>('vertical-bottom');
+  const [tuningPreset, setTuningPreset] = useState<TuningPreset>('balanced');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [depthGap, setDepthGap] = useState(13);
   const [offsetStrength, setOffsetStrength] = useState(7);
   const [rotateStrength, setRotateStrength] = useState(1.1);
@@ -122,6 +169,41 @@ export default function PaperShapeStack() {
   const [rearOpacityFloor, setRearOpacityFloor] = useState(0.45);
 
   const pullOrder = (base: number) => Math.min(1.25, Math.max(0, base * hoverOrderStrength));
+  const applyTuningPreset = (preset: TuningPreset) => {
+    setTuningPreset(preset);
+    if (preset === 'clean') {
+      setDepthGap(11);
+      setOffsetStrength(5);
+      setRotateStrength(0.7);
+      setRandomRotateStrength(0.3);
+      setHoverOrderStrength(0.7);
+      setRearDepthStrength(0.8);
+      setRearColorCloseness(0.55);
+      setRearOpacityFloor(0.62);
+      return;
+    }
+    if (preset === 'dramatic') {
+      setDepthGap(16);
+      setOffsetStrength(10);
+      setRotateStrength(1.7);
+      setRandomRotateStrength(1.6);
+      setHoverOrderStrength(1.35);
+      setRearDepthStrength(1.55);
+      setRearColorCloseness(0.2);
+      setRearOpacityFloor(0.32);
+      return;
+    }
+    // balanced
+    setDepthGap(13);
+    setOffsetStrength(7);
+    setRotateStrength(1.1);
+    setRandomRotateStrength(0.8);
+    setHoverOrderStrength(1);
+    setRearDepthStrength(1);
+    setRearColorCloseness(0.35);
+    setRearOpacityFloor(0.45);
+  };
+
   const randomizePanel = () => {
     const randomMode = stackModeOptions[Math.floor(Math.random() * stackModeOptions.length)].key;
     setStackMode(randomMode);
@@ -133,6 +215,7 @@ export default function PaperShapeStack() {
     setRearDepthStrength(Number((Math.random() * 2).toFixed(2)));
     setRearColorCloseness(Number(Math.random().toFixed(2)));
     setRearOpacityFloor(Number((0.2 + Math.random() * 0.75).toFixed(2)));
+    setTuningPreset('balanced');
   };
 
   const getStackMotion = (
@@ -216,7 +299,7 @@ export default function PaperShapeStack() {
   };
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-5">
       <div>
         <h2 className="text-2xl font-hand font-bold text-foreground mb-2">纸张堆叠与拼贴</h2>
         <p className="text-sm text-muted-foreground font-craft">支持多种纸张堆叠方式与参数调节，可在规整堆叠和随意散叠之间自由切换</p>
@@ -249,127 +332,124 @@ export default function PaperShapeStack() {
         <p className="text-[11px] text-muted-foreground font-craft">
           {stackModeOptions.find((option) => option.key === stackMode)?.desc}
         </p>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="space-y-1.5">
-            <div className="flex items-center justify-between text-[11px] font-craft text-muted-foreground">
-              <span>层间深度</span>
-              <span>{depthGap.toFixed(0)}</span>
+        <div className="space-y-3">
+          <div className="rounded-xl border border-border/60 bg-background/70 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-craft font-semibold text-foreground">风格预设</p>
+              <span className="text-[10px] font-craft text-muted-foreground">
+                {tuningPresetOptions.find((opt) => opt.key === tuningPreset)?.desc}
+              </span>
             </div>
-            <input
-              type="range"
-              min={8}
-              max={20}
-              step={1}
-              value={depthGap}
-              onChange={(e) => setDepthGap(Number(e.target.value))}
-              className="w-full accent-primary"
-            />
-          </label>
-          <label className="space-y-1.5">
-            <div className="flex items-center justify-between text-[11px] font-craft text-muted-foreground">
-              <span>水平错位</span>
-              <span>{offsetStrength.toFixed(0)}</span>
+            <div className="flex flex-wrap gap-1.5">
+              {tuningPresetOptions.map((opt) => (
+                <button
+                  key={opt.key}
+                  onClick={() => applyTuningPreset(opt.key)}
+                  className={`rounded-md border px-2.5 py-1 text-[11px] font-craft transition ${
+                    tuningPreset === opt.key
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-card text-foreground/80 hover:bg-background'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
-            <input
-              type="range"
-              min={2}
-              max={14}
-              step={1}
-              value={offsetStrength}
-              onChange={(e) => setOffsetStrength(Number(e.target.value))}
-              className="w-full accent-primary"
-            />
-          </label>
-          <label className="space-y-1.5">
-            <div className="flex items-center justify-between text-[11px] font-craft text-muted-foreground">
-              <span>旋转强度</span>
-              <span>{rotateStrength.toFixed(1)}</span>
+          </div>
+
+          <div className="rounded-xl border border-border/60 bg-background/70 p-3 space-y-3">
+            <p className="text-xs font-craft font-semibold text-foreground">基础控制</p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <SliderField
+                label="层间深度"
+                value={depthGap}
+                valueText={depthGap.toFixed(0)}
+                min={8}
+                max={20}
+                step={1}
+                onChange={setDepthGap}
+              />
+              <SliderField
+                label="水平错位"
+                value={offsetStrength}
+                valueText={offsetStrength.toFixed(0)}
+                min={2}
+                max={14}
+                step={1}
+                onChange={setOffsetStrength}
+              />
+              <SliderField
+                label="旋转强度"
+                value={rotateStrength}
+                valueText={rotateStrength.toFixed(1)}
+                min={0.2}
+                max={2.2}
+                step={0.1}
+                onChange={setRotateStrength}
+              />
             </div>
-            <input
-              type="range"
-              min={0.2}
-              max={2.2}
-              step={0.1}
-              value={rotateStrength}
-              onChange={(e) => setRotateStrength(Number(e.target.value))}
-              className="w-full accent-primary"
-            />
-          </label>
-          <label className="space-y-1.5">
-            <div className="flex items-center justify-between text-[11px] font-craft text-muted-foreground">
-              <span>随机旋转</span>
-              <span>{randomRotateStrength.toFixed(1)}</span>
+          </div>
+
+          <div className="rounded-xl border border-border/60 bg-background/70 p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-craft font-semibold text-foreground">高级控制</p>
+              <button
+                onClick={() => setAdvancedOpen((prev) => !prev)}
+                className="rounded-md border border-border bg-card px-2.5 py-1 text-[11px] font-craft text-foreground/80 hover:bg-background transition"
+              >
+                {advancedOpen ? '收起' : '展开'}
+              </button>
             </div>
-            <input
-              type="range"
-              min={0}
-              max={2.5}
-              step={0.1}
-              value={randomRotateStrength}
-              onChange={(e) => setRandomRotateStrength(Number(e.target.value))}
-              className="w-full accent-primary"
-            />
-          </label>
-          <label className="space-y-1.5">
-            <div className="flex items-center justify-between text-[11px] font-craft text-muted-foreground">
-              <span>收拢强度</span>
-              <span>{hoverOrderStrength.toFixed(2)}</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={2.2}
-              step={0.05}
-              value={hoverOrderStrength}
-              onChange={(e) => setHoverOrderStrength(Number(e.target.value))}
-              className="w-full accent-primary"
-            />
-          </label>
-          <label className="space-y-1.5">
-            <div className="flex items-center justify-between text-[11px] font-craft text-muted-foreground">
-              <span>后层深度感(明暗)</span>
-              <span>{rearDepthStrength.toFixed(2)}</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={2}
-              step={0.05}
-              value={rearDepthStrength}
-              onChange={(e) => setRearDepthStrength(Number(e.target.value))}
-              className="w-full accent-primary"
-            />
-          </label>
-          <label className="space-y-1.5">
-            <div className="flex items-center justify-between text-[11px] font-craft text-muted-foreground">
-              <span>后层贴近前卡色彩</span>
-              <span>{rearColorCloseness.toFixed(2)}</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.05}
-              value={rearColorCloseness}
-              onChange={(e) => setRearColorCloseness(Number(e.target.value))}
-              className="w-full accent-primary"
-            />
-          </label>
-          <label className="space-y-1.5">
-            <div className="flex items-center justify-between text-[11px] font-craft text-muted-foreground">
-              <span>后层最低透明度</span>
-              <span>{rearOpacityFloor.toFixed(2)}</span>
-            </div>
-            <input
-              type="range"
-              min={0.2}
-              max={0.95}
-              step={0.01}
-              value={rearOpacityFloor}
-              onChange={(e) => setRearOpacityFloor(Number(e.target.value))}
-              className="w-full accent-primary"
-            />
-          </label>
+            {advancedOpen && (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <SliderField
+                  label="随机旋转"
+                  value={randomRotateStrength}
+                  valueText={randomRotateStrength.toFixed(1)}
+                  min={0}
+                  max={2.5}
+                  step={0.1}
+                  onChange={setRandomRotateStrength}
+                />
+                <SliderField
+                  label="收拢强度"
+                  value={hoverOrderStrength}
+                  valueText={hoverOrderStrength.toFixed(2)}
+                  min={0}
+                  max={2.2}
+                  step={0.05}
+                  onChange={setHoverOrderStrength}
+                />
+                <SliderField
+                  label="后层深度感"
+                  value={rearDepthStrength}
+                  valueText={rearDepthStrength.toFixed(2)}
+                  min={0}
+                  max={2}
+                  step={0.05}
+                  onChange={setRearDepthStrength}
+                />
+                <SliderField
+                  label="后层贴近前卡色彩"
+                  value={rearColorCloseness}
+                  valueText={rearColorCloseness.toFixed(2)}
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  onChange={setRearColorCloseness}
+                />
+                <SliderField
+                  label="后层最低透明度"
+                  value={rearOpacityFloor}
+                  valueText={rearOpacityFloor.toFixed(2)}
+                  min={0.2}
+                  max={0.95}
+                  step={0.01}
+                  onChange={setRearOpacityFloor}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

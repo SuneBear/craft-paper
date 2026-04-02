@@ -24,6 +24,7 @@ import {
 } from '@/lib/paper-shape-export';
 import { decodeShareState, encodeShareState } from '@/lib/paper-shape-share';
 import { createRandomPresetParams } from '@/lib/paper-shape-random';
+import type { PaperShapeLayoutMode } from '@/components/paper-shape/usePaperAutoLayout';
 
 const allPresets = Object.keys(presetInfo) as PaperPreset[];
 const paperColors = ['cream', 'cloud', 'pink', 'apricot', 'peach', 'mint', 'sky', 'lavender'];
@@ -46,6 +47,7 @@ export default function PaperShapePresetDetail() {
 
   const [width, setWidth] = useState(280);
   const [height, setHeight] = useState(200);
+  const [layoutMode, setLayoutMode] = useState<PaperShapeLayoutMode>('fixed');
   const [seed, setSeed] = useState(42);
   const [roughness, setRoughness] = useState(0.3);
   const [paperColor, setPaperColor] = useState('cream');
@@ -67,6 +69,7 @@ export default function PaperShapePresetDetail() {
     setDecorations([]);
     setContentMode(null);
     setContentTitle('');
+    setLayoutMode('fixed');
   }, [preset]);
 
   useEffect(() => {
@@ -89,6 +92,9 @@ export default function PaperShapePresetDetail() {
     if (typeof shared.strokeColor === 'string') setStrokeColor(shared.strokeColor);
     if (typeof shared.strokeWidth === 'number') setStrokeWidth(shared.strokeWidth);
     if (typeof shared.contentPadding === 'number') setContentPadding(shared.contentPadding);
+    if (shared.layoutMode === 'fixed' || shared.layoutMode === 'content' || shared.layoutMode === 'fill') {
+      setLayoutMode(shared.layoutMode);
+    }
     if (shared.patternType) setPatternType(shared.patternType);
     if (shared.patternParams) setPatternParams(shared.patternParams);
     if (shared.presetParams) setPresetParams(shared.presetParams);
@@ -116,6 +122,7 @@ export default function PaperShapePresetDetail() {
 
   const exportState = useMemo(() => ({
     preset: resolvedPreset,
+    layoutMode,
     width,
     height,
     seed,
@@ -130,6 +137,7 @@ export default function PaperShapePresetDetail() {
     decorations,
   }), [
     resolvedPreset,
+    layoutMode,
     width,
     height,
     seed,
@@ -246,8 +254,13 @@ export default function PaperShapePresetDetail() {
 
           <PaperShape
             preset={resolvedPreset}
+            layoutMode={layoutMode}
             width={width}
             height={height}
+            style={layoutMode === 'fill' ? { width: '100%', maxWidth: `${width}px` } : undefined}
+            minHeight={layoutMode === 'fill' ? height : undefined}
+            maxHeight={layoutMode === 'fill' ? height : undefined}
+            contentClassName={resolvedPreset === 'coupon' ? 'w-full h-full' : undefined}
             seed={seed}
             roughness={roughness}
             paperColor={paperColor}
@@ -269,6 +282,8 @@ export default function PaperShapePresetDetail() {
                 title={contentTitle || info.label}
                 emoji={info.emoji}
                 preset={resolvedPreset}
+                presetParams={presetParams}
+                shapeWidth={width}
               />
             ) : (
               <div className="text-center">

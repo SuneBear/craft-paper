@@ -47,6 +47,7 @@ interface PaperShapeSvgProps {
   setSelectedDecorationId: (id: string) => void;
   interactiveDecorations: boolean;
   registerDecorationTarget: (id: string, node: SVGGElement | null) => void;
+  svgPointerEvents?: 'auto' | 'none';
 }
 
 function getPatternTileSize(patternType: PaperPatternType, pattern: ResolvedPatternConfig): number {
@@ -100,6 +101,7 @@ export const PaperShapeSvg: React.FC<PaperShapeSvgProps> = ({
   setSelectedDecorationId,
   interactiveDecorations,
   registerDecorationTarget,
+  svgPointerEvents = 'auto',
 }) => {
   const patternTileSize = getPatternTileSize(patternType, pattern);
 
@@ -110,6 +112,7 @@ export const PaperShapeSvg: React.FC<PaperShapeSvgProps> = ({
       height={svgH}
       viewBox={`${-padding} ${-padding} ${svgW} ${svgH}`}
       className="absolute inset-0"
+      style={svgPointerEvents === 'none' ? { pointerEvents: 'none' } : undefined}
     >
       <defs>
         <clipPath id={clipId}>

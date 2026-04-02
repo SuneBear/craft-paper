@@ -132,7 +132,7 @@ export function resolvePerforationGuide(
   width: number,
   height: number
 ): PerforationGuide | null {
-  const gap = Math.max(2, presetParams?.perforationGap ?? 10);
+  const gap = Math.max(2, presetParams?.perforationGap ?? 8);
   const inset = Math.max(0, presetParams?.perforationInset ?? 7);
   const dotRadius = Math.max(0.5, presetParams?.perforationDotRadius ?? 1.6);
   const mode = Math.round(presetParams?.perforationMode ?? 0);
@@ -140,7 +140,7 @@ export function resolvePerforationGuide(
   if (preset === 'coupon') {
     const notchR = presetParams?.notchRadius ?? Math.min(width, height) * 0.06;
     const notchOffset = presetParams?.couponPosition ?? presetParams?.couponNotchOffsetX ?? 0;
-    const x = edgeBiasedSplit(width, presetParams?.perforationOffset ?? notchOffset, 0.2);
+    const x = edgeBiasedSplit(width, presetParams?.perforationOffset ?? notchOffset, 0.4);
     const y1 = notchR + inset;
     const y2 = height - notchR - inset;
     if (y2 <= y1) return null;
@@ -158,7 +158,7 @@ export function resolvePerforationGuide(
 
   if (preset === 'ticket') {
     const cutR = presetParams?.cutRadius ?? Math.min(width, height) * 0.11;
-    const cutOffsetY = presetParams?.ticketCutOffsetY ?? -Math.min(14, height * 0.08);
+    const cutOffsetY = presetParams?.ticketCutOffsetY ?? Math.min(14, height * 0.1);
     const y = Math.max(
       cutR + inset + 2,
       Math.min(height - cutR - inset - 2, height / 2 + cutOffsetY)
@@ -497,8 +497,9 @@ export function resolveContentSafeInsets(
     const holeR = Math.max(4, presetParams?.holeRadius ?? Math.min(width, height) * 0.1);
     const notchR = Math.max(3, presetParams?.notchRadius ?? Math.min(width, height) * 0.06);
     const direction = Math.round(presetParams?.couponDirection ?? 0);
-    const edgeSafe = Math.max(8, holeR + 4);
-    const notchSafe = Math.max(8, notchR + 4);
+    // Keep only a lightweight safe area: prevent touching side holes/notches without over-squeezing content.
+    const edgeSafe = Math.max(5, Math.min(8, holeR * 0.38 + 0.8));
+    const notchSafe = Math.max(5, Math.min(8, notchR * 0.42 + 1));
 
     if (direction === 1) {
       insets.top = Math.max(insets.top, edgeSafe);
@@ -515,7 +516,7 @@ export function resolveContentSafeInsets(
 
   if (preset === 'ticket') {
     const cutR = Math.max(4, presetParams?.cutRadius ?? Math.min(width, height) * 0.11);
-    const edgeSafe = Math.max(8, cutR + 4);
+    const edgeSafe = Math.max(5, Math.min(8, cutR * 0.4 + 1));
     insets.left = Math.max(insets.left, edgeSafe);
     insets.right = Math.max(insets.right, edgeSafe);
   }
@@ -536,28 +537,12 @@ export function resolveContentSafeInsets(
     insets.left = Math.max(insets.left, edgeSafe);
   }
 
-  if (perforationGuide) {
-    const isCenteredCouponPerforation = (
-      preset === 'coupon'
-      && perforationGuide.axis === 'vertical'
-      && Math.abs(perforationGuide.x1 - width / 2) < width * 0.2
-    );
-    if (!isCenteredCouponPerforation) {
-      const halfBand = Math.max(7, perforationGuide.dotRadius * 2.8 + 3);
-      if (preset === 'ticket' && perforationGuide.axis === 'horizontal') {
-        const y = Math.max(0, Math.min(height, perforationGuide.y1));
-        const topRoom = Math.max(0, y - halfBand);
-        const bottomRoom = Math.max(0, height - (y + halfBand));
-        if (topRoom >= bottomRoom) {
-          insets.bottom = Math.max(insets.bottom, height - (y - halfBand));
-        } else {
-          insets.top = Math.max(insets.top, y + halfBand);
-        }
-      } else if (perforationGuide.axis === 'vertical') {
-        reserveBandOnLargerSide('vertical', perforationGuide.x1, halfBand);
-      } else {
-        reserveBandOnLargerSide('horizontal', perforationGuide.y1, halfBand);
-      }
+  if (perforationGuide && preset !== 'coupon' && preset !== 'ticket') {
+    const halfBand = Math.max(7, perforationGuide.dotRadius * 2.8 + 3);
+    if (perforationGuide.axis === 'vertical') {
+      reserveBandOnLargerSide('vertical', perforationGuide.x1, halfBand);
+    } else {
+      reserveBandOnLargerSide('horizontal', perforationGuide.y1, halfBand);
     }
   }
 

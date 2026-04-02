@@ -125,7 +125,7 @@ function generateExamples(): ExampleItem[] {
             holeRadius: 16,
             notchRadius: 10,
             perforationMode: 0,
-            perforationOffset: 28,
+            perforationOffset: 0,
           };
         }
         if (v === 1) {
@@ -137,7 +137,7 @@ function generateExamples(): ExampleItem[] {
             perforationMode: 1,
             perforationGap: 11,
             perforationDotRadius: 1.9,
-            perforationOffset: -24,
+            perforationOffset: 0,
           };
         }
       }
@@ -149,8 +149,9 @@ function generateExamples(): ExampleItem[] {
             ticketStubSide: 0,
             ticketStubWidth: 46,
             ticketCutCount: 1,
+            ticketCutOffsetY: 14,
             perforationMode: 0,
-            perforationOffset: -2,
+            perforationOffset: 16,
           };
         }
         if (v === 1) {
@@ -160,10 +161,11 @@ function generateExamples(): ExampleItem[] {
             ticketStubWidth: 50,
             ticketCutCount: 3,
             ticketCutSpread: 0.78,
+            ticketCutOffsetY: 12,
             perforationMode: 1,
             perforationGap: 10,
             perforationDotRadius: 2,
-            perforationOffset: -40,
+            perforationOffset: -44,
           };
         }
       }
@@ -178,10 +180,15 @@ function generateExamples(): ExampleItem[] {
         '读书页边注设计',
         '咖啡店拼贴实验',
       ];
+      const splitPresetTitles: Partial<Record<PaperPreset, string[]>> = {
+        coupon: ['双区优惠券', '副券核销联'],
+        ticket: ['门票主联', '门票副联'],
+      };
       const isBasicPaper = preset === 'basic-paper';
+      const splitTitles = splitPresetTitles[preset];
       const titleText = isBasicPaper
         ? basicPaperPosterTitles[v % basicPaperPosterTitles.length]
-        : `${presetInfo[preset].label} ${v > 0 ? `变体 ${v + 1}` : ''}`.trim();
+        : (splitTitles?.[v] ?? `${presetInfo[preset].label} ${v > 0 ? `变体 ${v + 1}` : ''}`.trim());
       const contentMode = isBasicPaper ? 5 : (i + v) % 6;
       const pattern = isBasicPaper ? patternTypes[(v + 1) % patternTypes.length] : patternTypes[(i + v) % patternTypes.length];
 
@@ -311,6 +318,7 @@ export default function PaperShapeExamples() {
             : undefined;
           const encodedState = encodeShareState({
             preset: ex.preset,
+            layoutMode: 'fixed',
             width: EDITOR_PRESET_WIDTH,
             height: EDITOR_PRESET_HEIGHT,
             seed: ex.seed,
@@ -337,6 +345,9 @@ export default function PaperShapeExamples() {
                     preset={ex.preset}
                     width={PREVIEW_PRESET_WIDTH}
                     height={PREVIEW_PRESET_HEIGHT}
+                    layoutMode="fixed"
+                    contentAlign="center"
+                    contentClassName={ex.preset === 'coupon' ? 'w-full h-full' : undefined}
                     seed={ex.seed}
                     paperColor={ex.color}
                     showPattern={ex.pattern !== 'none'}
@@ -344,7 +355,14 @@ export default function PaperShapeExamples() {
                     presetParams={ex.presetParams}
                     decorations={ex.decorations}
                   >
-                    <PaperShapeSampleContent mode={ex.contentMode} title={ex.title} emoji={info.emoji} preset={ex.preset} />
+                    <PaperShapeSampleContent
+                      mode={ex.contentMode}
+                      title={ex.title}
+                      emoji={info.emoji}
+                      preset={ex.preset}
+                      presetParams={ex.presetParams}
+                      shapeWidth={PREVIEW_PRESET_WIDTH}
+                    />
                   </PaperShape>
                 </div>
                 <div className="text-center">

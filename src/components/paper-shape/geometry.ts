@@ -363,7 +363,7 @@ function buildFoldFlapPath(slot: CornerSlot, w: number, h: number, fs: number, p
 }
 
 function edgeBiasedSplit(length: number, offsetRaw: number, edgeRatioRaw: number = 0.2): number {
-  const edgeRatio = clamp(edgeRatioRaw, 0.14, 0.32);
+  const edgeRatio = clamp(edgeRatioRaw, 0.14, 0.45);
   const side = offsetRaw < 0 ? -1 : 1;
   const anchor = side < 0 ? length * edgeRatio : length * (1 - edgeRatio);
   const clampedOffset = clamp(offsetRaw, -length * 0.25, length * 0.25);
@@ -657,11 +657,18 @@ function couponPath(w: number, h: number, rng: () => number, r: number, p: Prese
 
   if (direction === 1) {
     const notchCenterY = clamp(
-      edgeBiasedSplit(h, position, 0.2),
+      edgeBiasedSplit(h, position, 0.4),
       Math.max(tr, br) + notchR + 2,
       h - Math.max(tr, br) - notchR - 2
     );
-    const edgeCenters = buildSideCenters(w, Math.max(tl, tr, br, bl), holeR, p.couponHoleCount, p.couponHoleSpread, p.couponHoleOffsetY);
+    const edgeCenters = buildSideCenters(
+      w,
+      Math.max(tl, tr, br, bl),
+      holeR,
+      p.couponHoleCount ?? 2,
+      p.couponHoleSpread,
+      p.couponHoleOffsetY
+    );
 
     let path = `M ${tl} 0`;
     for (const cx of edgeCenters) {
@@ -691,11 +698,18 @@ function couponPath(w: number, h: number, rng: () => number, r: number, p: Prese
   }
 
   const notchCenterX = clamp(
-    edgeBiasedSplit(w, position, 0.2),
+    edgeBiasedSplit(w, position, 0.4),
     Math.max(tl, bl) + notchR + 2,
     w - Math.max(tr, br) - notchR - 2
   );
-  const sideCenters = buildSideCenters(h, Math.max(tl, tr, br, bl), holeR, p.couponHoleCount, p.couponHoleSpread, p.couponHoleOffsetY);
+  const sideCenters = buildSideCenters(
+    h,
+    Math.max(tl, tr, br, bl),
+    holeR,
+    p.couponHoleCount ?? 2,
+    p.couponHoleSpread,
+    p.couponHoleOffsetY
+  );
 
   let path = `M ${tl} 0`;
   path += ` L ${notchCenterX - notchR} 0`;
@@ -734,9 +748,9 @@ function ticketPath(w: number, h: number, rng: () => number, r: number, p: Prese
     h,
     Math.max(tl, tr, br, bl),
     cutR,
-    p.ticketCutCount,
+    p.ticketCutCount ?? 2,
     p.ticketCutSpread,
-    p.ticketCutOffsetY ?? -Math.min(14, h * 0.08)
+    p.ticketCutOffsetY ?? Math.min(14, h * 0.1)
   );
 
   let path = `M ${tl} 0`;
@@ -1208,12 +1222,12 @@ export const presetParamsDefs: Record<PaperPreset, { key: keyof PresetParams; la
     { key: 'couponNotchOffsetX', label: '上下边缘缺口横向偏移', min: -120, max: 120, step: 1, defaultVal: () => 0 },
     // 侧边孔
     { key: 'holeRadius', label: '侧边孔半径', min: 5, max: 40, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.1 },
-    { key: 'couponHoleCount', label: '侧边孔数量', min: 1, max: 5, step: 1, defaultVal: () => 1 },
+    { key: 'couponHoleCount', label: '侧边孔数量', min: 1, max: 5, step: 1, defaultVal: () => 2 },
     { key: 'couponHoleSpread', label: '侧边孔分布范围', min: 0.3, max: 1, step: 0.05, defaultVal: () => 0.68 },
     { key: 'couponHoleOffsetY', label: '侧边孔纵向偏移', min: -80, max: 80, step: 1, defaultVal: () => 0 },
     // 中间打孔线
     { key: 'perforationMode', label: '中间打孔模式(0虚线/1圆孔)', min: 0, max: 1, step: 1, defaultVal: () => 0 },
-    { key: 'perforationGap', label: '中间打孔间距', min: 4, max: 24, step: 1, defaultVal: () => 10 },
+    { key: 'perforationGap', label: '中间打孔间距', min: 4, max: 24, step: 1, defaultVal: () => 8 },
     { key: 'perforationDotRadius', label: '中间打孔点半径', min: 0.8, max: 4, step: 0.1, defaultVal: () => 1.6 },
     { key: 'perforationInset', label: '中间打孔端点内缩', min: 2, max: 30, step: 1, defaultVal: () => 7 },
     { key: 'perforationOffset', label: '中间打孔线横向偏移(边缘微调)', min: -60, max: 60, step: 1, defaultVal: () => 0 },
@@ -1222,11 +1236,11 @@ export const presetParamsDefs: Record<PaperPreset, { key: keyof PresetParams; la
     { key: 'cutRadius', label: '切口半径', min: 5, max: 35, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.11 },
     { key: 'cornerRadius', label: '圆角', min: 0, max: 30, step: 1, defaultVal: () => 10 },
     { key: 'ticketStubWidth', label: '票根宽度', min: 20, max: 120, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.2 },
-    { key: 'ticketCutCount', label: '侧边切口数量', min: 1, max: 5, step: 1, defaultVal: () => 1 },
+    { key: 'ticketCutCount', label: '侧边切口数量', min: 1, max: 5, step: 1, defaultVal: () => 2 },
     { key: 'ticketCutSpread', label: '切口分布范围', min: 0.3, max: 1, step: 0.05, defaultVal: () => 0.68 },
-    { key: 'ticketCutOffsetY', label: '切口纵向偏移', min: -80, max: 80, step: 1, defaultVal: (_w, h) => -Math.min(14, h * 0.08) },
+    { key: 'ticketCutOffsetY', label: '切口纵向偏移', min: -80, max: 80, step: 1, defaultVal: (_w, h) => Math.min(14, h * 0.1) },
     { key: 'perforationMode', label: '中间打孔模式(0虚线/1圆孔)', min: 0, max: 1, step: 1, defaultVal: () => 0 },
-    { key: 'perforationGap', label: '中间打孔间距', min: 4, max: 24, step: 1, defaultVal: () => 10 },
+    { key: 'perforationGap', label: '中间打孔间距', min: 4, max: 24, step: 1, defaultVal: () => 8 },
     { key: 'perforationDotRadius', label: '中间打孔点半径', min: 0.8, max: 4, step: 0.1, defaultVal: () => 1.6 },
     { key: 'perforationInset', label: '中间打孔端点内缩', min: 2, max: 30, step: 1, defaultVal: () => 7 },
   ],

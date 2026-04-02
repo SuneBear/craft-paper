@@ -1,12 +1,21 @@
 import React from 'react';
-import type { PaperPreset } from '@/components/paper-shape/geometry';
-import { PosterTitle } from '@/components/paper-shape/PosterTitle';
+import type { PaperPreset, PresetParams } from '@/components/paper-shape/geometry';
+import { edgeBiasedSplit } from '@/components/paper-shape/paperShapeUtils';
+import {
+  PosterTitle,
+  type PosterTitleEmoji,
+  type PosterTitleLine,
+  type PosterTitleQuoteDecoration,
+  type PosterTitleSymbol,
+} from '@/components/paper-shape/PosterTitle';
 
 interface PaperShapeSampleContentProps {
   mode: number;
   title: string;
   emoji: string;
   preset?: PaperPreset;
+  presetParams?: PresetParams;
+  shapeWidth?: number;
 }
 
 function hashIndex(input: string, modulo: number): number {
@@ -17,8 +26,169 @@ function hashIndex(input: string, modulo: number): number {
   return modulo > 0 ? hash % modulo : 0;
 }
 
-export function PaperShapeSampleContent({ mode, title, emoji, preset }: PaperShapeSampleContentProps) {
+function clampNum(v: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, v));
+}
+
+type PosterVariantCommon = {
+  lines: PosterTitleLine[];
+  quote: PosterTitleQuoteDecoration;
+  symbols: PosterTitleSymbol[];
+  emojis: PosterTitleEmoji[];
+};
+
+export function PaperShapeSampleContent({
+  mode,
+  title,
+  emoji,
+  preset,
+  presetParams,
+  shapeWidth,
+}: PaperShapeSampleContentProps) {
   const isCoupon = preset === 'coupon';
+  const isTicket = preset === 'ticket';
+
+  if (isCoupon) {
+    const couponVariants = [
+      {
+        kicker: '限时优惠',
+        headline: '满 200 减 40',
+        subline: '文具/贴纸通用',
+        action: '今日可核销',
+        code: 'SAVE40',
+      },
+      {
+        kicker: '夜场专享',
+        headline: '第 2 件 5 折',
+        subline: '18:00 后生效',
+        action: '支持叠加会员',
+        code: 'NIGHT50',
+      },
+      {
+        kicker: '周末补货',
+        headline: '买三送一',
+        subline: '同品类可混搭',
+        action: '库存限量',
+        code: 'MIX3GET1',
+      },
+    ];
+    const selected = couponVariants[hashIndex(`${title}-${mode}`, couponVariants.length)];
+    const serial = `NO.${String(1200 + hashIndex(`${title}-${mode}-serial`, 7800)).padStart(4, '0')}`;
+    const splitOffset = presetParams?.perforationOffset
+      ?? presetParams?.couponPosition
+      ?? presetParams?.couponNotchOffsetX
+      ?? 0;
+    const widthForSplit = typeof shapeWidth === 'number' && shapeWidth > 0 ? shapeWidth : 240;
+    const ultraCompact = widthForSplit < 200;
+    const compact = widthForSplit < 220;
+    const splitRatio = clampNum(edgeBiasedSplit(widthForSplit, splitOffset, 0.4) / widthForSplit, 0.14, 0.86);
+    const sideOnLeft = splitRatio < 0.5;
+    const rawSideRatio = sideOnLeft ? splitRatio : (1 - splitRatio);
+    const sideRatio = compact
+      ? clampNum(rawSideRatio, 0.38, 0.45)
+      : clampNum(rawSideRatio, 0.28, 0.42);
+    const mainRatio = Math.max(0.44, 1 - sideRatio);
+    const keepOutBand = compact ? 12 : 8;
+    const mainTitle = ultraCompact
+      ? (selected.headline === '买三送一'
+        ? '买3送1'
+        : selected.headline === '满 200 减 40'
+          ? '减40'
+          : '2件5折')
+      : selected.headline;
+    const mainSubline = compact ? selected.action : selected.subline;
+    const mainFooter = compact ? '有效期 04.30' : '有效期 03.27 - 04.30';
+    const serialShort = serial.replace('NO.', '#');
+    const sideCode = ultraCompact
+      ? (selected.code === 'MIX3GET1'
+        ? 'MIX3'
+        : selected.code === 'NIGHT50'
+          ? 'N50'
+          : 'S40')
+      : selected.code;
+    const gridTemplateColumns = sideOnLeft
+      ? `${sideRatio}fr ${keepOutBand}px ${mainRatio}fr`
+      : `${mainRatio}fr ${keepOutBand}px ${sideRatio}fr`;
+
+    const sidePanel = compact ? (
+      <div className={`min-w-0 h-full py-2 flex flex-col justify-center gap-1.5 ${sideOnLeft ? 'pl-2 pr-2 text-left' : 'pl-3 pr-2 text-right'}`}>
+        <p className="text-[11px] font-craft font-semibold leading-none whitespace-nowrap break-keep truncate">{sideCode}</p>
+        <p className="text-[10px] font-craft leading-tight opacity-70 whitespace-nowrap break-keep truncate">{serialShort}</p>
+      </div>
+    ) : (
+      <div className={`min-w-0 h-full py-2 flex flex-col justify-center gap-1.5 ${sideOnLeft ? 'pl-2.5 pr-3.5 text-left' : 'pl-3.5 pr-2.5 text-right'}`}>
+        <p className="text-[10px] font-craft tracking-[0.08em] opacity-70 whitespace-nowrap break-keep truncate">副券</p>
+        <p className="text-[11px] font-craft font-semibold leading-none whitespace-nowrap break-keep truncate">{sideCode}</p>
+        <p className="text-[10px] font-craft leading-tight opacity-70 whitespace-nowrap break-keep truncate">{serial}</p>
+      </div>
+    );
+    const mainPanel = (
+      <div className={`min-w-0 h-full py-2 flex flex-col justify-center gap-1 ${sideOnLeft ? 'pl-3 pr-2.5 text-right' : 'pl-2.5 pr-1 text-left'}`}>
+        {!compact && <p className="text-[10px] opacity-70 tracking-[0.06em] whitespace-nowrap break-keep truncate">{selected.kicker}</p>}
+        <p className="text-base font-semibold leading-none whitespace-nowrap break-keep truncate">{mainTitle}</p>
+        <p className="text-[11px] leading-tight opacity-80 whitespace-nowrap break-keep truncate">{mainSubline}</p>
+        {!compact && <p className="text-[11px] leading-tight whitespace-nowrap break-keep truncate">{selected.action}</p>}
+        <p className="text-[10px] opacity-65 whitespace-nowrap break-keep truncate">{mainFooter}</p>
+      </div>
+    );
+
+    return (
+      <div className="w-full h-full overflow-hidden text-ink-stroke font-craft px-1 py-0.5">
+        <div className="w-full h-full grid" style={{ gridTemplateColumns }}>
+          {sideOnLeft ? sidePanel : mainPanel}
+          <div aria-hidden className="pointer-events-none" />
+          {sideOnLeft ? mainPanel : sidePanel}
+        </div>
+      </div>
+    );
+  }
+
+  if (isTicket) {
+    const ticketVariants = [
+      {
+        topLabel: 'ENTRY PASS',
+        title: 'Live House 夜场',
+        time: '04/18 19:30',
+        place: 'A 区入场',
+      },
+      {
+        topLabel: 'ADMIT ONE',
+        title: '电影首映专场',
+        time: '04/06 20:10',
+        place: '5 号厅',
+      },
+      {
+        topLabel: 'GALLERY PASS',
+        title: '周末展览通票',
+        time: '04/12 14:00',
+        place: '西馆入口',
+      },
+    ];
+    const selected = ticketVariants[hashIndex(`${title}-${mode}`, ticketVariants.length)];
+    const seat = `${String.fromCharCode(65 + hashIndex(`${title}-${mode}-row`, 6))}${10 + hashIndex(`${title}-${mode}-seat`, 70)}`;
+    const serial = `T-${String(10000 + hashIndex(`${title}-${mode}-ticket`, 90000)).slice(1)}`;
+    const eventLine = `${selected.time} · ${selected.place}`;
+
+    return (
+      <div className="w-full h-full overflow-hidden text-ink-stroke font-craft grid grid-rows-[minmax(0,1fr)_14px_minmax(44px,0.72fr)]">
+        <div className="min-h-0 px-3.5 pt-2.5 pb-1.5 text-left flex flex-col justify-start gap-2">
+          <p className="text-[11px] opacity-70 tracking-[0.1em]">{selected.topLabel}</p>
+          <p className="text-lg font-semibold leading-tight truncate">{selected.title}</p>
+        </div>
+        <div aria-hidden className="pointer-events-none" />
+        <div className="h-full px-3.5 py-1.5 rounded-t-md bg-ink-stroke/[0.05] flex items-center justify-between gap-2">
+          <div className="min-w-0 space-y-0.5">
+            <p className="text-[10px] leading-tight opacity-80 truncate">{eventLine}</p>
+            <p className="text-[10px] font-semibold leading-tight truncate">座位 {seat} · {serial}</p>
+          </div>
+          <div className="text-right shrink-0">
+            <p className="text-[9px] opacity-70 leading-none">检票章</p>
+            <p className="text-base leading-none">{emoji}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (mode === 1) {
     return (
@@ -102,7 +272,7 @@ export function PaperShapeSampleContent({ mode, title, emoji, preset }: PaperSha
     const topic = title.replace(/\s+/g, '').slice(0, 9) || '今天就试试';
 
     if (isCoupon) {
-      const couponVariants = [
+      const couponVariants: Array<PosterVariantCommon & { kicker: string }> = [
         {
           kicker: '限时提醒',
           lines: [
@@ -173,7 +343,7 @@ export function PaperShapeSampleContent({ mode, title, emoji, preset }: PaperSha
       );
     }
 
-    const normalVariants = [
+    const normalVariants: Array<PosterVariantCommon & { align: 'left'; handDrawn: boolean }> = [
       {
         align: 'left' as const,
         handDrawn: false,

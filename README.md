@@ -1,8 +1,23 @@
 # ✂️ Craft Paper Shape
 
-手绘风纸张形状组件系统，基于 React + Vite + TypeScript。  
+手绘风纸张形状组件系统，基于 React + Vite + TypeScript。
 项目内置多种纸张预设、纹理、折角/裁剪/缝线等参数编辑能力，以及装饰物（贴纸/胶带/订书钉）交互编辑。
 该项目最初通过 [Lovable](https://lovable.dev/) 生成并初始化，在此基础上持续迭代开发。
+
+## Craft Paper 核心设计思路
+
+在 Box 的秩序里，注入手工质感与温度。
+
+核心实现思路：
+
+- 几何先行，不做纯贴图：先定义 shape 轮廓与语义特征（折角、锯齿、打孔、撕边），再叠加纹理和装饰。
+- 受控伪随机：通过 `seed + noise + humanize` 生成「看起来随机、实际可复现」的细节，避免每次渲染都失控漂移。
+- 不完美要有边界：抖动、扭曲、旋转、阴影都在可调区间内，确保仍然可读、可排版、可用于真实内容。
+- 语义化预设 + 参数化扩展：预设负责风格起点，参数负责风格变体，兼顾上手速度与创作自由度。
+- 内容优先：形状变化必须让位于内容可读性，包含安全内边距、自动避让、标题装饰避让等机制。
+- 分割票券双区承载：`coupon/ticket` 示例默认主区 + 副联区都放内容，避免窄区留白。
+- 层次可调：堆叠中的深度、透明度、色彩贴近、收拢强度都可配置，支持从规整到随性的一组表达谱系。
+- 可复用与可导出：编辑器、示例与导出链路统一，保证一套视觉结果可被复制、分享和二次开发。
 
 ---
 
@@ -33,7 +48,7 @@ npm run dev
 - `/ui/paper-shape/containers`：容器示例页（实验性质，当前为初步尝试，后续会有重大调整）
 - `/ui/paper-shape/preset/:preset`：预设详情编辑页
 - `/ui/paper-shape/playground`：自由编辑器
-- `/ui/paper-shape/stack`：卡牌堆叠与拼贴展示页（支持四种堆叠模式、随机旋转、可调 hover 收拢，以及后层深度/色彩贴近/透明度调节）
+- `/ui/paper-shape/stack`：卡牌堆叠与拼贴展示页（支持四种堆叠模式；控制面板分为风格预设 + 基础控制 + 可折叠高级控制，降低多滑杆操作负担）
 
 ---
 
@@ -71,6 +86,7 @@ export function Demo() {
 - `decorations?: DecorationItem[]`：装饰数据
 - `interactiveDecorations?: boolean`：是否可拖拽/旋转/缩放装饰
 - `onDecorationChange?` / `onDecorationRemove?`：装饰编辑回调
+- 非交互态（无装饰交互且未绑定 `onClick`）时，`svg` 会自动使用 `pointer-events: none`，减少事件遮挡
 - `contentPadding?: number | { all?; x?; y?; top?; right?; bottom?; left? }`：内容安全内边距（`all` 为基础值，其余字段可覆盖）
 - `contentAlign?: 'center' | 'start'`：内容层对齐方式（居中/左上起始）
 - `contentClassName?: string`：内容层容器 className
@@ -98,6 +114,8 @@ export function Demo() {
 说明：
 - SSR 首屏使用 `width` / `height` 初始值渲染；
 - 客户端会基于内容和父容器宽度做自适应微调（避免新建 `PaperShapeContainer` API）。
+- 对 `coupon/ticket` 这类有打孔分割语义的形状，建议在 `children` 内采用双区布局，并给打孔线附近留出 `keep-out band`（内容禁入带）以保证可读性。
+- `coupon` 示例内容会跟随 `perforationOffset` 自动调整主券/副券区域比例，避免副券宽度写死。
 
 ---
 
@@ -223,6 +241,7 @@ const sticker = createDecoration('sticker', 'heart', 160, 90, {
 已知优化点：
 
 - `PaperShapeSvg.tsx` 内有 TODO：`cutout` 与外轮廓若要彻底消除亚像素接缝，可考虑合并为单轮廓描边流程。
+- 目前 `PaperShape` 作为容器时，在整体尺寸策略、安全区域计算与使用方式（替代 `div` / `button` 的易用性）上还不够理想；该部分需要继续优化，才能更稳定地承接常规容器语义。
 
 ---
 
