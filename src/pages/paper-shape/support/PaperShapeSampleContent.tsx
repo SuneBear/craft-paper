@@ -188,7 +188,7 @@ export function PaperShapeSampleContent({ mode, title, emoji, preset }: PaperSha
           },
           { size: 'lg' as const, tokens: [{ text: '奶油黄+雾霾蓝' }] },
         ],
-        quote: { size: 32, opacity: 0.14, openX: 6, openY: 10, closeSymbol: '' },
+        quote: { size: 32, opacity: 0.14, openX: 6, openY: 10, closeX: 93, closeY: 84 },
         symbols: [
           { kind: 'curve' as const, x: 88, y: 18, size: 24, rotate: 8, opacity: 0.34 },
           { kind: 'swirl' as const, x: 14, y: 86, size: 22, rotate: -8, opacity: 0.3 },

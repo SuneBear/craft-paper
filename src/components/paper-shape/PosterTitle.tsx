@@ -204,6 +204,10 @@ function clampPercent(v: number, min = 4, max = 96): number {
   return Math.max(min, Math.min(max, v));
 }
 
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
 export function PosterTitle({
   lines,
   className,
@@ -332,6 +336,58 @@ export function PosterTitle({
     return next;
   }, [layoutMetrics, symbols]);
 
+  const resolvedQuoteLayout = useMemo(() => {
+    if (!quoteConfig) return null;
+
+    const base = {
+      openX: quoteConfig.openX ?? 8,
+      openY: quoteConfig.openY ?? 14,
+      closeX: quoteConfig.closeX ?? 94,
+      closeY: quoteConfig.closeY ?? 84,
+      size: quoteConfig.size ?? 46,
+    };
+
+    const { contentW, contentH, textRect } = layoutMetrics;
+    if (!textRect || contentW <= 0 || contentH <= 0) return base;
+
+    const quoteW = Math.max(2.2, ((base.size * 0.72) / contentW) * 100 + 1.2);
+    const quoteH = Math.max(2.2, (base.size / contentH) * 100 + 1.2);
+    const halfW = quoteW / 2;
+    const halfH = quoteH / 2;
+    const clampX = (v: number) => clampPercent(v, 2 + halfW, 98 - halfW);
+    const clampY = (v: number) => clampPercent(v, 2 + halfH, 98 - halfH);
+    const textBox = {
+      x: textRect.x + textRect.w / 2,
+      y: textRect.y + textRect.h / 2,
+      w: textRect.w + 4,
+      h: textRect.h + 5,
+    };
+    const overlapText = (x: number, y: number) => (
+      Math.abs(x - textBox.x) < (quoteW + textBox.w) / 2
+      && Math.abs(y - textBox.y) < (quoteH + textBox.h) / 2
+    );
+
+    let openX = clampX(base.openX);
+    let openY = clampY(base.openY);
+    if (overlapText(openX, openY)) {
+      const targetX = clampX(textRect.x - quoteW * 0.72);
+      const targetY = clampY(textRect.y - quoteH * 0.72);
+      openX = clampX(lerp(openX, targetX, 0.88));
+      openY = clampY(lerp(openY, targetY, 0.88));
+    }
+
+    let closeX = clampX(base.closeX);
+    let closeY = clampY(base.closeY);
+    if (overlapText(closeX, closeY)) {
+      const targetX = clampX(textRect.x + textRect.w + quoteW * 0.72);
+      const targetY = clampY(textRect.y + textRect.h + quoteH * 0.72);
+      closeX = clampX(lerp(closeX, targetX, 0.88));
+      closeY = clampY(lerp(closeY, targetY, 0.88));
+    }
+
+    return { ...base, openX, openY, closeX, closeY };
+  }, [layoutMetrics, quoteConfig]);
+
   const fitContent = useCallback(() => {
     const root = rootRef.current;
     const content = contentRef.current;
@@ -439,15 +495,15 @@ export function PosterTitle({
           transformOrigin: adaptiveMetrics.blockAlign === 'left' ? 'left center' : 'center center',
         }}
       >
-        {quoteConfig && (
+        {quoteConfig && resolvedQuoteLayout && (
           <>
             <span
-              className="absolute pointer-events-none select-none leading-none"
+              className="absolute z-[2] pointer-events-none select-none leading-none"
               style={{
-                left: `${quoteConfig.openX ?? 8}%`,
-                top: `${quoteConfig.openY ?? 14}%`,
+                left: `${resolvedQuoteLayout.openX}%`,
+                top: `${resolvedQuoteLayout.openY}%`,
                 transform: 'translate(-50%, -50%)',
-                fontSize: `${quoteConfig.size ?? 46}px`,
+                fontSize: `${resolvedQuoteLayout.size}px`,
                 color: quoteConfig.color ?? 'hsl(24 36% 35% / 0.5)',
                 opacity: quoteConfig.opacity ?? 0.85,
               }}
@@ -456,12 +512,12 @@ export function PosterTitle({
               {quoteConfig.openSymbol ?? '“'}
             </span>
             <span
-              className="absolute pointer-events-none select-none leading-none"
+              className="absolute z-[2] pointer-events-none select-none leading-none"
               style={{
-                left: `${quoteConfig.closeX ?? 94}%`,
-                top: `${quoteConfig.closeY ?? 84}%`,
+                left: `${resolvedQuoteLayout.closeX}%`,
+                top: `${resolvedQuoteLayout.closeY}%`,
                 transform: 'translate(-50%, -50%)',
-                fontSize: `${quoteConfig.size ?? 46}px`,
+                fontSize: `${resolvedQuoteLayout.size}px`,
                 color: quoteConfig.color ?? 'hsl(24 36% 35% / 0.5)',
                 opacity: quoteConfig.opacity ?? 0.85,
               }}

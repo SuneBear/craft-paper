@@ -216,6 +216,9 @@ const sticker = createDecoration('sticker', 'heart', 160, 90, {
 12. 容器示例：`src/pages/paper-shape/PaperShapeContainers.tsx`
 13. 随机参数策略：`src/lib/paper-shape-random.ts`
 
+补充：
+- `PosterTitle` 的引号装饰会自动避让正文区域，并在视觉层级上保持可见，避免右侧引号被标题内容遮挡。
+
 已知优化点：
 
 - `PaperShapeSvg.tsx` 内有 TODO：`cutout` 与外轮廓若要彻底消除亚像素接缝，可考虑合并为单轮廓描边流程。

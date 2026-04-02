@@ -146,13 +146,13 @@ export default function PaperShapeContainers() {
               <PosterTitle
                 className="mt-1"
                 align="left"
-                kicker="Craft UI"
+                kicker="容器示例："
                 quote={true}
                 lines={[
                   {
                     size: 'lg',
                     tokens: [
-                      { text: '容器示例：' },
+                      { text: '' },
                       { text: 'PaperShape', highlight: true, highlightStyle: 'lower', rotate: -0.6 },
                       { text: ' 手账拼贴页' },
                     ],
