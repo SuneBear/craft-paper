@@ -125,7 +125,7 @@ function generateExamples(): ExampleItem[] {
             holeRadius: 16,
             notchRadius: 10,
             perforationMode: 0,
-            perforationOffset: 0,
+            perforationOffset: 12,
           };
         }
         if (v === 1) {
@@ -137,7 +137,7 @@ function generateExamples(): ExampleItem[] {
             perforationMode: 1,
             perforationGap: 11,
             perforationDotRadius: 1.9,
-            perforationOffset: 0,
+            perforationOffset: 12,
           };
         }
       }
@@ -347,7 +347,7 @@ export default function PaperShapeExamples() {
                     height={PREVIEW_PRESET_HEIGHT}
                     layoutMode="fixed"
                     contentAlign="center"
-                    contentClassName={ex.preset === 'coupon' ? 'w-full h-full' : undefined}
+                    contentClassName={ex.preset === 'coupon' || ex.preset === 'ticket' ? 'w-full h-full' : undefined}
                     seed={ex.seed}
                     paperColor={ex.color}
                     showPattern={ex.pattern !== 'none'}
@@ -362,6 +362,7 @@ export default function PaperShapeExamples() {
                       preset={ex.preset}
                       presetParams={ex.presetParams}
                       shapeWidth={PREVIEW_PRESET_WIDTH}
+                      shapeHeight={PREVIEW_PRESET_HEIGHT}
                     />
                   </PaperShape>
                 </div>

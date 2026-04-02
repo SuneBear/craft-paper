@@ -91,7 +91,17 @@ export default function PaperShapeOverview() {
                     showPattern={patternType !== 'none'}
                     patternType={patternType}
                   >
-                    <span className="text-3xl">{info.emoji}</span>
+                    <div
+                      className={
+                        preset === 'coupon'
+                          ? 'w-full h-full flex items-center justify-center -translate-x-4'
+                          : preset === 'ticket'
+                            ? 'w-full h-full flex items-center justify-center -translate-y-3'
+                            : 'w-full h-full flex items-center justify-center'
+                      }
+                    >
+                      <span className="text-3xl">{info.emoji}</span>
+                    </div>
                   </PaperShape>
                   <div className="text-center">
                     <p className="font-craft font-medium text-sm text-foreground">

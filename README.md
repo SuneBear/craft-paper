@@ -117,6 +117,35 @@ export function Demo() {
 - 对 `coupon/ticket` 这类有打孔分割语义的形状，建议在 `children` 内采用双区布局，并给打孔线附近留出 `keep-out band`（内容禁入带）以保证可读性。
 - `coupon` 示例内容会跟随 `perforationOffset` 自动调整主券/副券区域比例，避免副券宽度写死。
 
+### 3.4 双区内容子组件：`PaperShapeSplitContent`
+
+用于 `coupon/ticket` 这类「主区 + 副区 + 中间禁入带」的可复用布局，不再把分区逻辑写死在示例页。
+
+```tsx
+import { PaperShape, PaperShapeSplitContent } from '@/components/paper-shape';
+
+<PaperShape preset="coupon" width={280} height={200}>
+  <PaperShapeSplitContent
+    axis="vertical"
+    splitRatio={0.62}
+    secondarySide="end"
+    keepOutBand={10}
+    minSecondaryRatio={0.28}
+    maxSecondaryRatio={0.42}
+    minPrimaryRatio={0.44}
+    primary={<MainCouponBlock />}
+    secondary={<SideCouponBlock />}
+  />
+</PaperShape>
+```
+
+常用参数：
+- `axis: 'vertical' | 'horizontal'`：竖向分栏或横向分栏
+- `splitRatio`：分割线在内容盒中的相对位置（0~1）
+- `secondarySide`：副区在起始侧或结束侧
+- `keepOutBand`：分割线禁入带宽度（px）
+- `primaryVerticalAlign` / `secondaryVerticalAlign`：分区内容垂直对齐（`start | center | end | stretch`）
+
 ---
 
 ## 4. 预设类型（`PaperPreset`）
@@ -157,6 +186,7 @@ export function Demo() {
 - 裁剪：`cutoutEdges` / `cutoutShape` / `cutoutRadius` / `cutoutDepth` / `cutoutOffset`
 - 阴影：`shadowEnabled` / `shadowOffsetX/Y` / `shadowOpacity` / `shadowColor`
 - 直边扭曲：`edgeWobble`（全局）+ `edgeWobbleTop/Right/Bottom/Left`（单边覆盖）
+- 票券分割线：`perforationOffset`（`coupon` 默认右偏，约 +12）
 
 示例：
 

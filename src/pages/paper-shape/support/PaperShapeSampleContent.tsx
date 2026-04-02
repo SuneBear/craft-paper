@@ -1,4 +1,5 @@
 import React from 'react';
+import { PaperShapeSplitContent } from '@/components/paper-shape';
 import type { PaperPreset, PresetParams } from '@/components/paper-shape/geometry';
 import { edgeBiasedSplit } from '@/components/paper-shape/paperShapeUtils';
 import {
@@ -16,6 +17,7 @@ interface PaperShapeSampleContentProps {
   preset?: PaperPreset;
   presetParams?: PresetParams;
   shapeWidth?: number;
+  shapeHeight?: number;
 }
 
 function hashIndex(input: string, modulo: number): number {
@@ -44,6 +46,7 @@ export function PaperShapeSampleContent({
   preset,
   presetParams,
   shapeWidth,
+  shapeHeight,
 }: PaperShapeSampleContentProps) {
   const isCoupon = preset === 'coupon';
   const isTicket = preset === 'ticket';
@@ -77,17 +80,12 @@ export function PaperShapeSampleContent({
     const splitOffset = presetParams?.perforationOffset
       ?? presetParams?.couponPosition
       ?? presetParams?.couponNotchOffsetX
-      ?? 0;
+      ?? 12;
     const widthForSplit = typeof shapeWidth === 'number' && shapeWidth > 0 ? shapeWidth : 240;
     const ultraCompact = widthForSplit < 200;
     const compact = widthForSplit < 220;
     const splitRatio = clampNum(edgeBiasedSplit(widthForSplit, splitOffset, 0.4) / widthForSplit, 0.14, 0.86);
     const sideOnLeft = splitRatio < 0.5;
-    const rawSideRatio = sideOnLeft ? splitRatio : (1 - splitRatio);
-    const sideRatio = compact
-      ? clampNum(rawSideRatio, 0.38, 0.45)
-      : clampNum(rawSideRatio, 0.28, 0.42);
-    const mainRatio = Math.max(0.44, 1 - sideRatio);
     const keepOutBand = compact ? 12 : 8;
     const mainTitle = ultraCompact
       ? (selected.headline === '买三送一'
@@ -106,24 +104,20 @@ export function PaperShapeSampleContent({
           ? 'N50'
           : 'S40')
       : selected.code;
-    const gridTemplateColumns = sideOnLeft
-      ? `${sideRatio}fr ${keepOutBand}px ${mainRatio}fr`
-      : `${mainRatio}fr ${keepOutBand}px ${sideRatio}fr`;
-
     const sidePanel = compact ? (
-      <div className={`min-w-0 h-full py-2 flex flex-col justify-center gap-1.5 ${sideOnLeft ? 'pl-2 pr-2 text-left' : 'pl-3 pr-2 text-right'}`}>
+      <div className={`min-w-0 py-2 flex flex-col justify-center gap-1.5 ${sideOnLeft ? 'pl-2 pr-2 text-left' : 'pl-3 pr-2 text-right'}`}>
         <p className="text-[11px] font-craft font-semibold leading-none whitespace-nowrap break-keep truncate">{sideCode}</p>
         <p className="text-[10px] font-craft leading-tight opacity-70 whitespace-nowrap break-keep truncate">{serialShort}</p>
       </div>
     ) : (
-      <div className={`min-w-0 h-full py-2 flex flex-col justify-center gap-1.5 ${sideOnLeft ? 'pl-2.5 pr-3.5 text-left' : 'pl-3.5 pr-2.5 text-right'}`}>
+      <div className={`min-w-0 py-2 flex flex-col justify-center gap-1.5 ${sideOnLeft ? 'pl-2.5 pr-3.5 text-left' : 'pl-3.5 pr-2.5 text-right'}`}>
         <p className="text-[10px] font-craft tracking-[0.08em] opacity-70 whitespace-nowrap break-keep truncate">副券</p>
         <p className="text-[11px] font-craft font-semibold leading-none whitespace-nowrap break-keep truncate">{sideCode}</p>
         <p className="text-[10px] font-craft leading-tight opacity-70 whitespace-nowrap break-keep truncate">{serial}</p>
       </div>
     );
     const mainPanel = (
-      <div className={`min-w-0 h-full py-2 flex flex-col justify-center gap-1 ${sideOnLeft ? 'pl-3 pr-2.5 text-right' : 'pl-2.5 pr-1 text-left'}`}>
+      <div className={`min-w-0 py-2 flex flex-col justify-center gap-1 ${sideOnLeft ? 'pl-3 pr-2.5 text-right' : 'pl-2.5 pr-1 text-left'}`}>
         {!compact && <p className="text-[10px] opacity-70 tracking-[0.06em] whitespace-nowrap break-keep truncate">{selected.kicker}</p>}
         <p className="text-base font-semibold leading-none whitespace-nowrap break-keep truncate">{mainTitle}</p>
         <p className="text-[11px] leading-tight opacity-80 whitespace-nowrap break-keep truncate">{mainSubline}</p>
@@ -133,12 +127,21 @@ export function PaperShapeSampleContent({
     );
 
     return (
-      <div className="w-full h-full overflow-hidden text-ink-stroke font-craft px-1 py-0.5">
-        <div className="w-full h-full grid" style={{ gridTemplateColumns }}>
-          {sideOnLeft ? sidePanel : mainPanel}
-          <div aria-hidden className="pointer-events-none" />
-          {sideOnLeft ? mainPanel : sidePanel}
-        </div>
+      <div className="w-full h-full overflow-hidden px-1 py-0.5">
+        <PaperShapeSplitContent
+          axis="vertical"
+          splitRatio={splitRatio}
+          secondarySide={sideOnLeft ? 'start' : 'end'}
+          keepOutBand={keepOutBand}
+          minSecondaryRatio={compact ? 0.36 : 0.28}
+          maxSecondaryRatio={compact ? 0.46 : 0.42}
+          minPrimaryRatio={0.44}
+          primaryVerticalAlign="center"
+          secondaryVerticalAlign="center"
+          className="text-ink-stroke font-craft"
+          primary={mainPanel}
+          secondary={sidePanel}
+        />
       </div>
     );
   }
@@ -168,24 +171,51 @@ export function PaperShapeSampleContent({
     const seat = `${String.fromCharCode(65 + hashIndex(`${title}-${mode}-row`, 6))}${10 + hashIndex(`${title}-${mode}-seat`, 70)}`;
     const serial = `T-${String(10000 + hashIndex(`${title}-${mode}-ticket`, 90000)).slice(1)}`;
     const eventLine = `${selected.time} · ${selected.place}`;
+    const splitOffset = presetParams?.perforationOffset ?? 0;
+    const heightForSplit = typeof shapeHeight === 'number' && shapeHeight > 0 ? shapeHeight : 180;
+    const widthForSplit = typeof shapeWidth === 'number' && shapeWidth > 0 ? shapeWidth : 240;
+    const compactTicket = heightForSplit < 160 || widthForSplit < 220;
+    const splitRatio = clampNum(edgeBiasedSplit(heightForSplit, splitOffset, 0.4) / heightForSplit, 0.24, 0.76);
+    const keepOutBand = compactTicket ? 22 : 24;
+    const usableHeight = Math.max(1, heightForSplit - keepOutBand);
+    const minSecondaryRatio = clampNum((compactTicket ? 48 : 54) / usableHeight, 0.3, 0.52);
+    const maxSecondaryRatio = clampNum((compactTicket ? 62 : 72) / usableHeight, minSecondaryRatio + 0.02, 0.58);
+
+    const topPanel = (
+      <div className="min-w-0 px-3.5 py-1.5 text-left flex flex-col justify-center gap-1.5">
+        <p className="text-[11px] opacity-70 tracking-[0.1em]">{selected.topLabel}</p>
+        <p className="text-lg font-semibold leading-[1.18] break-keep">{selected.title}</p>
+      </div>
+    );
+    const bottomPanel = (
+      <div className="h-full px-3.5 py-2 rounded-t-md bg-ink-stroke/[0.05] flex items-center justify-between gap-2">
+        <div className="min-w-0 space-y-0.5">
+          <p className="text-[10px] leading-tight opacity-80 truncate">{eventLine}</p>
+          <p className="text-[10px] font-semibold leading-tight truncate">座位 {seat} · {serial}</p>
+        </div>
+        <div className="text-right shrink-0">
+          <p className="text-[9px] opacity-70 leading-none">检票章</p>
+          <p className="text-base leading-none">{emoji}</p>
+        </div>
+      </div>
+    );
 
     return (
-      <div className="w-full h-full overflow-hidden text-ink-stroke font-craft grid grid-rows-[minmax(0,1fr)_14px_minmax(44px,0.72fr)]">
-        <div className="min-h-0 px-3.5 pt-2.5 pb-1.5 text-left flex flex-col justify-start gap-2">
-          <p className="text-[11px] opacity-70 tracking-[0.1em]">{selected.topLabel}</p>
-          <p className="text-lg font-semibold leading-tight truncate">{selected.title}</p>
-        </div>
-        <div aria-hidden className="pointer-events-none" />
-        <div className="h-full px-3.5 py-1.5 rounded-t-md bg-ink-stroke/[0.05] flex items-center justify-between gap-2">
-          <div className="min-w-0 space-y-0.5">
-            <p className="text-[10px] leading-tight opacity-80 truncate">{eventLine}</p>
-            <p className="text-[10px] font-semibold leading-tight truncate">座位 {seat} · {serial}</p>
-          </div>
-          <div className="text-right shrink-0">
-            <p className="text-[9px] opacity-70 leading-none">检票章</p>
-            <p className="text-base leading-none">{emoji}</p>
-          </div>
-        </div>
+      <div className="w-full h-full overflow-hidden">
+        <PaperShapeSplitContent
+          axis="horizontal"
+          splitRatio={splitRatio}
+          secondarySide="end"
+          keepOutBand={keepOutBand}
+          minSecondaryRatio={minSecondaryRatio}
+          maxSecondaryRatio={maxSecondaryRatio}
+          minPrimaryRatio={0.42}
+          primaryVerticalAlign="center"
+          secondaryVerticalAlign="center"
+          className="text-ink-stroke font-craft"
+          primary={topPanel}
+          secondary={bottomPanel}
+        />
       </div>
     );
   }

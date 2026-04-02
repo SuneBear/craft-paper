@@ -139,7 +139,7 @@ export function resolvePerforationGuide(
 
   if (preset === 'coupon') {
     const notchR = presetParams?.notchRadius ?? Math.min(width, height) * 0.06;
-    const notchOffset = presetParams?.couponPosition ?? presetParams?.couponNotchOffsetX ?? 0;
+    const notchOffset = presetParams?.couponPosition ?? presetParams?.couponNotchOffsetX ?? 12;
     const x = edgeBiasedSplit(width, presetParams?.perforationOffset ?? notchOffset, 0.4);
     const y1 = notchR + inset;
     const y2 = height - notchR - inset;

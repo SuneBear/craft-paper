@@ -163,7 +163,7 @@ export function createRandomPresetParams(
   if (preset === 'coupon') {
     const notchOffset = typeof params.couponNotchOffsetX === 'number'
       ? params.couponNotchOffsetX
-      : (typeof prev.couponNotchOffsetX === 'number' ? prev.couponNotchOffsetX : 0);
+      : (typeof prev.couponNotchOffsetX === 'number' ? prev.couponNotchOffsetX : 12);
     const nudge = randomInt(-4, 4);
     const aligned = clamp(notchOffset + nudge, -60, 60);
     params.perforationOffset = aligned;

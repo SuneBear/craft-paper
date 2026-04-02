@@ -653,7 +653,7 @@ function couponPath(w: number, h: number, rng: () => number, r: number, p: Prese
   const notchR = p.notchRadius ?? Math.min(w, h) * 0.06;
   const { tl, tr, br, bl } = getCornerRadii(w, h, p, 14);
   const direction = Math.round(p.couponDirection ?? 0);
-  const position = p.couponPosition ?? p.couponNotchOffsetX ?? p.perforationOffset ?? 0;
+  const position = p.couponPosition ?? p.couponNotchOffsetX ?? p.perforationOffset ?? 12;
 
   if (direction === 1) {
     const notchCenterY = clamp(
@@ -1219,7 +1219,7 @@ export const presetParamsDefs: Record<PaperPreset, { key: keyof PresetParams; la
   coupon: [
     // 上下边缘缺口
     { key: 'notchRadius', label: '上下边缘缺口半径', min: 3, max: 25, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.06 },
-    { key: 'couponNotchOffsetX', label: '上下边缘缺口横向偏移', min: -120, max: 120, step: 1, defaultVal: () => 0 },
+    { key: 'couponNotchOffsetX', label: '上下边缘缺口横向偏移', min: -120, max: 120, step: 1, defaultVal: () => 12 },
     // 侧边孔
     { key: 'holeRadius', label: '侧边孔半径', min: 5, max: 40, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.1 },
     { key: 'couponHoleCount', label: '侧边孔数量', min: 1, max: 5, step: 1, defaultVal: () => 2 },
@@ -1230,7 +1230,7 @@ export const presetParamsDefs: Record<PaperPreset, { key: keyof PresetParams; la
     { key: 'perforationGap', label: '中间打孔间距', min: 4, max: 24, step: 1, defaultVal: () => 8 },
     { key: 'perforationDotRadius', label: '中间打孔点半径', min: 0.8, max: 4, step: 0.1, defaultVal: () => 1.6 },
     { key: 'perforationInset', label: '中间打孔端点内缩', min: 2, max: 30, step: 1, defaultVal: () => 7 },
-    { key: 'perforationOffset', label: '中间打孔线横向偏移(边缘微调)', min: -60, max: 60, step: 1, defaultVal: () => 0 },
+    { key: 'perforationOffset', label: '中间打孔线横向偏移(边缘微调)', min: -60, max: 60, step: 1, defaultVal: () => 12 },
   ],
   ticket: [
     { key: 'cutRadius', label: '切口半径', min: 5, max: 35, step: 1, defaultVal: (w, h) => Math.min(w, h) * 0.11 },

@@ -25,8 +25,12 @@ const Index = () => {
               key={preset}
               initial={{ opacity: 0, y: 20, rotate: -5 + i * 3 }}
               animate={{ opacity: 1, y: 0, rotate: -5 + i * 3 }}
-              transition={{ delay: 0.2 + i * 0.1 }}
-              whileHover={{ scale: 1.1, rotate: 0 }}
+              transition={{ delay: 0.2 + i * 0.1, duration: 0.32, ease: 'easeOut' }}
+              whileHover={{
+                scale: 1.08,
+                rotate: 0,
+                transition: { duration: 0.14, ease: 'easeOut' },
+              }}
               style={{ marginTop: preset === 'stamp' ? 10 : 0 }}
             >
               <PaperShape
@@ -38,7 +42,7 @@ const Index = () => {
                 showPattern={i % 2 === 0}
                 patternType="dots"
               >
-                <div className="text-center leading-tight">
+                <div className={`text-center leading-tight ${preset === 'coupon' ? '-translate-x-3' : ''}`}>
                   <p className="text-xl">{presetInfo[preset].emoji}</p>
                   <p className="text-xs font-craft text-foreground/75">{presetInfo[preset].label}</p>
                 </div>

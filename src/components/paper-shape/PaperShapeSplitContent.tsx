@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 
 type SplitAxis = 'vertical' | 'horizontal';
 type SplitSide = 'start' | 'end';
+type VerticalAlign = 'start' | 'center' | 'end' | 'stretch';
 
 function clampNum(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
@@ -18,8 +19,19 @@ export interface PaperShapeSplitContentProps {
   minPrimaryRatio?: number;
   className?: string;
   bandClassName?: string;
+  primaryClassName?: string;
+  secondaryClassName?: string;
+  primaryVerticalAlign?: VerticalAlign;
+  secondaryVerticalAlign?: VerticalAlign;
   primary: React.ReactNode;
   secondary: React.ReactNode;
+}
+
+function verticalAlignClass(align: VerticalAlign): string {
+  if (align === 'start') return 'flex flex-col justify-start';
+  if (align === 'center') return 'flex flex-col justify-center';
+  if (align === 'end') return 'flex flex-col justify-end';
+  return '';
 }
 
 /**
@@ -36,6 +48,10 @@ export function PaperShapeSplitContent({
   minPrimaryRatio = 0.38,
   className,
   bandClassName,
+  primaryClassName,
+  secondaryClassName,
+  primaryVerticalAlign = 'center',
+  secondaryVerticalAlign = 'stretch',
   primary,
   secondary,
 }: PaperShapeSplitContentProps) {
@@ -61,10 +77,25 @@ export function PaperShapeSplitContent({
 
   return (
     <div className={cn('w-full h-full grid', className)} style={style}>
-      {first}
+      <div
+        className={cn(
+          'min-w-0 min-h-0',
+          secondarySide === 'start' ? verticalAlignClass(secondaryVerticalAlign) : verticalAlignClass(primaryVerticalAlign),
+          secondarySide === 'start' ? secondaryClassName : primaryClassName
+        )}
+      >
+        {first}
+      </div>
       <div aria-hidden className={cn('pointer-events-none', bandClassName)} />
-      {third}
+      <div
+        className={cn(
+          'min-w-0 min-h-0',
+          secondarySide === 'start' ? verticalAlignClass(primaryVerticalAlign) : verticalAlignClass(secondaryVerticalAlign),
+          secondarySide === 'start' ? primaryClassName : secondaryClassName
+        )}
+      >
+        {third}
+      </div>
     </div>
   );
 }
-

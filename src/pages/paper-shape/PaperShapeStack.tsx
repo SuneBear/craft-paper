@@ -126,12 +126,36 @@ const stackExamples: Array<{
     ],
   },
   {
-    title: '🎫 票据收藏',
-    desc: '不同类型票据的拼贴组合',
+    title: '🧾 小票收藏',
+    desc: '统一账单（receipt）形状的堆叠组合',
     items: [
-      { preset: 'ticket', color: 'mint', rotate: -0.6, offsetX: -14, offsetY: 9, seed: 44 },
-      { preset: 'coupon', color: 'lavender', rotate: 0.2, offsetX: -3, offsetY: 2, seed: 55 },
-      { preset: 'receipt', color: 'cloud', rotate: 0.8, offsetX: 8, offsetY: -4, seed: 66 },
+      {
+        preset: 'receipt',
+        color: 'mint',
+        rotate: -0.6,
+        offsetX: -14,
+        offsetY: 9,
+        seed: 44,
+        presetParams: { zigzagHeight: 8, zigzagSize: 13, zigzagEdge: 0 },
+      },
+      {
+        preset: 'receipt',
+        color: 'lavender',
+        rotate: 0.2,
+        offsetX: -3,
+        offsetY: 2,
+        seed: 55,
+        presetParams: { zigzagHeight: 10, zigzagSize: 12, zigzagEdge: 0, edgeWobble: 1.1 },
+      },
+      {
+        preset: 'receipt',
+        color: 'cloud',
+        rotate: 0.8,
+        offsetX: 8,
+        offsetY: -4,
+        seed: 66,
+        presetParams: { zigzagHeight: 9, zigzagSize: 10, zigzagEdge: 0, edgeWobble: 1.3 },
+      },
     ],
   },
   {
@@ -333,9 +357,9 @@ export default function PaperShapeStack() {
           {stackModeOptions.find((option) => option.key === stackMode)?.desc}
         </p>
         <div className="space-y-3">
-          <div className="rounded-xl border border-border/60 bg-background/70 p-3 space-y-2">
+          <div className="rounded-xl border border-border/60 bg-background/70 p-3 space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-craft font-semibold text-foreground">风格预设</p>
+              <p className="text-xs font-craft font-semibold text-foreground">风格预设 + 基础控制</p>
               <span className="text-[10px] font-craft text-muted-foreground">
                 {tuningPresetOptions.find((opt) => opt.key === tuningPreset)?.desc}
               </span>
@@ -355,10 +379,6 @@ export default function PaperShapeStack() {
                 </button>
               ))}
             </div>
-          </div>
-
-          <div className="rounded-xl border border-border/60 bg-background/70 p-3 space-y-3">
-            <p className="text-xs font-craft font-semibold text-foreground">基础控制</p>
             <div className="grid gap-3 sm:grid-cols-3">
               <SliderField
                 label="层间深度"

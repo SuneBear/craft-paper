@@ -260,7 +260,7 @@ export default function PaperShapePresetDetail() {
             style={layoutMode === 'fill' ? { width: '100%', maxWidth: `${width}px` } : undefined}
             minHeight={layoutMode === 'fill' ? height : undefined}
             maxHeight={layoutMode === 'fill' ? height : undefined}
-            contentClassName={resolvedPreset === 'coupon' ? 'w-full h-full' : undefined}
+            contentClassName={resolvedPreset === 'coupon' || resolvedPreset === 'ticket' ? 'w-full h-full' : undefined}
             seed={seed}
             roughness={roughness}
             paperColor={paperColor}
@@ -284,6 +284,7 @@ export default function PaperShapePresetDetail() {
                 preset={resolvedPreset}
                 presetParams={presetParams}
                 shapeWidth={width}
+                shapeHeight={height}
               />
             ) : (
               <div className="text-center">
