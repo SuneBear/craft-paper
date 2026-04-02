@@ -44,7 +44,7 @@ interface PaperShapeSvgProps {
   stitchDasharray?: string;
   decorations: DecorationItem[];
   selectedDecorationId: string | null;
-  setSelectedDecorationId: (id: string) => void;
+  onSelectDecoration: (id: string) => void;
   interactiveDecorations: boolean;
   registerDecorationTarget: (id: string, node: SVGGElement | null) => void;
   svgPointerEvents?: 'auto' | 'none';
@@ -98,7 +98,7 @@ export const PaperShapeSvg: React.FC<PaperShapeSvgProps> = ({
   stitchDasharray,
   decorations,
   selectedDecorationId,
-  setSelectedDecorationId,
+  onSelectDecoration,
   interactiveDecorations,
   registerDecorationTarget,
   svgPointerEvents = 'auto',
@@ -357,7 +357,7 @@ export const PaperShapeSvg: React.FC<PaperShapeSvgProps> = ({
           key={deco.id}
           item={deco}
           selected={selectedDecorationId === deco.id}
-          onSelect={setSelectedDecorationId}
+          onSelect={onSelectDecoration}
           interactive={interactiveDecorations}
           registerTarget={registerDecorationTarget}
         />

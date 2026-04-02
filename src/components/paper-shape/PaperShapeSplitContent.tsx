@@ -1,5 +1,5 @@
 import React from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from './cn';
 
 type SplitAxis = 'vertical' | 'horizontal';
 type SplitSide = 'start' | 'end';

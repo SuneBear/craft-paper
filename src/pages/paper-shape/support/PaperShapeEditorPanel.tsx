@@ -1372,22 +1372,35 @@ export function PaperShapeEditorPanel({
       </div>
 
       <div>
-        <label className="text-xs font-craft font-medium text-muted-foreground mb-1 block">描边粗细 {strokeWidth.toFixed(1)}</label>
-        <input type="range" min={0} max={40} value={strokeWidth * 10} onChange={(e) => setStrokeWidth(Number(e.target.value) / 10)} className="w-full accent-primary" />
+        <label className="text-xs font-craft font-medium text-muted-foreground mb-2 block">描边设置</label>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={isHexColor(strokeColor) ? strokeColor : '#7a553f'}
+              onChange={(e) => setStrokeColor(e.target.value)}
+              className="h-8 w-10 p-0 border border-border rounded bg-transparent cursor-pointer"
+            />
+            <div className="flex gap-1.5 flex-wrap">
+              {strokeColorSwatches.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setStrokeColor(c)}
+                  className="h-5 w-5 rounded-full border border-border"
+                  style={{ backgroundColor: c }}
+                  title={c}
+                />
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="text-[11px] font-craft font-medium text-muted-foreground mb-1 block">粗细 {strokeWidth.toFixed(1)}</label>
+            <input type="range" min={0} max={40} value={strokeWidth * 10} onChange={(e) => setStrokeWidth(Number(e.target.value) / 10)} className="w-full accent-primary" />
+          </div>
+        </div>
       </div>
 
-      <div>
-        <label className="text-xs font-craft font-medium text-muted-foreground mb-1 block">内容内边距 {contentPadding.toFixed(0)}</label>
-        <input
-          type="range"
-          min={0}
-          max={48}
-          step={1}
-          value={contentPadding}
-          onChange={(e) => setContentPadding(Number(e.target.value))}
-          className="w-full accent-primary"
-        />
-      </div>
+      {/* TODO: contentPadding control hidden temporarily until container-mode UX is stabilized. */}
 
       <div>
         <label className="text-xs font-craft font-medium text-muted-foreground mb-1 block">种子 {seed}</label>
@@ -1424,29 +1437,6 @@ export function PaperShapeEditorPanel({
             className="h-8 flex-1 rounded-md border border-border bg-background px-2 text-xs font-craft text-foreground"
             placeholder="输入 #RRGGBB / hsl(...) / rgb(...)"
           />
-        </div>
-      </div>
-
-      <div>
-        <label className="text-xs font-craft font-medium text-muted-foreground mb-2 block">边框颜色</label>
-        <div className="flex items-center gap-2">
-          <input
-            type="color"
-            value={isHexColor(strokeColor) ? strokeColor : '#7a553f'}
-            onChange={(e) => setStrokeColor(e.target.value)}
-            className="h-8 w-10 p-0 border border-border rounded bg-transparent cursor-pointer"
-          />
-          <div className="flex gap-1.5 flex-wrap">
-            {strokeColorSwatches.map((c) => (
-              <button
-                key={c}
-                onClick={() => setStrokeColor(c)}
-                className="h-5 w-5 rounded-full border border-border"
-                style={{ backgroundColor: c }}
-                title={c}
-              />
-            ))}
-          </div>
         </div>
       </div>
 

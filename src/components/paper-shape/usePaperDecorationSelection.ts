@@ -14,7 +14,7 @@ export interface PaperDecorationSelectionState {
   selectedDecorationTarget: SVGGElement | null;
   decorationTargetRefs: React.MutableRefObject<Record<string, SVGGElement | null>>;
   moveableOriginRef: React.MutableRefObject<DecorationTransform | null>;
-  setSelectedDecorationId: React.Dispatch<React.SetStateAction<string | null>>;
+  handleSelectDecoration: (id: string) => void;
   registerDecorationTarget: (id: string, node: SVGGElement | null) => void;
   handleDecoChange: (id: string, transform: DecorationTransform) => void;
   handleCanvasPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
@@ -45,6 +45,11 @@ export function usePaperDecorationSelection({
       setSelectedDecorationTarget(node);
     }
   }, [selectedDecorationId]);
+
+  const handleSelectDecoration = useCallback((id: string) => {
+    setSelectedDecorationId(id);
+    setSelectedDecorationTarget(decorationTargetRefs.current[id] ?? null);
+  }, []);
 
   useEffect(() => {
     if (!selectedDecorationId) return;
@@ -112,7 +117,7 @@ export function usePaperDecorationSelection({
     selectedDecorationTarget,
     decorationTargetRefs,
     moveableOriginRef,
-    setSelectedDecorationId,
+    handleSelectDecoration,
     registerDecorationTarget,
     handleDecoChange,
     handleCanvasPointerDown,

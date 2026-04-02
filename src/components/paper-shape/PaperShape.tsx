@@ -3,7 +3,7 @@ import { generatePath, getTagHole, getFoldTriangles, getStitchPath, generateStit
 import type { PaperPreset, ShapeConfig, PresetParams, ShapeCommonParams } from './geometry';
 import type { DecorationItem, DecorationTransform } from './decorations';
 import { type PaperShapeLayoutMode, usePaperAutoLayout } from './usePaperAutoLayout';
-import { cn } from '@/lib/utils';
+import { cn } from './cn';
 import type { PaperContentPadding, PaperPatternType, PatternParams } from './paperShapeTypes';
 import {
   resolveContentPadding,
@@ -24,6 +24,7 @@ import {
 import { usePaperDecorationSelection } from './usePaperDecorationSelection';
 import { PaperShapeSvg } from './PaperShapeSvg';
 import { PaperShapeDecorationMoveable } from './PaperShapeDecorationMoveable';
+import { preloadPaperShapeMoveable } from './paperShapeMoveableLoader';
 
 export type { PaperContentPadding, PaperPatternType, PatternParams } from './paperShapeTypes';
 
@@ -252,7 +253,7 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     selectedDecorationId,
     selectedDecorationTarget,
     moveableOriginRef,
-    setSelectedDecorationId,
+    handleSelectDecoration,
     registerDecorationTarget,
     handleDecoChange,
     handleCanvasPointerDown,
@@ -262,6 +263,10 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
     onDecorationChange,
     onDecorationRemove,
   });
+
+  React.useEffect(() => {
+    if (interactiveDecorations) preloadPaperShapeMoveable();
+  }, [interactiveDecorations]);
 
   return (
     <div
@@ -315,7 +320,7 @@ export const PaperShape: React.FC<PaperShapeProps> = ({
           stitchDasharray={stitchDasharray}
           decorations={decorations}
           selectedDecorationId={selectedDecorationId}
-          setSelectedDecorationId={setSelectedDecorationId}
+          onSelectDecoration={handleSelectDecoration}
           interactiveDecorations={interactiveDecorations}
           registerDecorationTarget={registerDecorationTarget}
           svgPointerEvents={svgPointerEvents}

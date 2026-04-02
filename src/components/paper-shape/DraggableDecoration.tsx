@@ -1,6 +1,6 @@
 /**
  * Decoration wrapper for SVG rendering.
- * Transform interactions are handled by react-moveable at the PaperShape level.
+ * Transform interactions are handled by react-moveable at the PaperShape level (optional dependency).
  */
 import React, { useId, useMemo } from 'react';
 import type { DecorationItem } from './decorations';

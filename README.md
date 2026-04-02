@@ -4,6 +4,10 @@
 项目内置多种纸张预设、纹理、折角/裁剪/缝线等参数编辑能力，以及装饰物（贴纸/胶带/订书钉）交互编辑。
 该项目最初通过 [Lovable](https://lovable.dev/) 生成并初始化，在此基础上持续迭代开发。
 
+Prompt 原文档已整理在 [docs/paper-shape](docs/paper-shape)：
+- 主要入口：[docs/paper-shape/paper-shape-prompt.md](docs/paper-shape/paper-shape-prompt.md)
+- 规划文档：[docs/paper-shape/paper-shape-planning.md](docs/paper-shape/paper-shape-planning.md) / [docs/paper-shape/paper-shape-planning-v2.md](docs/paper-shape/paper-shape-planning-v2.md)
+
 ## Craft Paper 核心设计思路
 
 在 Box 的秩序里，注入手工质感与温度。
@@ -55,6 +59,24 @@ npm run dev
 ## 3. 核心组件：`PaperShape`
 
 主组件定义在 [src/components/paper-shape/PaperShape.tsx](src/components/paper-shape/PaperShape.tsx)。
+
+### 3.0 发布与迁移说明
+
+- 当前 **未发布 npm 包**，请按「源码复制」方式接入。
+- 推荐最小复制目录：`src/components/paper-shape`（整目录复制）。
+
+外部项目接入时，至少需要安装：
+- `react`
+- `react-dom`
+
+可选依赖（仅当你需要装饰交互编辑）：
+- `react-moveable`（用于装饰元素拖拽/缩放/旋转编辑）
+
+`PaperShape` 现已改为按需动态加载 `react-moveable`：未安装时，普通形状渲染不受影响，只是不会显示装饰编辑手柄。
+
+可选复制（仅当你要复用本项目配套页面能力）：
+- 示例内容：`src/pages/paper-shape/support/PaperShapeSampleContent.tsx`
+- 分享/导出/随机参数：`src/lib/paper-shape-share.ts`、`src/lib/paper-shape-export.ts`、`src/lib/paper-shape-random.ts`
 
 ### 3.1 最小用法
 

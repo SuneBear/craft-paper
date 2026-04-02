@@ -1,6 +1,6 @@
 import React from 'react';
-import Moveable from 'react-moveable';
 import type { DecorationItem, DecorationTransform } from './decorations';
+import { getResolvedPaperShapeMoveable, loadPaperShapeMoveable } from './paperShapeMoveableLoader';
 
 interface PaperShapeDecorationMoveableProps {
   selectedDecoration: DecorationItem;
@@ -10,6 +10,8 @@ interface PaperShapeDecorationMoveableProps {
   onChange: (id: string, transform: DecorationTransform) => void;
 }
 
+type MoveableLikeComponent = React.ComponentType<Record<string, unknown>>;
+
 export const PaperShapeDecorationMoveable: React.FC<PaperShapeDecorationMoveableProps> = ({
   selectedDecoration,
   selectedDecorationTarget,
@@ -17,8 +19,24 @@ export const PaperShapeDecorationMoveable: React.FC<PaperShapeDecorationMoveable
   moveableOriginRef,
   onChange,
 }) => {
+  const [MoveableComp, setMoveableComp] = React.useState<MoveableLikeComponent | null>(
+    () => getResolvedPaperShapeMoveable() ?? null
+  );
+
+  React.useEffect(() => {
+    let disposed = false;
+    void loadPaperShapeMoveable().then((comp) => {
+      if (!disposed) setMoveableComp(() => comp);
+    });
+    return () => {
+      disposed = true;
+    };
+  }, []);
+
+  if (!MoveableComp) return null;
+
   return (
-    <Moveable
+    <MoveableComp
       target={selectedDecorationTarget}
       container={svgRef.current?.parentElement ?? undefined}
       rootContainer={svgRef.current?.parentElement ?? undefined}
