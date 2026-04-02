@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { decorationCatalog, type DecorationType, type WashiTapePlacement } from './decorations';
+import { decorationCatalog, type DecorationType, type WashiTapePlacement } from '@/components/paper-shape/decorations';
 
 interface DecorationEditorSectionProps {
   activeType: DecorationType;

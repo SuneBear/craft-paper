@@ -33,7 +33,7 @@ npm run dev
 - `/ui/paper-shape/containers`：容器示例页（实验性质，当前为初步尝试，后续会有重大调整）
 - `/ui/paper-shape/preset/:preset`：预设详情编辑页
 - `/ui/paper-shape/playground`：自由编辑器
-- `/ui/paper-shape/stack`：卡牌堆叠与拼贴展示页（底层卡片暗化 + 透明度衰减 + 悬停扇形展开）
+- `/ui/paper-shape/stack`：卡牌堆叠与拼贴展示页（支持四种堆叠模式、随机旋转、可调 hover 收拢，以及后层深度/色彩贴近/透明度调节）
 
 ---
 
@@ -192,9 +192,9 @@ const sticker = createDecoration('sticker', 'heart', 160, 90, {
 - 预设详情页：[src/pages/paper-shape/PaperShapePresetDetail.tsx](src/pages/paper-shape/PaperShapePresetDetail.tsx)
 - Playground：[src/pages/paper-shape/PaperShapePlayground.tsx](src/pages/paper-shape/PaperShapePlayground.tsx)
 - 示例页：[src/pages/paper-shape/PaperShapeExamples.tsx](src/pages/paper-shape/PaperShapeExamples.tsx)
-- 堆叠页：[src/pages/paper-shape/PaperShapeStack.tsx](src/pages/paper-shape/PaperShapeStack.tsx)（卡牌堆叠层次、底层暗化与透明度控制）
+- 堆叠页：[src/pages/paper-shape/PaperShapeStack.tsx](src/pages/paper-shape/PaperShapeStack.tsx)（多种堆叠模式、随机旋转、可调 hover 收拢、后层深度/色彩贴近/透明度控制）
 - 容器示例页：[src/pages/paper-shape/PaperShapeContainers.tsx](src/pages/paper-shape/PaperShapeContainers.tsx)
-- 参数面板：[src/components/paper-shape/PaperShapeEditorPanel.tsx](src/components/paper-shape/PaperShapeEditorPanel.tsx)
+- 页面配套（layout/nav/panel/sample/deco）：[src/pages/paper-shape/support](src/pages/paper-shape/support)
 
 ---
 
@@ -203,16 +203,22 @@ const sticker = createDecoration('sticker', 'heart', 160, 90, {
 如果要继续扩展 PaperShape，优先从以下文件入手：
 
 1. 几何生成：`src/components/paper-shape/geometry.ts`
-2. 主渲染与遮罩：`src/components/paper-shape/PaperShape.tsx`
-3. 自适应布局逻辑：`src/components/paper-shape/usePaperAutoLayout.ts`
-4. 参数 UI：`src/components/paper-shape/PaperShapeEditorPanel.tsx`
-5. 示例数据：`src/pages/paper-shape/PaperShapeExamples.tsx`
-6. 容器示例：`src/pages/paper-shape/PaperShapeContainers.tsx`
-7. 随机参数策略：`src/lib/paper-shape-random.ts`
+2. 主入口（参数编排、布局与组装）：`src/components/paper-shape/PaperShape.tsx`
+3. SVG 渲染层（mask/pattern/描边/装饰）：`src/components/paper-shape/PaperShapeSvg.tsx`
+4. 纯计算模型（cutout/perforation/safe-insets/padding）：`src/components/paper-shape/paperShapeModel.ts`
+5. 共享类型与工具：`src/components/paper-shape/paperShapeTypes.ts`、`src/components/paper-shape/paperShapeUtils.ts`
+6. 装饰交互状态：`src/components/paper-shape/usePaperDecorationSelection.ts`
+7. 装饰 Moveable 控件：`src/components/paper-shape/PaperShapeDecorationMoveable.tsx`
+8. 自适应布局逻辑：`src/components/paper-shape/usePaperAutoLayout.ts`
+9. 可复用标题组件：`src/components/paper-shape/PosterTitle.tsx`
+10. 页面配套模块（layout/nav/panel/sample/deco）：`src/pages/paper-shape/support/*`
+11. 示例数据：`src/pages/paper-shape/PaperShapeExamples.tsx`
+12. 容器示例：`src/pages/paper-shape/PaperShapeContainers.tsx`
+13. 随机参数策略：`src/lib/paper-shape-random.ts`
 
 已知优化点：
 
-- `PaperShape.tsx` 内有 TODO：`cutout` 与外轮廓若要彻底消除亚像素接缝，可考虑合并为单轮廓描边流程。
+- `PaperShapeSvg.tsx` 内有 TODO：`cutout` 与外轮廓若要彻底消除亚像素接缝，可考虑合并为单轮廓描边流程。
 
 ---
 

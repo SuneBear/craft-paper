@@ -1,4 +1,5 @@
 import { PaperShape } from '@/components/paper-shape/PaperShape';
+import { PosterTitle } from '@/components/paper-shape/PosterTitle';
 import { useMemo, useState } from 'react';
 
 interface TodoItem {
@@ -73,6 +74,14 @@ const mapModeOptions: Array<{
   },
 ];
 
+const menuEntries = [
+  { title: '路线总览', note: '今日步行约 9.4km', emoji: '🧭' },
+  { title: '站点清单', note: '补给点 4 / 观景点 6', emoji: '📍' },
+  { title: '预算分配', note: '交通 42% · 食宿 38%', emoji: '💸' },
+  { title: '天气窗口', note: '13:00-16:00 云层最薄', emoji: '⛅' },
+  { title: '离线地图', note: '已缓存 3 个片区', emoji: '📡' },
+] as const;
+
 function getActiveTabPreset(tab: (typeof travelTabs)[number]['key']) {
   if (tab === 'plan') return 'basic-paper' as const;
   if (tab === 'journal') return 'torn' as const;
@@ -132,9 +141,30 @@ export default function PaperShapeContainers() {
           }}
         >
           <div className="w-full space-y-4">
-            <div>
+            <div >
               <p className="font-craft text-xs uppercase tracking-[0.2em] text-muted-foreground">Paper Shape Container Lab</p>
-              <h2 className="mt-2 font-hand text-3xl leading-none text-foreground">容器示例：把纸张形状当成可嵌套 UI 容器</h2>
+              <PosterTitle
+                className="mt-1"
+                align="left"
+                kicker="Craft UI"
+                quote={true}
+                lines={[
+                  {
+                    size: 'lg',
+                    tokens: [
+                      { text: '容器示例：' },
+                      { text: 'PaperShape', highlight: true, highlightStyle: 'lower', rotate: -0.6 },
+                      { text: ' 手账拼贴页' },
+                    ],
+                  },
+                ]}
+                emojis={[
+                  { value: '✨', x: 96, y: 164, size: 16, rotate: 10 },
+                ]}
+                symbols={[
+                  { kind: 'dash', x: 22, y: 88, size: 20, rotate: -3, opacity: 0.45 },
+                ]}
+              />
               <p className="mt-3 max-w-3xl font-craft text-sm leading-relaxed text-muted-foreground">
                 这个页面重点验证三件事：一是内容驱动的自适应尺寸；二是不同语义组件（button/card/menu/tab/article/control）的承载能力；
                 三是容器可嵌套，且内容自动避让切角、打孔、撕边等安全区。
@@ -231,13 +261,30 @@ export default function PaperShapeContainers() {
             className="w-full"
             minHeight={188}
             maxWidth={760}
-            contentPadding={14}
+            contentPadding={{ x: 14, y: 12, bottom: 24 }}
             presetParams={{ perforationRadius: 8.8, stampArcDirection: 1, edgeWobble: 0.8 }}
           >
             <article className="grid gap-4 sm:grid-cols-[1fr_auto]">
               <div className="space-y-2">
-                <p className="font-craft text-xs uppercase tracking-[0.18em] text-muted-foreground">Article Card</p>
-                <h3 className="font-hand text-2xl text-foreground">黄山两日慢游手记</h3>
+                <p className="font-craft text-xs uppercase tracking-[0.18em] text-muted-foreground">Article Card · 旅行速记</p>
+                <PosterTitle
+                  className="!h-auto"
+                  align="left"
+                  quote={false}
+                  adaptive={false}
+                  lines={[
+                    {
+                      size: 'lg',
+                      tokens: [
+                        { text: '黄山' },
+                        { text: '两日慢游', highlight: true, highlightStyle: 'lower', rotate: -0.8 },
+                        { text: '手记' },
+                      ],
+                    },
+                  ]}
+                  emojis={[{ value: '🧷', x: 94, y: 18, size: 15, rotate: 8 }]}
+                  symbols={[{ kind: 'dash', x: 22, y: 84, size: 22, rotate: -4, opacity: 0.44 }]}
+                />
                 <p className="font-craft text-sm leading-relaxed text-foreground/85">
                   早晨从云谷索道上山，午后钻进西海大峡谷。雾气把山体切成一层层纸片，
                   每走一步都像翻下一页折叠的地图。
@@ -245,6 +292,11 @@ export default function PaperShapeContainers() {
                 <p className="font-craft text-xs text-muted-foreground">
                   当前地图：{activeMapMode.label} {activeMapMode.desc}
                 </p>
+                <div className="flex flex-wrap gap-2 pt-2 !mb-4">
+                  <span className="rounded-full bg-foreground/10 px-2 py-0.5 font-craft text-[11px] text-foreground/75">#云海窗口</span>
+                  <span className="rounded-full bg-foreground/10 px-2 py-0.5 font-craft text-[11px] text-foreground/75">#石阶缓行</span>
+                  <span className="rounded-full bg-foreground/10 px-2 py-0.5 font-craft text-[11px] text-foreground/75">#胶片色温</span>
+                </div>
               </div>
               <div className={`h-20 w-full rounded-2xl border border-foreground/15 sm:w-44 ${activeMapMode.gradient}`} />
             </article>
@@ -270,7 +322,7 @@ export default function PaperShapeContainers() {
           >
             <div className="w-full space-y-3">
               <div className="flex items-center justify-between gap-3">
-                <h3 className="font-hand text-2xl text-foreground">待办控制台</h3>
+                <h3 className="font-hand text-2xl text-foreground">待办控制台 ✍️</h3>
                 <span className="rounded-full bg-foreground/10 px-2.5 py-1 font-craft text-xs text-foreground/75">完成度 {progress}%</span>
               </div>
               <div className="space-y-2">
@@ -284,7 +336,13 @@ export default function PaperShapeContainers() {
                     }}
                     className="flex w-full items-start gap-3 rounded-xl border border-foreground/10 bg-background/45 px-3 py-2 text-left transition hover:bg-background/70"
                   >
-                    <span className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-xs ${item.done ? 'border-foreground/35 bg-foreground/20' : 'border-foreground/25 bg-background/70'}`}>
+                    <span
+                      className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-[0.35rem] border text-[11px] font-bold leading-none transition ${
+                        item.done
+                          ? 'border-foreground/45 bg-foreground/85 text-background shadow-[0_1px_0_rgba(0,0,0,0.18)]'
+                          : 'border-foreground/28 bg-background/85 text-transparent'
+                      }`}
+                    >
                       {item.done ? '✓' : ''}
                     </span>
                     <span>
@@ -359,10 +417,13 @@ export default function PaperShapeContainers() {
                 presetParams={{ edgeWobble: 1.15, edgeWobbleBottom: 1.5, cornerRadius: 11 }}
               >
                 <div className="w-full space-y-2">
-                  <p className="font-craft text-xs uppercase tracking-[0.16em] text-muted-foreground">Tab Panel</p>
+                  <p className="font-craft text-xs uppercase tracking-[0.16em] text-muted-foreground">Tab Panel · 手帐页签</p>
                   <div className="space-y-2 font-craft text-sm leading-relaxed text-foreground/85">
                     {activePanel.map((line, idx) => (
-                      <p key={idx}>{line}</p>
+                      <p key={idx}>
+                        <span className="mr-1.5 text-xs opacity-70">{idx % 2 === 0 ? '✧' : '•'}</span>
+                        {line}
+                      </p>
                     ))}
                   </div>
                 </div>
@@ -384,7 +445,7 @@ export default function PaperShapeContainers() {
           >
             <div className="w-full space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-hand text-2xl text-foreground">菜单容器</h3>
+                <h3 className="font-hand text-2xl text-foreground">菜单容器 🧭</h3>
                 <button
                   onClick={() => setMenuOpen((prev) => !prev)}
                   className="rounded-lg bg-foreground/10 px-2 py-1 font-craft text-xs text-foreground/80 hover:bg-foreground/15"
@@ -394,19 +455,35 @@ export default function PaperShapeContainers() {
               </div>
 
               {menuOpen && (
-                <nav className="grid gap-1.5">
-                  {['路线总览', '站点清单', '预算分配', '天气窗口', '离线地图'].map((item, index) => (
-                    <button
-                      key={item}
-                      className={`rounded-xl px-3 py-2 text-left font-craft text-sm transition ${
-                        index === 1
-                          ? 'bg-foreground/16 text-foreground'
-                          : 'bg-background/40 text-foreground/80 hover:bg-background/70'
-                      }`}
-                    >
-                      {item}
-                    </button>
-                  ))}
+                <nav className="grid gap-2">
+                  {menuEntries.map((item) => {
+                    const isStationItem = item.title === '站点清单';
+                    return (
+                      <button
+                        key={item.title}
+                        className={`rounded-2xl border px-3 py-2.5 text-left transition ${
+                          isStationItem
+                            ? 'border-foreground/30 bg-[linear-gradient(135deg,rgba(121,95,71,0.18)_0%,rgba(121,95,71,0.09)_100%)] text-foreground shadow-[0_2px_0_rgba(60,45,35,0.18)]'
+                            : 'border-foreground/10 bg-background/35 text-foreground/85 hover:bg-background/62 hover:border-foreground/20'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <span className={`font-craft text-sm font-semibold ${isStationItem ? 'tracking-[0.03em]' : ''}`}>
+                            {item.title}
+                          </span>
+                          <span className="text-sm opacity-90" aria-hidden>{isStationItem ? '📌' : item.emoji}</span>
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                          <p className="font-craft text-[11px] text-foreground/62">{item.note}</p>
+                          {isStationItem && (
+                            <span className="rounded-full bg-foreground/12 px-1.5 py-0.5 font-craft text-[10px] text-foreground/72">
+                              当前查看
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </nav>
               )}
             </div>
@@ -419,11 +496,10 @@ export default function PaperShapeContainers() {
         <PaperShape
           layoutMode="fill"
           contentAlign="start"
-          preset="basic-paper"
+          preset="scalloped-edge"
           seed={212}
           paperColor="sky"
           className="w-full"
-          minHeight={242}
           maxWidth={1100}
           contentPadding={16}
           presetParams={{ cornerRadius: 16, edgeWobble: 1.4, edgeWobbleBottom: 1.9 }}

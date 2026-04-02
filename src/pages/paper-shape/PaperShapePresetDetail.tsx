@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
 import { PaperShape, type PaperPatternType, type PatternParams } from '@/components/paper-shape/PaperShape';
-import { PaperShapeEditorPanel } from '@/components/paper-shape/PaperShapeEditorPanel';
-import { PaperShapeSampleContent } from '@/components/paper-shape/PaperShapeSampleContent';
-import { DecorationEditorSection } from '@/components/paper-shape/DecorationEditorSection';
+import { PaperShapeEditorPanel } from './support/PaperShapeEditorPanel';
+import { PaperShapeSampleContent } from './support/PaperShapeSampleContent';
+import { DecorationEditorSection } from './support/DecorationEditorSection';
 import { presetInfo, type PaperPreset, type PresetParams } from '@/components/paper-shape/geometry';
 import {
   createDecoration,

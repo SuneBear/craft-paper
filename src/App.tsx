@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
-import { PaperShapeLayout } from "./components/paper-shape/PaperShapeLayout";
+import { PaperShapeLayout } from "./pages/paper-shape/support/PaperShapeLayout";
 import PaperShapeOverview from "./pages/paper-shape/PaperShapeOverview";
 import PaperShapeExamples from "./pages/paper-shape/PaperShapeExamples";
 import PaperShapePlayground from "./pages/paper-shape/PaperShapePlayground";

@@ -1,6 +1,6 @@
 import React from 'react';
-import type { PaperPreset } from './geometry';
-import { PosterTitle } from './PosterTitle';
+import type { PaperPreset } from '@/components/paper-shape/geometry';
+import { PosterTitle } from '@/components/paper-shape/PosterTitle';
 
 interface PaperShapeSampleContentProps {
   mode: number;

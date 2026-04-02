@@ -31,7 +31,7 @@ export default function PaperShapeOverview() {
             to="/ui/paper-shape/examples"
             className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-craft text-sm font-medium shadow-sm hover:opacity-90 transition"
           >
-            浏览示例库 →
+            浏览基础形状 →
           </Link>
           <Link
             to="/ui/paper-shape/playground"
@@ -39,12 +39,12 @@ export default function PaperShapeOverview() {
           >
             打开编辑器 🎮
           </Link>
-          <Link
+          {/* <Link
             to="/ui/paper-shape/containers"
             className="px-5 py-2.5 rounded-xl bg-accent text-accent-foreground font-craft text-sm font-medium hover:opacity-90 transition"
           >
             容器示例 🧩
-          </Link>
+          </Link> */}
         </div>
       </section>
 

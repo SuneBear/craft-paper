@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { presetInfo, presetParamsDefs, type PaperPreset, type PresetParams } from './geometry';
-import type { PaperPatternType, PatternParams } from './PaperShape';
+import { presetInfo, presetParamsDefs, type PaperPreset, type PresetParams } from '@/components/paper-shape/geometry';
+import type { PaperPatternType, PatternParams } from '@/components/paper-shape/PaperShape';
 import { cn } from '@/lib/utils';
 
 const paperColors = [
@@ -164,23 +164,6 @@ interface PaperShapeEditorPanelProps {
   headerRight?: ReactNode;
   extraSections?: ReactNode;
   internalScroll?: boolean;
-  textContent?: {
-    enabled: boolean;
-    title: string;
-    subtitle: string;
-    emoji: string;
-  };
-  setTextContent?: (fn: (prev: {
-    enabled: boolean;
-    title: string;
-    subtitle: string;
-    emoji: string;
-  }) => {
-    enabled: boolean;
-    title: string;
-    subtitle: string;
-    emoji: string;
-  }) => void;
 }
 
 export function PaperShapeEditorPanel({
@@ -217,8 +200,6 @@ export function PaperShapeEditorPanel({
   headerRight,
   extraSections,
   internalScroll = false,
-  textContent,
-  setTextContent,
 }: PaperShapeEditorPanelProps) {
   const currentParamDefs = presetParamsDefs[preset];
   const isPerforationPreset = preset === 'coupon' || preset === 'ticket';
@@ -375,48 +356,6 @@ export function PaperShapeEditorPanel({
         <div className="flex items-center justify-between">
           {headerTitle ? <h3 className="font-hand text-xl font-semibold">{headerTitle}</h3> : <div />}
           {headerRight}
-        </div>
-      )}
-
-      {textContent && setTextContent && (
-        <div className="space-y-3 p-3 rounded-xl bg-muted/50 border border-border">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-craft font-semibold text-foreground block">📝 文字内容</label>
-            <button
-              onClick={() => setTextContent((prev) => ({ ...prev, enabled: !prev.enabled }))}
-              className={`px-2 py-1 rounded-md text-[10px] font-craft transition ${
-                textContent.enabled ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {textContent.enabled ? '已启用' : '已关闭'}
-            </button>
-          </div>
-          <div className="grid grid-cols-[56px_1fr] items-center gap-2">
-            <label className="text-[10px] font-craft text-muted-foreground">Emoji</label>
-            <input
-              type="text"
-              value={textContent.emoji}
-              onChange={(e) => setTextContent((prev) => ({ ...prev, emoji: e.target.value }))}
-              className="h-8 rounded-md border border-border bg-background px-2 text-xs font-craft text-foreground"
-              placeholder="🎟️"
-            />
-            <label className="text-[10px] font-craft text-muted-foreground">标题</label>
-            <input
-              type="text"
-              value={textContent.title}
-              onChange={(e) => setTextContent((prev) => ({ ...prev, title: e.target.value }))}
-              className="h-8 rounded-md border border-border bg-background px-2 text-xs font-craft text-foreground"
-              placeholder="输入主标题"
-            />
-            <label className="text-[10px] font-craft text-muted-foreground">副标题</label>
-            <input
-              type="text"
-              value={textContent.subtitle}
-              onChange={(e) => setTextContent((prev) => ({ ...prev, subtitle: e.target.value }))}
-              className="h-8 rounded-md border border-border bg-background px-2 text-xs font-craft text-foreground"
-              placeholder="输入副标题"
-            />
-          </div>
         </div>
       )}
 

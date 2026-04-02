@@ -246,12 +246,12 @@ export function PosterTitle({
     const tokenGapEm = compact ? 0.24 : (spacious ? 0.34 : 0.3);
     const padX = Math.max(6, Math.min(16, shortSide * 0.08));
     const padY = Math.max(4, Math.min(12, shortSide * 0.05));
-    const resolvedTextAlign: PosterTitleAlign = compact ? 'center' : align;
-    // Keep copy left-aligned when needed, but center the whole text block in adaptive mode.
-    const resolvedBlockAlign: PosterTitleAlign =
-      adaptive && align === 'left'
-        ? 'center'
-        : resolvedTextAlign;
+    // Honor explicit left alignment even in adaptive/compact mode.
+    const resolvedTextAlign: PosterTitleAlign =
+      align === 'left'
+        ? 'left'
+        : (compact ? 'center' : align);
+    const resolvedBlockAlign: PosterTitleAlign = resolvedTextAlign;
     return {
       fontScale,
       lineHeight,
