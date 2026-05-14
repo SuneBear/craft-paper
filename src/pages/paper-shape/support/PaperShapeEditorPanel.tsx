@@ -1683,6 +1683,129 @@ export function PaperShapeEditorPanel({
         </div>
       )}
 
+      {patternType === 'grid' && (
+        <div className="space-y-3 p-3 rounded-xl bg-muted/50 border border-border">
+          <label className="text-xs font-craft font-semibold text-foreground block">#️⃣ 方格设置</label>
+          <div>
+            <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+              <span>网格线粗细</span>
+              <span className="text-foreground">{(patternParams.gridWidth ?? 0.4).toFixed(2)}</span>
+            </label>
+            <input
+              type="range"
+              min={0.2}
+              max={2.5}
+              step={0.1}
+              value={patternParams.gridWidth ?? 0.4}
+              onChange={(e) => setPatternParams((prev) => ({ ...prev, gridWidth: Number(e.target.value) }))}
+              className="w-full accent-primary"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+              <span>方格间距</span>
+              <span className="text-foreground">{(patternParams.gridGap ?? 20).toFixed(0)}</span>
+            </label>
+            <input
+              type="range"
+              min={8}
+              max={52}
+              step={1}
+              value={patternParams.gridGap ?? 20}
+              onChange={(e) => setPatternParams((prev) => ({ ...prev, gridGap: Number(e.target.value) }))}
+              className="w-full accent-primary"
+            />
+          </div>
+        </div>
+      )}
+
+      {patternType === 'diagonal' && (
+        <div className="space-y-3 p-3 rounded-xl bg-muted/50 border border-border">
+          <label className="text-xs font-craft font-semibold text-foreground block">↗️ 斜线设置</label>
+          <div>
+            <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+              <span>斜线粗细</span>
+              <span className="text-foreground">{(patternParams.diagonalWidth ?? 0.5).toFixed(2)}</span>
+            </label>
+            <input
+              type="range"
+              min={0.2}
+              max={2.8}
+              step={0.1}
+              value={patternParams.diagonalWidth ?? 0.5}
+              onChange={(e) => setPatternParams((prev) => ({ ...prev, diagonalWidth: Number(e.target.value) }))}
+              className="w-full accent-primary"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+              <span>斜线间距</span>
+              <span className="text-foreground">{(patternParams.diagonalGap ?? 18).toFixed(0)}</span>
+            </label>
+            <input
+              type="range"
+              min={8}
+              max={52}
+              step={1}
+              value={patternParams.diagonalGap ?? 18}
+              onChange={(e) => setPatternParams((prev) => ({ ...prev, diagonalGap: Number(e.target.value) }))}
+              className="w-full accent-primary"
+            />
+          </div>
+        </div>
+      )}
+
+      {patternType === 'waves' && (
+        <div className="space-y-3 p-3 rounded-xl bg-muted/50 border border-border">
+          <label className="text-xs font-craft font-semibold text-foreground block">〰️ 波纹设置</label>
+          <div>
+            <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+              <span>波纹线粗细</span>
+              <span className="text-foreground">{(patternParams.waveWidth ?? 0.5).toFixed(2)}</span>
+            </label>
+            <input
+              type="range"
+              min={0.2}
+              max={2.8}
+              step={0.1}
+              value={patternParams.waveWidth ?? 0.5}
+              onChange={(e) => setPatternParams((prev) => ({ ...prev, waveWidth: Number(e.target.value) }))}
+              className="w-full accent-primary"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+              <span>波纹间距</span>
+              <span className="text-foreground">{(patternParams.waveGap ?? 24).toFixed(0)}</span>
+            </label>
+            <input
+              type="range"
+              min={12}
+              max={60}
+              step={1}
+              value={patternParams.waveGap ?? 24}
+              onChange={(e) => setPatternParams((prev) => ({ ...prev, waveGap: Number(e.target.value) }))}
+              className="w-full accent-primary"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-craft font-medium text-muted-foreground mb-1 flex justify-between">
+              <span>波幅</span>
+              <span className="text-foreground">{(patternParams.waveAmplitude ?? 3).toFixed(1)}</span>
+            </label>
+            <input
+              type="range"
+              min={1}
+              max={12}
+              step={0.5}
+              value={patternParams.waveAmplitude ?? 3}
+              onChange={(e) => setPatternParams((prev) => ({ ...prev, waveAmplitude: Number(e.target.value) }))}
+              className="w-full accent-primary"
+            />
+          </div>
+        </div>
+      )}
+
       <div className="space-y-2">
         <label className="text-xs font-craft font-medium text-muted-foreground block">导出</label>
         <div className="grid grid-cols-2 gap-2">
